@@ -17,8 +17,9 @@ public class BytecodeHandlerManager {
 
     // Execution history for debugging
     private static final int EXECUTION_HISTORY_SIZE = 100;
-    private static List<ExecutionHistoryEntry> executionHistory = new ArrayList<>();
+    private static ExecutionHistoryEntry[] executionHistory = new ExecutionHistoryEntry[EXECUTION_HISTORY_SIZE];
     private static int historyWriteIndex = 0;
+    private static int historyCount = 0;
 
     // Expression tracker for tracing
     private static StackExpressionTracker expressionTracker = new StackExpressionTracker();
@@ -54,12 +55,11 @@ public class BytecodeHandlerManager {
         entry.scriptCastLib = scriptCastLib;
         entry.scriptCastMember = scriptCastMember;
 
-        if (historyWriteIndex < executionHistory.size()) {
-            executionHistory.set(historyWriteIndex, entry);
-        } else {
-            executionHistory.add(entry);
-        }
+        executionHistory[historyWriteIndex] = entry;
         historyWriteIndex = (historyWriteIndex + 1) % EXECUTION_HISTORY_SIZE;
+        if (historyCount < EXECUTION_HISTORY_SIZE) {
+            historyCount++;
+        }
     }
 
     /**
@@ -69,13 +69,13 @@ public class BytecodeHandlerManager {
         System.err.println("Bytecode execution history (last " + EXECUTION_HISTORY_SIZE + " ops before error):");
         System.err.println("Error: " + errorMessage);
 
-        int count = Math.min(executionHistory.size(), EXECUTION_HISTORY_SIZE);
-        int start = executionHistory.size() < EXECUTION_HISTORY_SIZE ? 0 : historyWriteIndex;
+        // Calculate start position for iteration (ring buffer)
+        int start = historyCount < EXECUTION_HISTORY_SIZE ? 0 : historyWriteIndex;
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < historyCount; i++) {
             int idx = (start + i) % EXECUTION_HISTORY_SIZE;
-            if (idx < executionHistory.size()) {
-                ExecutionHistoryEntry entry = executionHistory.get(idx);
+            ExecutionHistoryEntry entry = executionHistory[idx];
+            if (entry != null) {
                 OpCode opcode = OpCode.fromValue(entry.opcode);
                 String opName = opcode != null ? opcode.name() : "UNKNOWN";
                 System.err.printf("%3d. [%4d] %-20s %6d (@%d:%d)%n",
@@ -88,6 +88,24 @@ public class BytecodeHandlerManager {
                 );
             }
         }
+    }
+
+    /**
+     * Clear the execution history.
+     */
+    public static void clearExecutionHistory() {
+        for (int i = 0; i < EXECUTION_HISTORY_SIZE; i++) {
+            executionHistory[i] = null;
+        }
+        historyWriteIndex = 0;
+        historyCount = 0;
+    }
+
+    /**
+     * Get the expression tracker for debugging.
+     */
+    public static StackExpressionTracker getExpressionTracker() {
+        return expressionTracker;
     }
 
     /**
@@ -150,6 +168,8 @@ public class BytecodeHandlerManager {
                 return StackBytecodeHandler.pushPropList(player, ctx);
             case PUSH_LIST:
                 return StackBytecodeHandler.pushList(player, ctx);
+            case PUSH_CHUNK_VAR_REF:
+                return StackBytecodeHandler.pushChunkVarRef(player, ctx);
             case SWAP:
                 return StackBytecodeHandler.swap(player, ctx);
             case PEEK:

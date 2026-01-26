@@ -1,5 +1,7 @@
 package com.dirplayer.player;
 
+import com.dirplayer.player.script.ScriptInstanceRef;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -8,29 +10,51 @@ import java.util.Stack;
 
 /**
  * Script execution scope - holds stack and local variables.
- * Port of Rust ScriptScope struct.
+ * Port of Rust Scope struct.
  */
 public class ScriptScope {
+    public int scopeRef;
+    public CastMemberRef scriptMemberRef;
+    public ScriptInstanceRef receiver;
+    public int handlerNameId;
     public Stack<Integer> stack;
     public Map<String, Integer> locals;
     public List<Integer> args;
-    public int receiverRef;
-    public int scriptRef;
-    public int handlerIndex;
     public int bytecodeIndex;
-    public boolean isLoopScope;
-    public int loopStartIndex;
+    public List<Integer> loopReturnIndices;
+    public int returnValue;
+    public boolean passed;
 
     public ScriptScope() {
+        this.scopeRef = 0;
+        this.scriptMemberRef = CastMemberRef.INVALID;
+        this.receiver = null;
+        this.handlerNameId = 0;
         this.stack = new Stack<>();
         this.locals = new HashMap<>();
         this.args = new ArrayList<>();
-        this.receiverRef = 0;
-        this.scriptRef = 0;
-        this.handlerIndex = 0;
         this.bytecodeIndex = 0;
-        this.isLoopScope = false;
-        this.loopStartIndex = 0;
+        this.loopReturnIndices = new ArrayList<>();
+        this.returnValue = 0;  // DatumRef.Void
+        this.passed = false;
+    }
+
+    public ScriptScope(int scopeRef) {
+        this();
+        this.scopeRef = scopeRef;
+    }
+
+    public void reset() {
+        this.scriptMemberRef = CastMemberRef.INVALID;
+        this.receiver = null;
+        this.handlerNameId = 0;
+        this.args.clear();
+        this.bytecodeIndex = 0;
+        this.locals.clear();
+        this.loopReturnIndices.clear();
+        this.returnValue = 0;
+        this.stack.clear();
+        this.passed = false;
     }
 
     /**

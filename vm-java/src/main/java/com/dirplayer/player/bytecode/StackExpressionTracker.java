@@ -277,6 +277,47 @@ public class StackExpressionTracker {
             case CONTAINS_0_STR:
                 return binaryOp("starts");
 
+            case GET_CHUNK: {
+                // Pop chunk expression components
+                if (stack.size() >= 3) {
+                    String endIdx = stack.remove(stack.size() - 1);
+                    String startIdx = stack.remove(stack.size() - 1);
+                    String obj = stack.remove(stack.size() - 1);
+                    String expr = "char " + startIdx + " to " + endIdx + " of " + obj;
+                    stack.add(expr);
+                    return "<" + expr + ">";
+                }
+                return "";
+            }
+
+            case PUT: {
+                // put <source> into/after/before <dest>
+                if (stack.size() >= 2) {
+                    String dest = stack.remove(stack.size() - 1);
+                    String source = stack.remove(stack.size() - 1);
+                    return "<put " + source + " into " + dest + ">";
+                }
+                return "";
+            }
+
+            case PUT_CHUNK: {
+                // put <value> into char X to Y of <string>
+                if (stack.size() >= 2) {
+                    String chunk = stack.remove(stack.size() - 1);
+                    String value = stack.remove(stack.size() - 1);
+                    return "<put " + value + " into " + chunk + ">";
+                }
+                return "";
+            }
+
+            case DELETE_CHUNK: {
+                if (!stack.isEmpty()) {
+                    String chunk = stack.remove(stack.size() - 1);
+                    return "<delete " + chunk + ">";
+                }
+                return "";
+            }
+
             // ============================================================
             // COMPARISON OPERATIONS
             // ============================================================
@@ -484,6 +525,45 @@ public class StackExpressionTracker {
                 return "";
             }
 
+            // ============================================================
+            // FIELD OPERATIONS
+            // ============================================================
+
+            case GET_FIELD:
+                // This is complex - field references
+                return "";
+
+            case SET: {
+                // Generic set operation
+                if (stack.size() >= 2) {
+                    String value = stack.remove(stack.size() - 1);
+                    String target = stack.remove(stack.size() - 1);
+                    return "<" + target + " = " + value + ">";
+                }
+                return "";
+            }
+
+            case GET:
+                // Generic get operation
+                return "";
+
+            // ============================================================
+            // CHUNK VARIABLE REFERENCES
+            // ============================================================
+
+            case PUSH_CHUNK_VAR_REF: {
+                // Push a reference to a chunk for later assignment
+                if (stack.size() >= 3) {
+                    String endIdx = stack.remove(stack.size() - 1);
+                    String startIdx = stack.remove(stack.size() - 1);
+                    String obj = stack.remove(stack.size() - 1);
+                    String expr = "char " + startIdx + " to " + endIdx + " of " + obj;
+                    stack.add(expr);
+                    return "<" + expr + ">";
+                }
+                return "";
+            }
+
             default:
                 return "";
         }
@@ -544,34 +624,210 @@ public class StackExpressionTracker {
     }
 
     private String getBuiltinName(int id) {
-        // Simplified version - full list in Rust source
         switch (id) {
             case 0x00: return "floatPrecision";
+            case 0x01: return "mouseDownScript";
+            case 0x02: return "mouseUpScript";
+            case 0x03: return "keyDownScript";
+            case 0x04: return "keyUpScript";
+            case 0x05: return "timeoutScript";
+            case 0x06: return "updateMovieEnabled";
+            case 0x07: return "selStart";
+            case 0x08: return "selEnd";
+            case 0x09: return "soundLevel";
+            case 0x0A: return "fixStageSize";
+            case 0x0B: return "searchCurrentFolder";
+            case 0x0C: return "searchPaths";
             case 0x0D: return "lastClick";
+            case 0x0E: return "lastRoll";
+            case 0x0F: return "lastEvent";
+            case 0x10: return "lastKey";
+            case 0x11: return "timeoutLapsed";
+            case 0x12: return "multiSound";
+            case 0x13: return "soundKeepDevice";
+            case 0x14: return "soundMixMedia";
+            case 0x15: return "freeBytes";
+            case 0x16: return "freeBLock";
+            case 0x17: return "maxInteger";
+            case 0x18: return "pi";
+            case 0x19: return "rightMouseDown";
+            case 0x1A: return "optionDown";
+            case 0x1B: return "commandDown";
+            case 0x1C: return "controlDown";
+            case 0x1D: return "shiftDown";
+            case 0x1E: return "platform";
+            case 0x1F: return "colorDepth";
             case 0x20: return "frame";
             case 0x21: return "movie";
+            case 0x22: return "beepOn";
+            case 0x23: return "movieName";
+            case 0x24: return "moviePath";
+            case 0x25: return "movieFileFreeSize";
+            case 0x26: return "movieFileSize";
+            case 0x27: return "pathName";
+            case 0x28: return "systemDate";
+            case 0x29: return "applicationPath";
+            case 0x2A: return "machinetype";
+            case 0x2B: return "productVersion";
+            case 0x2C: return "romanLingo";
+            case 0x2D: return "version";
+            case 0x2E: return "environment";
+            case 0x2F: return "deskTopRectList";
+            case 0x30: return "colorQD";
+            case 0x31: return "quickTimePresent";
+            case 0x32: return "memorySize";
+            case 0x33: return "checkBoxAccess";
+            case 0x34: return "checkBoxType";
+            case 0x35: return "lastFrame";
+            case 0x36: return "lastClick";
+            case 0x37: return "lastRoll";
+            case 0x38: return "lastEvent";
+            case 0x39: return "lastKey";
+            case 0x3A: return "doubleClick";
+            case 0x3B: return "keyCode";
+            case 0x3C: return "key";
             case 0x3D: return "mouseH";
             case 0x3E: return "mouseV";
             case 0x3F: return "mouseDown";
             case 0x40: return "ticks";
             case 0x41: return "timer";
+            case 0x42: return "clickLoc";
+            case 0x43: return "rollover";
+            case 0x44: return "centerStage";
+            case 0x45: return "exitLock";
+            case 0x46: return "runMode";
+            case 0x47: return "windowPresent";
+            case 0x48: return "currentSpriteNum";
+            case 0x49: return "puppetSprite";
+            case 0x4A: return "pauseState";
+            case 0x4B: return "timeoutKeyDown";
+            case 0x4C: return "timeoutLength";
+            case 0x4D: return "timeoutMouse";
+            case 0x4E: return "timeoutPlay";
+            case 0x4F: return "perFrameHook";
+            case 0x50: return "alertHook";
+            case 0x51: return "updateLock";
             case 0x52: return "itemDelimiter";
+            case 0x53: return "colorDepth";
+            case 0x54: return "switchColorDepth";
+            case 0x55: return "maxInteger";
+            case 0x56: return "preLoadRAM";
+            case 0x57: return "cursor";
+            case 0x58: return "keyDownScript";
+            case 0x59: return "keyUpScript";
+            case 0x5A: return "mouseDownScript";
+            case 0x5B: return "mouseUpScript";
+            case 0x5C: return "timeoutScript";
+            case 0x5D: return "buttonStyle";
+            case 0x5E: return "selStart";
+            case 0x5F: return "selEnd";
+            case 0x60: return "videoForWindowsPresent";
+            case 0x61: return "quickTimeVersion";
+            case 0x62: return "soundDevice";
+            case 0x63: return "soundEnabled";
+            case 0x64: return "traceLoad";
+            case 0x65: return "traceLogFile";
+            case 0x66: return "stageColor";
             case 0x67: return "paramCount";
+            case 0x68: return "mouseItem";
+            case 0x69: return "mouseWord";
+            case 0x6A: return "mouseLine";
+            case 0x6B: return "mouseChar";
+            case 0x6C: return "menu";
+            case 0x6D: return "menuItems";
+            case 0x6E: return "locToCharPos";
+            case 0x6F: return "charToLoc";
+            case 0x70: return "frameTempo";
+            case 0x71: return "framePalette";
+            case 0x72: return "frameLabel";
+            case 0x73: return "frameScript";
+            case 0x74: return "scriptExecutionStyle";
+            case 0x75: return "selection";
+            case 0x76: return "stillDown";
             case 0x77: return "result";
+            case 0x78: return "number of castMembers";
+            case 0x79: return "number of menus";
+            case 0x7A: return "number of menuItems";
+            case 0x7B: return "number of chars";
+            case 0x7C: return "number of words";
+            case 0x7D: return "number of items";
+            case 0x7E: return "number of lines";
+            case 0x7F: return "number of castLibs";
             default: return "builtin" + id;
         }
     }
 
     private String getMoviePropName(int id) {
-        // Simplified version - full list in Rust source
         switch (id) {
             case 0x00: return "beepOn";
+            case 0x01: return "buttonStyle";
             case 0x02: return "centerStage";
+            case 0x03: return "checkBoxAccess";
+            case 0x04: return "checkBoxType";
             case 0x06: return "colorDepth";
+            case 0x07: return "colorQD";
             case 0x08: return "exitLock";
+            case 0x09: return "floatPrecision";
+            case 0x0A: return "frameLabel";
+            case 0x0B: return "framePalette";
+            case 0x0C: return "frameScript";
+            case 0x0D: return "frameTempo";
             case 0x0E: return "itemDelimiter";
+            case 0x0F: return "keyDownScript";
+            case 0x10: return "keyUpScript";
+            case 0x11: return "lastClick";
+            case 0x12: return "lastEvent";
+            case 0x13: return "lastFrame";
+            case 0x14: return "lastKey";
+            case 0x15: return "lastRoll";
+            case 0x16: return "locToCharPos";
+            case 0x17: return "menuItems";
+            case 0x18: return "menu";
+            case 0x19: return "mouseChar";
+            case 0x1A: return "mouseDown";
+            case 0x1B: return "mouseDownScript";
+            case 0x1C: return "mouseH";
+            case 0x1D: return "mouseItem";
+            case 0x1E: return "mouseLine";
+            case 0x1F: return "mouseMember";
+            case 0x20: return "mouseUpScript";
+            case 0x21: return "mouseV";
+            case 0x22: return "mouseWord";
+            case 0x23: return "movieFileFreeSize";
+            case 0x24: return "movieFileFreeSize";
+            case 0x25: return "movieFileSize";
             case 0x26: return "movieName";
             case 0x27: return "moviePath";
+            case 0x28: return "paramCount";
+            case 0x29: return "pauseState";
+            case 0x2A: return "perFrameHook";
+            case 0x2B: return "preloadRAM";
+            case 0x2C: return "quickTimePresent";
+            case 0x2D: return "rollover";
+            case 0x2E: return "romanLingo";
+            case 0x2F: return "runMode";
+            case 0x30: return "scriptExecutionStyle";
+            case 0x31: return "selEnd";
+            case 0x32: return "selStart";
+            case 0x33: return "soundDevice";
+            case 0x34: return "soundEnabled";
+            case 0x35: return "soundKeepDevice";
+            case 0x36: return "soundLevel";
+            case 0x37: return "soundMixMedia";
+            case 0x38: return "stageColor";
+            case 0x49: return "switchColorDepth";
+            case 0x4A: return "timeoutKeyDown";
+            case 0x4B: return "timeoutLapsed";
+            case 0x4C: return "timeoutLength";
+            case 0x4D: return "timeoutMouse";
+            case 0x4E: return "timeoutPlay";
+            case 0x4F: return "timeoutScript";
+            case 0x50: return "timer";
+            case 0x51: return "traceLoad";
+            case 0x52: return "traceLogFile";
+            case 0x53: return "updateMovieEnabled";
+            case 0x54: return "videoForWindowsPresent";
+            case 0x55: return "floatPrecision";
             case 0xB1: return "currentSpriteNum";
             default: return "movieProp" + id;
         }

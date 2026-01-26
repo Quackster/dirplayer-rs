@@ -261,6 +261,59 @@ public class Bitmap {
     }
 
     /**
+     * Get foreground color reference (default black).
+     */
+    public com.dirplayer.player.ColorRef getFgColorRef() {
+        return com.dirplayer.player.ColorRef.paletteIndex(255);
+    }
+
+    /**
+     * Get background color reference (default white).
+     */
+    public com.dirplayer.player.ColorRef getBgColorRef() {
+        return com.dirplayer.player.ColorRef.paletteIndex(0);
+    }
+
+    /**
+     * Convert bitmap to a mask.
+     */
+    public BitmapMask toMask() {
+        BitmapMask mask = new BitmapMask(width, height, false);
+        if (bitDepth == 32) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = (y * width + x) * 4;
+                    int alpha = data[index + 3] & 0xFF;
+                    mask.setAlpha(x, y, alpha);
+                }
+            }
+        } else if (bitDepth == 8) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = y * width + x;
+                    int paletteIdx = data[index] & 0xFF;
+                    // Non-zero index = opaque
+                    mask.setAlpha(x, y, paletteIdx == 0 ? 0 : 255);
+                }
+            }
+        }
+        return mask;
+    }
+
+    /**
+     * Copy pixels from source bitmap (simple version without ink effects).
+     */
+    public void copyPixels(PaletteMap palettes, Bitmap src,
+                          com.dirplayer.rendering.IntRect dstRect,
+                          com.dirplayer.rendering.IntRect srcRect,
+                          java.util.Map<String, Object> options,
+                          BitmapMask mask) {
+        com.dirplayer.rendering.CopyPixelsParams params = new com.dirplayer.rendering.CopyPixelsParams();
+        params.maskImage = mask;
+        copyPixelsWithParams(palettes, src, dstRect, srcRect, params);
+    }
+
+    /**
      * Copy pixels from source bitmap with parameters.
      */
     public void copyPixelsWithParams(PaletteMap palettes, Bitmap src,

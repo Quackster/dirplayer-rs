@@ -45,6 +45,28 @@ public class Sprite {
     public int lineSize;
     public int pattern;
 
+    // Z-order for sprite layering
+    public int locZ;
+
+    // Span tracking
+    public boolean entered;
+    public boolean exited;
+
+    // Base values for tweening (stored when sprite enters)
+    public int baseLocH;
+    public int baseLocV;
+    public int baseWidth;
+    public int baseHeight;
+    public int baseRotation;
+    public int baseBlend;
+    public int baseSkew;
+    public ColorRef baseColor;
+    public ColorRef baseBgColor;
+
+    // Tween color flags
+    public boolean hasForeColor;
+    public boolean hasBackColor;
+
     public Sprite(int number) {
         this.number = number;
         this.memberRef = new CastMemberRef();
@@ -77,6 +99,20 @@ public class Sprite {
         this.currentTime = 0;
         this.lineSize = 1;
         this.pattern = 0;
+        this.locZ = 0;
+        this.entered = false;
+        this.exited = false;
+        this.baseLocH = 0;
+        this.baseLocV = 0;
+        this.baseWidth = 0;
+        this.baseHeight = 0;
+        this.baseRotation = 0;
+        this.baseBlend = 100;
+        this.baseSkew = 0;
+        this.baseColor = null;
+        this.baseBgColor = null;
+        this.hasForeColor = false;
+        this.hasBackColor = false;
     }
 
     public int getLeft() {
@@ -249,6 +285,20 @@ public class Sprite {
         copy.rotationFloat = rotationFloat;
         copy.hasSizeTweened = hasSizeTweened;
         copy.hasSizeChanged = hasSizeChanged;
+        copy.locZ = locZ;
+        copy.entered = entered;
+        copy.exited = exited;
+        copy.baseLocH = baseLocH;
+        copy.baseLocV = baseLocV;
+        copy.baseWidth = baseWidth;
+        copy.baseHeight = baseHeight;
+        copy.baseRotation = baseRotation;
+        copy.baseBlend = baseBlend;
+        copy.baseSkew = baseSkew;
+        copy.baseColor = baseColor;
+        copy.baseBgColor = baseBgColor;
+        copy.hasForeColor = hasForeColor;
+        copy.hasBackColor = hasBackColor;
         return copy;
     }
 }

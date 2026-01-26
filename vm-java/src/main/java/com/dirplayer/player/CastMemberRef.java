@@ -7,6 +7,8 @@ import java.util.Objects;
  * Port of Rust CastMemberRef struct.
  */
 public class CastMemberRef {
+    public static final CastMemberRef INVALID = new CastMemberRef(0, 0);
+
     public int castLib;
     public int castMember;
 

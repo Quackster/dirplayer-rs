@@ -5,14 +5,17 @@ import com.dirplayer.player.ColorRef;
 /**
  * Base class for keyframe data in sprite animations.
  * Port of Rust keyframe structs from score_keyframes.rs.
+ *
+ * All keyframe types implement KeyframeData for uniform frame access.
  */
-public abstract class SpriteKeyframe {
+public abstract class SpriteKeyframe implements KeyframeData {
     public int frame;
 
     public SpriteKeyframe(int frame) {
         this.frame = frame;
     }
 
+    @Override
     public int getFrame() {
         return frame;
     }

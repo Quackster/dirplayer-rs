@@ -409,4 +409,166 @@ public class JsApi {
      */
     @JSBody(params = {"str"}, script = "return str || '';")
     public static native String safeJsString(String str);
+
+    // ---- Dispatch methods for JS callbacks ----
+
+    /**
+     * Dispatch movie loaded event.
+     */
+    public static void dispatchMovieLoaded(int version, String info) {
+        onMovieLoaded(version, info);
+    }
+
+    @JSBody(params = {"version", "info"},
+            script = "if (window.onDirPlayerMovieLoaded) window.onDirPlayerMovieLoaded({version: version, info: info});")
+    private static native void onMovieLoaded(int version, String info);
+
+    /**
+     * Dispatch cast list changed event.
+     */
+    public static void dispatchCastListChanged() {
+        onCastListChanged();
+    }
+
+    @JSBody(params = {},
+            script = "if (window.onDirPlayerCastListChanged) window.onDirPlayerCastListChanged();")
+    private static native void onCastListChanged();
+
+    /**
+     * Dispatch cast member list changed event.
+     */
+    public static void dispatchCastMemberListChanged(int castNumber) {
+        onCastMemberListChanged(castNumber);
+    }
+
+    @JSBody(params = {"castNumber"},
+            script = "if (window.onDirPlayerCastMemberListChanged) window.onDirPlayerCastMemberListChanged(castNumber);")
+    private static native void onCastMemberListChanged(int castNumber);
+
+    /**
+     * Dispatch cast member changed event.
+     */
+    public static void dispatchCastMemberChanged(int castLib, int castMember) {
+        onCastMemberChanged(castLib, castMember);
+    }
+
+    @JSBody(params = {"castLib", "castMember"},
+            script = "if (window.onDirPlayerCastMemberChanged) window.onDirPlayerCastMemberChanged(castLib, castMember);")
+    private static native void onCastMemberChanged(int castLib, int castMember);
+
+    /**
+     * Dispatch score changed event.
+     */
+    public static void dispatchScoreChanged() {
+        onScoreChanged();
+    }
+
+    @JSBody(params = {},
+            script = "if (window.onDirPlayerScoreChanged) window.onDirPlayerScoreChanged();")
+    private static native void onScoreChanged();
+
+    /**
+     * Dispatch frame changed event.
+     */
+    public static void dispatchFrameChanged(int frame) {
+        onFrameChanged(frame);
+    }
+
+    @JSBody(params = {"frame"},
+            script = "if (window.onDirPlayerFrameChanged) window.onDirPlayerFrameChanged(frame);")
+    private static native void onFrameChanged(int frame);
+
+    /**
+     * Dispatch script error event.
+     */
+    public static void dispatchScriptError(String message, int castLib, int castMember, String handlerName, boolean isPaused) {
+        onScriptError(message, castLib, castMember, handlerName, isPaused);
+    }
+
+    @JSBody(params = {"message", "castLib", "castMember", "handlerName", "isPaused"},
+            script = "if (window.onDirPlayerScriptError) window.onDirPlayerScriptError({message: message, castLib: castLib, castMember: castMember, handlerName: handlerName, isPaused: isPaused});")
+    private static native void onScriptError(String message, int castLib, int castMember, String handlerName, boolean isPaused);
+
+    /**
+     * Dispatch script error cleared event.
+     */
+    public static void dispatchScriptErrorCleared() {
+        onScriptErrorCleared();
+    }
+
+    @JSBody(params = {},
+            script = "if (window.onDirPlayerScriptErrorCleared) window.onDirPlayerScriptErrorCleared();")
+    private static native void onScriptErrorCleared();
+
+    /**
+     * Dispatch debug message event.
+     */
+    public static void dispatchDebugMessage(String message) {
+        onDebugMessage(message);
+    }
+
+    @JSBody(params = {"message"},
+            script = "if (window.onDirPlayerDebugMessage) window.onDirPlayerDebugMessage(message);")
+    private static native void onDebugMessage(String message);
+
+    /**
+     * Dispatch schedule timeout event.
+     */
+    public static void dispatchScheduleTimeout(String timeoutName, int interval) {
+        onScheduleTimeout(timeoutName, interval);
+    }
+
+    @JSBody(params = {"timeoutName", "interval"},
+            script = "if (window.onDirPlayerScheduleTimeout) window.onDirPlayerScheduleTimeout(timeoutName, interval);")
+    private static native void onScheduleTimeout(String timeoutName, int interval);
+
+    /**
+     * Dispatch clear timeout event.
+     */
+    public static void dispatchClearTimeout(String timeoutName) {
+        onClearTimeout(timeoutName);
+    }
+
+    @JSBody(params = {"timeoutName"},
+            script = "if (window.onDirPlayerClearTimeout) window.onDirPlayerClearTimeout(timeoutName);")
+    private static native void onClearTimeout(String timeoutName);
+
+    /**
+     * Dispatch global list changed event.
+     */
+    public static void dispatchGlobalListChanged() {
+        onGlobalListChanged();
+    }
+
+    @JSBody(params = {},
+            script = "if (window.onDirPlayerGlobalListChanged) window.onDirPlayerGlobalListChanged();")
+    private static native void onGlobalListChanged();
+
+    /**
+     * Dispatch external event.
+     */
+    public static void dispatchExternalEvent(String eventName) {
+        onExternalEvent(eventName);
+    }
+
+    @JSBody(params = {"eventName"},
+            script = "if (window.onDirPlayerExternalEvent) window.onDirPlayerExternalEvent(eventName);")
+    private static native void onExternalEvent(String eventName);
+
+    /**
+     * ASCII safe string conversion.
+     */
+    public static String asciiSafe(String input) {
+        if (input == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : input.toCharArray()) {
+            int code = c;
+            if (code == 9 || code == 10 || code == 13 || (code >= 32 && code <= 126)) {
+                sb.append(c);
+            } else {
+                sb.append('?');
+            }
+        }
+        return sb.toString();
+    }
 }
