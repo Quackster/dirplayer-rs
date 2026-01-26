@@ -5,10 +5,10 @@ package com.dirplayer.director.lingo;
  * Port of Rust StringChunkType enum.
  */
 public enum StringChunkType {
-    Item(0x01, "item"),
-    Word(0x02, "word"),
-    Char(0x03, "char"),
-    Line(0x04, "line");
+    ITEM(0x01, "item"),
+    WORD(0x02, "word"),
+    CHAR(0x03, "char"),
+    LINE(0x04, "line");
 
     private final int value;
     private final String name;
@@ -33,6 +33,22 @@ public enum StringChunkType {
             }
         }
         throw new IllegalArgumentException("Invalid string chunk type: " + value);
+    }
+
+    public static StringChunkType fromId(int id) {
+        // Map property IDs to chunk types
+        switch (id) {
+            case 0x01:
+                return CHAR;
+            case 0x02:
+                return WORD;
+            case 0x03:
+                return ITEM;
+            case 0x04:
+                return LINE;
+            default:
+                return fromValue(id);
+        }
     }
 
     public static StringChunkType fromName(String name) {

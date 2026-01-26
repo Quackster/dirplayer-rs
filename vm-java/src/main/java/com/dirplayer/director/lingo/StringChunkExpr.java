@@ -11,7 +11,7 @@ public class StringChunkExpr {
     public char itemDelimiter;
 
     public StringChunkExpr() {
-        this.chunkType = StringChunkType.Char;
+        this.chunkType = StringChunkType.CHAR;
         this.start = 0;
         this.end = 0;
         this.itemDelimiter = ',';
