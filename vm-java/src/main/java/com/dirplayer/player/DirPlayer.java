@@ -483,6 +483,76 @@ public class DirPlayer {
         return new int[] { gray, gray, gray };
     }
 
+    // --- Bytecode helper methods ---
+
+    public com.dirplayer.director.chunks.Bytecode getCtxCurrentBytecode(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx) {
+        if (ctx.handler != null && ctx.handler.bytecodeArray != null && ctx.bytecodeIndex < ctx.handler.bytecodeArray.size()) {
+            return ctx.handler.bytecodeArray.get(ctx.bytecodeIndex);
+        }
+        return null;
+    }
+
+    public String getName(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx, int nameId) {
+        if (ctx.script != null && ctx.script.names != null && nameId >= 0 && nameId < ctx.script.names.size()) {
+            return ctx.script.names.get(nameId);
+        }
+        return "name_" + nameId;
+    }
+
+    public com.dirplayer.director.chunks.HandlerDef getCurrentHandlerDef(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx) {
+        return ctx.handler;
+    }
+
+    public BreakpointManager getBreakpointManager() {
+        return breakpointManager;
+    }
+
+    public int getMovieProp(String propName) throws ScriptError {
+        // TODO: Implement movie property get
+        return 0;
+    }
+
+    public void setMovieProp(String propName, com.dirplayer.director.lingo.Datum value) throws ScriptError {
+        // TODO: Implement movie property set
+    }
+
+    public int callDatumHandler(int objRef, String handlerName, java.util.List<Integer> args) throws ScriptError {
+        // TODO: Implement datum handler call
+        return 0;
+    }
+
+    public void setBasePath(String path) {
+        // TODO: Store base path
+    }
+
+    public void setSystemFontPath(String path) {
+        // TODO: Store system font path
+    }
+
+    public void setBreakOnError(boolean value) {
+        this.breakOnError = value;
+    }
+
+    public void setSubscribedToChannelNames(boolean value) {
+        this.isSubscribedToChannelNames = value;
+    }
+
+    public void subscribeToMember(int castLib, int memberNum) {
+        // TODO: Implement member subscription
+    }
+
+    public void unsubscribeFromMember(int castLib, int memberNum) {
+        // TODO: Implement member unsubscription
+    }
+
+    public void triggerTimeout(String name) {
+        // TODO: Implement timeout triggering
+    }
+
+    public void triggerAlertHook() {
+        // TODO: Implement alert hook
+    }
+
     // Placeholder inner classes - these would be fully implemented
     public static class Scope {
         public int scriptInstanceRef;

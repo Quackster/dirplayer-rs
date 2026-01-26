@@ -1,7 +1,7 @@
 package com.dirplayer.player.cast;
 
 import com.dirplayer.director.FilmLoopInfo;
-import com.dirplayer.director.chunks.score.ScoreChunk;
+import com.dirplayer.director.chunks.ScoreChunk;
 import com.dirplayer.player.score.Score;
 import com.dirplayer.rendering.IntRect;
 

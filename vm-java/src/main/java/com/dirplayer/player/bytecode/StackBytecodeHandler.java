@@ -50,7 +50,7 @@ public class StackBytecodeHandler {
         }
 
         List<Integer> items = scope.popN((int) bytecodeObj);
-        int datumRef = player.allocDatum(Datum.ofList(DatumType.ARG_LIST, items, false));
+        int datumRef = player.allocDatum(Datum.ofList(DatumType.ArgList, items, false));
 
         scope.stack.push(datumRef);
 
@@ -66,7 +66,7 @@ public class StackBytecodeHandler {
         }
 
         List<Integer> items = scope.popN((int) bytecodeObj);
-        int datumRef = player.allocDatum(Datum.ofList(DatumType.ARG_LIST_NO_RET, items, false));
+        int datumRef = player.allocDatum(Datum.ofList(DatumType.ArgListNoRet, items, false));
 
         scope.stack.push(datumRef);
 

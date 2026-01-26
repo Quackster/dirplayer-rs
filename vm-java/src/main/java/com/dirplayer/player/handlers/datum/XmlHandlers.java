@@ -4,8 +4,8 @@ import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import com.dirplayer.player.xml.XmlDocument;
-import com.dirplayer.player.xml.XmlNode;
+import com.dirplayer.player.XmlDocument;
+import com.dirplayer.player.XmlNode;
 import com.dirplayer.player.xml.XmlNodeType;
 import com.dirplayer.player.xml.XmlParser;
 

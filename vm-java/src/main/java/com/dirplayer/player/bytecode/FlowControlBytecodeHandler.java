@@ -86,7 +86,7 @@ public class FlowControlBytecodeHandler {
         }
 
         List<Integer> argRefList = argListDatum.toList();
-        boolean isNoRet = argListDatum.getListType() == DatumType.ARG_LIST_NO_RET;
+        boolean isNoRet = argListDatum.getListType() == DatumType.ArgListNoRet;
 
         // Call external handler
         int returnValue = player.extCall(name, argRefList, ctx.scopeRef);
@@ -103,7 +103,7 @@ public class FlowControlBytecodeHandler {
         int argListId = scope.stack.pop();
 
         Datum argListDatum = player.getDatum(argListId);
-        boolean isNoRet = argListDatum.getListType() == DatumType.ARG_LIST_NO_RET;
+        boolean isNoRet = argListDatum.getListType() == DatumType.ArgListNoRet;
         List<Integer> args = argListDatum.toList();
 
         // Get handler reference
@@ -124,7 +124,7 @@ public class FlowControlBytecodeHandler {
         int argListId = scope.stack.pop();
 
         Datum argListDatum = player.getDatum(argListId);
-        boolean isNoRet = argListDatum.getListType() == DatumType.ARG_LIST_NO_RET;
+        boolean isNoRet = argListDatum.getListType() == DatumType.ArgListNoRet;
         List<Integer> argList = argListDatum.toList();
 
         if (argList.isEmpty()) {
