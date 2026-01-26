@@ -28,6 +28,10 @@ public class ShapeInfo {
         this.color = 0;
     }
 
+    public static ShapeInfo from(byte[] bytes) {
+        return fromBytes(bytes);
+    }
+
     public static ShapeInfo fromBytes(byte[] bytes) {
         ShapeInfo info = new ShapeInfo();
         BinaryReader reader = new BinaryReader(bytes);

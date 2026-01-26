@@ -28,6 +28,10 @@ public class FilmLoopInfo {
         this.loops = 0;
     }
 
+    public static FilmLoopInfo from(byte[] bytes) {
+        return fromBytes(bytes);
+    }
+
     public static FilmLoopInfo fromBytes(byte[] bytes) {
         FilmLoopInfo info = new FilmLoopInfo();
         BinaryReader reader = new BinaryReader(bytes);

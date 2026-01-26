@@ -49,11 +49,11 @@ public class CastMemberInfoChunk {
 
         public static CastMemberInfoChunkHeader read(BinaryReader reader, int dirVersion) {
             CastMemberInfoChunkHeader header = new CastMemberInfoChunkHeader();
-            header.dataOffset = reader.readU32();
-            header.unk1 = reader.readU32();
-            header.unk2 = reader.readU32();
-            header.flags = reader.readU32();
-            header.scriptId = reader.readU32();
+            header.dataOffset = (int) reader.readU32();
+            header.unk1 = (int) reader.readU32();
+            header.unk2 = (int) reader.readU32();
+            header.flags = (int) reader.readU32();
+            header.scriptId = (int) reader.readU32();
             return header;
         }
     }

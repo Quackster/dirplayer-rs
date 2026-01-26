@@ -146,11 +146,15 @@ public class BinaryReader {
     /**
      * Read and decompress zlib-compressed bytes.
      */
-    public byte[] readZlibBytes(int length) throws IOException {
+    public byte[] readZlibBytes(int length) {
         byte[] compressed = readBytes(length);
-        ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-        InflaterInputStream iis = new InflaterInputStream(bais);
-        return iis.readAllBytes();
+        try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
+            InflaterInputStream iis = new InflaterInputStream(bais);
+            return iis.readAllBytes();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to decompress zlib data", e);
+        }
     }
 
     /**

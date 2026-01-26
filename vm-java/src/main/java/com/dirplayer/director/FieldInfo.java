@@ -45,6 +45,10 @@ public class FieldInfo {
         // Default initialization
     }
 
+    public static FieldInfo from(byte[] bytes) {
+        return fromBytes(bytes);
+    }
+
     public static FieldInfo fromBytes(byte[] bytes) {
         FieldInfo info = new FieldInfo();
         BinaryReader reader = new BinaryReader(bytes);

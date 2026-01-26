@@ -30,6 +30,10 @@ public class BitmapInfo {
         this.centerRegPoint = false;
     }
 
+    public static BitmapInfo from(byte[] bytes) {
+        return fromBytes(bytes);
+    }
+
     public static BitmapInfo fromBytes(byte[] bytes) {
         BitmapInfo info = new BitmapInfo();
         BinaryReader reader = new BinaryReader(bytes);

@@ -32,3 +32,6 @@ public/dcr*
 /dist-extension
 /dist-extension.zip
 /dist-polyfill
+/vm-java/target
+/vm-java/target
+/vm-java/target
