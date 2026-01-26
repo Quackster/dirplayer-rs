@@ -66,4 +66,33 @@ public class Movie {
         this.frameScriptInstance = null;
         this.frameScriptMember = null;
     }
+
+    // Getter methods for rendering compatibility
+    public IntRect getRect() {
+        return rect;
+    }
+
+    public CastManager getCastManager() {
+        return castManager;
+    }
+
+    public Score getScore() {
+        return score;
+    }
+
+    public int getCurrentFrame() {
+        return currentFrame;
+    }
+
+    public void setCurrentFrame(int frame) {
+        this.currentFrame = frame;
+    }
+
+    public int getTotalFrames() {
+        return score.totalFrames;
+    }
+
+    public int getDirVersion() {
+        return dirVersion;
+    }
 }

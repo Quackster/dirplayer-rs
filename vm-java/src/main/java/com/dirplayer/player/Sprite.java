@@ -114,4 +114,141 @@ public class Sprite {
         this.locH = left + width / 2;
         this.locV = top + height / 2;
     }
+
+    // Color properties for rendering
+    private ColorRef color;
+    private ColorRef bgColor;
+    private float rotationFloat;
+    private boolean hasSizeTweened;
+    private boolean hasSizeChanged;
+
+    public CastMemberRef getMember() {
+        return memberRef;
+    }
+
+    public void setMember(CastMemberRef member) {
+        this.memberRef = member;
+    }
+
+    public int getNumber() {
+        return number;
+    }
+
+    public int getLocH() {
+        return locH;
+    }
+
+    public int getLocV() {
+        return locV;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public int getInk() {
+        return ink;
+    }
+
+    public int getBlend() {
+        return blend;
+    }
+
+    public ColorRef getColor() {
+        if (color == null) {
+            color = ColorRef.paletteIndex(foreColor);
+        }
+        return color;
+    }
+
+    public void setColor(ColorRef color) {
+        this.color = color;
+    }
+
+    public ColorRef getBgColor() {
+        if (bgColor == null) {
+            bgColor = ColorRef.paletteIndex(backColor);
+        }
+        return bgColor;
+    }
+
+    public void setBgColor(ColorRef bgColor) {
+        this.bgColor = bgColor;
+    }
+
+    public float getRotation() {
+        return rotationFloat;
+    }
+
+    public void setRotation(float rotation) {
+        this.rotationFloat = rotation;
+    }
+
+    public boolean isFlipH() {
+        return flipH;
+    }
+
+    public boolean isFlipV() {
+        return flipV;
+    }
+
+    public boolean hasSizeTweened() {
+        return hasSizeTweened;
+    }
+
+    public void setHasSizeTweened(boolean hasSizeTweened) {
+        this.hasSizeTweened = hasSizeTweened;
+    }
+
+    public boolean hasSizeChanged() {
+        return hasSizeChanged;
+    }
+
+    public void setHasSizeChanged(boolean hasSizeChanged) {
+        this.hasSizeChanged = hasSizeChanged;
+    }
+
+    public Sprite copy() {
+        Sprite copy = new Sprite(number);
+        copy.memberRef = memberRef;
+        copy.locH = locH;
+        copy.locV = locV;
+        copy.width = width;
+        copy.height = height;
+        copy.ink = ink;
+        copy.blend = blend;
+        copy.visible = visible;
+        copy.puppet = puppet;
+        copy.moveable = moveable;
+        copy.editableText = editableText;
+        copy.foreColor = foreColor;
+        copy.backColor = backColor;
+        copy.constraint = constraint;
+        copy.trails = trails;
+        copy.stretch = stretch;
+        copy.rotation = rotation;
+        copy.skew = skew;
+        copy.flipH = flipH;
+        copy.flipV = flipV;
+        copy.scriptNum = scriptNum;
+        copy.scriptInstanceList = new java.util.ArrayList<>(scriptInstanceList);
+        copy.cursor = cursor;
+        copy.startTime = startTime;
+        copy.stopTime = stopTime;
+        copy.movieRate = movieRate;
+        copy.movieTime = movieTime;
+        copy.currentTime = currentTime;
+        copy.lineSize = lineSize;
+        copy.pattern = pattern;
+        copy.color = color;
+        copy.bgColor = bgColor;
+        copy.rotationFloat = rotationFloat;
+        copy.hasSizeTweened = hasSizeTweened;
+        copy.hasSizeChanged = hasSizeChanged;
+        return copy;
+    }
 }

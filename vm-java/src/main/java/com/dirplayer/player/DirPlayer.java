@@ -306,6 +306,77 @@ public class DirPlayer {
         // TODO: Dispatch keyUp event
     }
 
+    // Getter methods for rendering/JsApi compatibility
+    public Movie getMovie() {
+        return movie;
+    }
+
+    public BitmapManager getBitmapManager() {
+        return bitmapManager;
+    }
+
+    public ColorRef getBgColor() {
+        return bgColor;
+    }
+
+    public boolean isPlaying() {
+        return isPlaying;
+    }
+
+    // JsApi methods
+    public void loadMovie(byte[] data, String basePath) {
+        // TODO: Implement movie loading
+        logger.info("Loading movie from {} bytes, basePath: {}", data.length, basePath);
+        movie.basePath = basePath;
+    }
+
+    public void step() {
+        // Step one frame
+        if (movie.currentFrame < movie.score.totalFrames) {
+            movie.currentFrame++;
+        }
+    }
+
+    public void goToFrame(int frame) {
+        if (frame >= 1 && frame <= movie.score.totalFrames) {
+            movie.currentFrame = frame;
+        }
+    }
+
+    public void handleMouseMove(int x, int y) {
+        mouseMove(x, y);
+    }
+
+    public void handleMouseDown(int x, int y, int button) {
+        mouseDown(x, y);
+    }
+
+    public void handleMouseUp(int x, int y, int button) {
+        mouseUp(x, y);
+    }
+
+    public void handleKeyDown(int keyCode, boolean shift, boolean ctrl, boolean alt) {
+        keyboardManager.setShiftDown(shift);
+        keyboardManager.setControlDown(ctrl);
+        keyboardManager.setAltDown(alt);
+        keyDown(String.valueOf((char) keyCode), keyCode);
+    }
+
+    public void handleKeyUp(int keyCode) {
+        keyUp(String.valueOf((char) keyCode), keyCode);
+    }
+
+    public int getSpriteAt(int x, int y) {
+        // Find topmost sprite at position
+        for (int i = movie.score.channels.size() - 1; i >= 0; i--) {
+            Sprite sprite = movie.score.getSprite(i);
+            if (sprite != null && sprite.visible && sprite.containsPoint(x, y)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     // Placeholder inner classes - these would be fully implemented
     public static class Scope {
         public int scriptInstanceRef;

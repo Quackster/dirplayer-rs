@@ -49,4 +49,13 @@ public class CastMemberRef {
     public String toString() {
         return "member(" + castMember + ", " + castLib + ")";
     }
+
+    // Getter methods
+    public int getCastLib() {
+        return castLib;
+    }
+
+    public int getCastMember() {
+        return castMember;
+    }
 }

@@ -60,6 +60,50 @@ public class Score {
         totalFrames = count;
     }
 
+    /**
+     * Get sprite from a channel.
+     */
+    public Sprite getSprite(int channelNum) {
+        Channel channel = getChannel(channelNum);
+        return channel != null ? channel.sprite : null;
+    }
+
+    /**
+     * Get sorted channel numbers for a frame (in z-order).
+     */
+    public List<Integer> getSortedChannelNumbers(int frameNum) {
+        List<Integer> result = new ArrayList<>();
+        Frame frame = getFrame(frameNum);
+        if (frame != null) {
+            for (FrameSprite fs : frame.sprites) {
+                result.add(fs.channelNum);
+            }
+        } else {
+            // Default to all visible channels
+            for (int i = 0; i < channels.size(); i++) {
+                Channel ch = channels.get(i);
+                if (ch.sprite != null && ch.sprite.visible) {
+                    result.add(i);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Get sorted channels for a frame.
+     */
+    public List<Channel> getSortedChannels(int frameNum) {
+        List<Channel> result = new ArrayList<>();
+        for (int num : getSortedChannelNumbers(frameNum)) {
+            Channel ch = getChannel(num);
+            if (ch != null) {
+                result.add(ch);
+            }
+        }
+        return result;
+    }
+
     public static class Channel {
         public int number;
         public String name;

@@ -85,4 +85,37 @@ public class CastMember {
     public boolean isDigitalVideo() {
         return memberType == MemberType.DigitalVideo;
     }
+
+    // Getter methods for rendering
+    public MemberType getMemberType() {
+        return memberType;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    // Type-specific member accessors for rendering
+    // In a full implementation these would return proper typed objects
+
+    public int getImageRef() {
+        // For bitmap members, this would be the bitmap manager reference
+        return memberRef.hashCode();  // Placeholder
+    }
+
+    public int getRegPointX() {
+        return regPointX;
+    }
+
+    public int getRegPointY() {
+        return regPointY;
+    }
+
+    public int getBitmapWidth() {
+        return bitmapWidth;
+    }
+
+    public int getBitmapHeight() {
+        return bitmapHeight;
+    }
 }

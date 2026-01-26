@@ -96,4 +96,37 @@ public class ColorRef {
         }
         return "color(" + red + ", " + green + ", " + blue + ")";
     }
+
+    // Alias methods for rendering compatibility
+    public static ColorRef paletteIndex(int index) {
+        return fromPaletteIndex(index);
+    }
+
+    public static ColorRef rgb(int r, int g, int b) {
+        return fromRgb(r, g, b);
+    }
+
+    public boolean isRgb() {
+        return !isPaletteColor;
+    }
+
+    public boolean isPaletteIndex() {
+        return isPaletteColor;
+    }
+
+    public int getR() {
+        return red;
+    }
+
+    public int getG() {
+        return green;
+    }
+
+    public int getB() {
+        return blue;
+    }
+
+    public int getPaletteIndex() {
+        return paletteIndex;
+    }
 }

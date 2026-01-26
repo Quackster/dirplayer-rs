@@ -113,4 +113,49 @@ public class KeyboardManager {
                 return 0;
         }
     }
+
+    // Getters for modifier state
+    public boolean isShiftDown() {
+        return shiftDown;
+    }
+
+    public void setShiftDown(boolean shiftDown) {
+        this.shiftDown = shiftDown;
+    }
+
+    public boolean isControlDown() {
+        return controlDown;
+    }
+
+    public void setControlDown(boolean controlDown) {
+        this.controlDown = controlDown;
+    }
+
+    public boolean isAltDown() {
+        return altDown;
+    }
+
+    public void setAltDown(boolean altDown) {
+        this.altDown = altDown;
+    }
+
+    public boolean isCommandDown() {
+        return commandDown;
+    }
+
+    public void setCommandDown(boolean commandDown) {
+        this.commandDown = commandDown;
+    }
+
+    public boolean is_alt_down() {
+        return altDown;
+    }
+
+    public boolean is_control_down() {
+        return controlDown;
+    }
+
+    public boolean is_command_down() {
+        return commandDown;
+    }
 }

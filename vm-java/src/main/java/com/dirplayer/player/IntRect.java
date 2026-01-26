@@ -32,6 +32,15 @@ public class IntRect {
         return bottom - top;
     }
 
+    // Alias methods without "get" prefix
+    public int width() {
+        return right - left;
+    }
+
+    public int height() {
+        return bottom - top;
+    }
+
     public boolean contains(int x, int y) {
         return x >= left && x < right && y >= top && y < bottom;
     }

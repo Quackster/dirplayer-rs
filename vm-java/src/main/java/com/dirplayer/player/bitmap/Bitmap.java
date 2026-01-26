@@ -109,4 +109,226 @@ public class Bitmap {
         copy.wasTrimmed = wasTrimmed;
         return copy;
     }
+
+    // Getter methods for rendering
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
+    public int getBitDepth() { return bitDepth; }
+    public int getOriginalBitDepth() { return originalBitDepth; }
+    public byte[] getData() { return data; }
+    public BitmapMask getMatte() { return matte; }
+    public boolean isUseAlpha() { return useAlpha; }
+    public void setUseAlpha(boolean useAlpha) { this.useAlpha = useAlpha; }
+
+    /**
+     * Clear bitmap data to zeros (transparent).
+     */
+    public void clearData() {
+        java.util.Arrays.fill(data, (byte) 0);
+    }
+
+    /**
+     * Set pixel with RGB values.
+     */
+    public void setPixel(int x, int y, int r, int g, int b, PaletteMap palettes) {
+        if (bitDepth == 32) {
+            setPixel(x, y, (r << 24) | (g << 16) | (b << 8) | 0xFF);
+        } else {
+            setPixel(x, y, (r << 16) | (g << 8) | b);
+        }
+    }
+
+    /**
+     * Clear a rectangular region.
+     */
+    public void clearRect(int left, int top, int right, int bottom,
+                         int r, int g, int b, PaletteMap palettes) {
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                setPixelRGBA(x, y, r, g, b, 255);
+            }
+        }
+    }
+
+    /**
+     * Clear a rectangular region to transparent.
+     */
+    public void clearRectTransparent(int left, int top, int right, int bottom) {
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                setPixelRGBA(x, y, 0, 0, 0, 0);
+            }
+        }
+    }
+
+    /**
+     * Fill a rectangle.
+     */
+    public void fillRect(int left, int top, int right, int bottom,
+                        int r, int g, int b, PaletteMap palettes, float alpha) {
+        int a = (int)(alpha * 255);
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                if (alpha >= 1.0f) {
+                    setPixelRGBA(x, y, r, g, b, 255);
+                } else {
+                    blendPixelRGBA(x, y, r, g, b, a);
+                }
+            }
+        }
+    }
+
+    /**
+     * Stroke (outline) a rectangle.
+     */
+    public void strokeRect(int left, int top, int right, int bottom,
+                          int r, int g, int b, PaletteMap palettes, float alpha) {
+        // Top and bottom edges
+        for (int x = left; x < right; x++) {
+            setPixelRGBA(x, top, r, g, b, 255);
+            setPixelRGBA(x, bottom - 1, r, g, b, 255);
+        }
+        // Left and right edges
+        for (int y = top; y < bottom; y++) {
+            setPixelRGBA(left, y, r, g, b, 255);
+            setPixelRGBA(right - 1, y, r, g, b, 255);
+        }
+    }
+
+    /**
+     * Set pixel with RGBA values (for 32-bit bitmaps).
+     */
+    private void setPixelRGBA(int x, int y, int r, int g, int b, int a) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+        if (bitDepth == 32) {
+            int index = (y * width + x) * 4;
+            data[index] = (byte) r;
+            data[index + 1] = (byte) g;
+            data[index + 2] = (byte) b;
+            data[index + 3] = (byte) a;
+        }
+    }
+
+    /**
+     * Blend pixel with RGBA values.
+     */
+    private void blendPixelRGBA(int x, int y, int r, int g, int b, int a) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+        if (bitDepth == 32) {
+            int index = (y * width + x) * 4;
+            int srcR = data[index] & 0xFF;
+            int srcG = data[index + 1] & 0xFF;
+            int srcB = data[index + 2] & 0xFF;
+
+            float alpha = a / 255.0f;
+            float invAlpha = 1.0f - alpha;
+
+            data[index] = (byte)(r * alpha + srcR * invAlpha);
+            data[index + 1] = (byte)(g * alpha + srcG * invAlpha);
+            data[index + 2] = (byte)(b * alpha + srcB * invAlpha);
+            data[index + 3] = (byte) 255;
+        }
+    }
+
+    /**
+     * Create matte (transparency mask) from bitmap data.
+     */
+    public void createMatte(PaletteMap palettes) {
+        matte = new BitmapMask(width, height, false);
+
+        if (bitDepth == 32) {
+            // Use alpha channel
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = (y * width + x) * 4;
+                    int alpha = data[index + 3] & 0xFF;
+                    matte.setAlpha(x, y, alpha);
+                }
+            }
+        } else if (bitDepth == 8) {
+            // Use palette index 0 as transparent (white usually)
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = y * width + x;
+                    int paletteIdx = data[index] & 0xFF;
+                    // Index 0 is typically transparent/white
+                    matte.setAlpha(x, y, paletteIdx == 0 ? 0 : 255);
+                }
+            }
+        }
+    }
+
+    /**
+     * Copy pixels from source bitmap with parameters.
+     */
+    public void copyPixelsWithParams(PaletteMap palettes, Bitmap src,
+                                     com.dirplayer.rendering.IntRect dstRect,
+                                     com.dirplayer.rendering.IntRect srcRect,
+                                     com.dirplayer.rendering.CopyPixelsParams params) {
+        // Basic implementation - no ink effects yet
+        int srcW = srcRect.width();
+        int srcH = srcRect.height();
+        int dstW = dstRect.width();
+        int dstH = dstRect.height();
+
+        float scaleX = (float)srcW / dstW;
+        float scaleY = (float)srcH / dstH;
+
+        float blendFactor = params.blend / 100.0f;
+
+        for (int dy = 0; dy < Math.abs(dstH); dy++) {
+            for (int dx = 0; dx < Math.abs(dstW); dx++) {
+                int destX = dstRect.left + (dstW > 0 ? dx : -dx);
+                int destY = dstRect.top + (dstH > 0 ? dy : -dy);
+
+                int srcX = srcRect.left + (int)(dx * scaleX);
+                int srcY = srcRect.top + (int)(dy * scaleY);
+
+                // Check mask if present
+                if (params.maskImage != null) {
+                    if (params.maskImage.isTransparent(srcX - srcRect.left, srcY - srcRect.top)) {
+                        continue;
+                    }
+                }
+
+                // Get source pixel
+                int srcColor = src.getPixel(srcX, srcY);
+
+                // Convert to RGBA if needed
+                int r, g, b, a;
+                if (src.bitDepth == 32) {
+                    r = (srcColor >> 24) & 0xFF;
+                    g = (srcColor >> 16) & 0xFF;
+                    b = (srcColor >> 8) & 0xFF;
+                    a = srcColor & 0xFF;
+                } else if (src.bitDepth == 8) {
+                    // Lookup in palette
+                    int[][] palette = palettes.getPalette(src.paletteRef, src.originalBitDepth);
+                    int[] rgb = palette != null && srcColor < palette.length ?
+                        palette[srcColor] : new int[]{0, 0, 0};
+                    r = rgb[0];
+                    g = rgb[1];
+                    b = rgb[2];
+                    a = 255;
+                } else {
+                    r = g = b = 0;
+                    a = 255;
+                }
+
+                // Apply blend
+                if (blendFactor < 1.0f) {
+                    a = (int)(a * blendFactor);
+                }
+
+                // Set destination pixel
+                if (bitDepth == 32) {
+                    blendPixelRGBA(destX, destY, r, g, b, a);
+                } else {
+                    setPixel(destX, destY, (r << 16) | (g << 8) | b);
+                }
+            }
+        }
+    }
 }

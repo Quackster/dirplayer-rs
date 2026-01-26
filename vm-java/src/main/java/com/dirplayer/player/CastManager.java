@@ -1,5 +1,7 @@
 package com.dirplayer.player;
 
+import com.dirplayer.player.bitmap.PaletteMap;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,11 +15,13 @@ public class CastManager {
     public List<CastLib> castLibs;
     public Map<Integer, CastMember> loadedMembers;
     public Map<String, Integer> memberNameMap;
+    private PaletteMap paletteMap;
 
     public CastManager() {
         this.castLibs = new ArrayList<>();
         this.loadedMembers = new HashMap<>();
         this.memberNameMap = new HashMap<>();
+        this.paletteMap = new PaletteMap();
     }
 
     public static CastManager empty() {
@@ -62,5 +66,28 @@ public class CastManager {
 
     public int getCastLibCount() {
         return castLibs.size();
+    }
+
+    /**
+     * Get the palette map for this cast manager.
+     */
+    public PaletteMap palettes() {
+        return paletteMap;
+    }
+
+    /**
+     * Find a member by reference.
+     */
+    public CastMember findMemberByRef(CastMemberRef ref) {
+        return getMember(ref);
+    }
+
+    /**
+     * Find a member by slot number (for compatibility).
+     */
+    public CastMember findMemberBySlotNumber(int slotNum) {
+        // Slot numbers are typically (castLib * 512) + memberNum
+        // Try to find in first cast lib
+        return getMember(1, slotNum);
     }
 }
