@@ -7,6 +7,7 @@ import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.Sprite;
 import com.dirplayer.player.score.Channel;
 import com.dirplayer.player.IntRect;
+import com.dirplayer.player.rendering.RenderingUtils;
 
 import java.util.List;
 
@@ -307,18 +308,8 @@ public class SpriteHandlers {
     }
 
     private static IntRect getConcreteSpriteRect(DirPlayer player, Sprite sprite) {
-        // Get the sprite's bounding rect based on its properties
-        int left = sprite.locH;
-        int top = sprite.locV;
-        int right = left + sprite.width;
-        int bottom = top + sprite.height;
-
-        // Apply registration point offset if member exists
-        if (sprite.memberRef != null && sprite.memberRef.castMember > 0) {
-            // TODO: Get reg point from member and adjust
-        }
-
-        return new IntRect(left, top, right, bottom);
+        // Delegate to RenderingUtils which has the full implementation
+        return RenderingUtils.getConcreteSpriteRect(player, sprite);
     }
 
     /**

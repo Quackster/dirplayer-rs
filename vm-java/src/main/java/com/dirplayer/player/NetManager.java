@@ -41,6 +41,9 @@ public class NetManager {
     // Pending tasks that need to be handled externally (e.g., by JavaScript in TeaVM)
     private final Map<Integer, Boolean> pendingTasks;
 
+    // Tasks tagged as text retrieval tasks
+    private final Map<Integer, Boolean> textTasks;
+
     public NetManager() {
         this.basePath = null;
         this.basePathUri = null;
@@ -54,6 +57,22 @@ public class NetManager {
         this.taskLastModDates = new ConcurrentHashMap<>();
         this.taskLocalPaths = new ConcurrentHashMap<>();
         this.pendingTasks = new HashMap<>();
+        this.textTasks = new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Tag a task as a text retrieval task.
+     * This affects how the result data is interpreted.
+     */
+    public void tagTaskAsText(int taskId) {
+        textTasks.put(taskId, true);
+    }
+
+    /**
+     * Check if a task is tagged as a text task.
+     */
+    public boolean isTextTask(int taskId) {
+        return textTasks.getOrDefault(taskId, false);
     }
 
     /**

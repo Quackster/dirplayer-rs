@@ -121,13 +121,21 @@ public class MultiUserXtra implements XtraManager.Xtra {
             }
         }
 
-        // TODO: subject and sender filtering from args[2] and args[3]
+        // Get subject and sender filtering from args[2] and args[3]
+        String subjectFilter = null;
+        String senderFilter = null;
+        if (args.length >= 3 && args[2] != null && !args[2].isVoid()) {
+            subjectFilter = args[2].stringValue();
+        }
+        if (args.length >= 4 && args[3] != null && !args[3].isVoid()) {
+            senderFilter = args[3].stringValue();
+        }
 
         if (handlerSymbol.isVoid()) {
             instance.clearNetMessageHandler();
         } else {
             String symbolName = handlerSymbol.symbolValue();
-            instance.setNetMessageHandler(handlerObjRef, symbolName);
+            instance.setNetMessageHandler(handlerObjRef, symbolName, subjectFilter, senderFilter);
         }
 
         // Return error code 0 (success)
@@ -298,6 +306,8 @@ public class MultiUserXtra implements XtraManager.Xtra {
         private final int id;
         private int handlerObjRef;
         private String handlerSymbol;
+        private String subjectFilter;  // Subject filter for message handler
+        private String senderFilter;   // Sender ID filter for message handler
         private final LinkedList<MultiUserMessage> messageQueue;
         private WebSocket webSocket;
         private volatile boolean connected;
@@ -321,11 +331,30 @@ public class MultiUserXtra implements XtraManager.Xtra {
         public void setNetMessageHandler(int objRef, String symbol) {
             this.handlerObjRef = objRef;
             this.handlerSymbol = symbol;
+            this.subjectFilter = null;
+            this.senderFilter = null;
+        }
+
+        public void setNetMessageHandler(int objRef, String symbol, String subject, String sender) {
+            this.handlerObjRef = objRef;
+            this.handlerSymbol = symbol;
+            this.subjectFilter = subject;
+            this.senderFilter = sender;
         }
 
         public void clearNetMessageHandler() {
             this.handlerObjRef = -1;
             this.handlerSymbol = null;
+            this.subjectFilter = null;
+            this.senderFilter = null;
+        }
+
+        public String getSubjectFilter() {
+            return subjectFilter;
+        }
+
+        public String getSenderFilter() {
+            return senderFilter;
         }
 
         public boolean hasNetMessageHandler() {
@@ -355,8 +384,21 @@ public class MultiUserXtra implements XtraManager.Xtra {
 
         /**
          * Add a message to the queue and dispatch the handler.
+         * Subject and sender filtering is applied if set.
          */
         public void dispatchMessage(MultiUserMessage message) {
+            // Apply subject filter if set
+            if (subjectFilter != null && !subjectFilter.isEmpty()) {
+                if (!subjectFilter.equals(message.subject)) {
+                    return; // Message doesn't match subject filter
+                }
+            }
+            // Apply sender filter if set
+            if (senderFilter != null && !senderFilter.isEmpty()) {
+                if (!senderFilter.equals(message.senderId)) {
+                    return; // Message doesn't match sender filter
+                }
+            }
             messageQueue.add(message);
             dispatchMessageHandler();
         }

@@ -4,6 +4,7 @@ import com.dirplayer.director.DirectorFile;
 import com.dirplayer.player.bitmap.BitmapManager;
 import com.dirplayer.player.script.Script;
 import com.dirplayer.player.score.Score;
+import com.dirplayer.player.xml.XmlNode;
 import com.dirplayer.SimpleLogger;
 
 import java.time.LocalDateTime;
@@ -354,9 +355,35 @@ public class DirPlayer {
 
     // JsApi methods
     public void loadMovie(byte[] data, String basePath) {
-        // TODO: Implement movie loading
-        logger.info("Loading movie from {} bytes, basePath: {}", data.length, basePath);
+        // Movie loading is handled by JsApi.loadContent() which calls loadFromFile()
+        // This method is called after the file is already parsed and loaded.
+        logger.info("loadMovie called with {} bytes, basePath: {}", data.length, basePath);
         movie.basePath = basePath;
+
+        // Parse the movie file from data
+        if (data != null && data.length > 0) {
+            try {
+                String fileName = basePath.contains("/") ?
+                    basePath.substring(basePath.lastIndexOf('/') + 1) : basePath;
+                com.dirplayer.director.DirectorFile dirFile =
+                    com.dirplayer.director.DirectorFile.fromBytes(data, fileName, basePath);
+                loadFromDirectorFile(dirFile);
+            } catch (Exception e) {
+                logger.error("Failed to load movie: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Load movie content from a DirectorFile.
+     */
+    public void loadFromDirectorFile(com.dirplayer.director.DirectorFile dirFile) {
+        try {
+            movie.loadFromFile(dirFile, netManager, bitmapManager, this);
+            reset();
+        } catch (Exception e) {
+            logger.error("Failed to load from director file: {}", e.getMessage());
+        }
     }
 
     public void step() {
@@ -743,8 +770,7 @@ public class DirPlayer {
                 return com.dirplayer.player.handlers.datum.TimeoutHandlers.call(this, objRef, handlerName, args);
             case Xtra:
             case XtraInstance:
-                // TODO: Xtra handler call
-                throw new ScriptError("Xtra handler call not yet implemented: " + handlerName);
+                return com.dirplayer.player.handlers.datum.XtraHandlers.call(this, objRef, handlerName, args);
             case BitmapRef:
                 return com.dirplayer.player.handlers.datum.BitmapHandlers.call(this, objRef, handlerName, args);
             case XmlRef:
@@ -1014,8 +1040,27 @@ public class DirPlayer {
     }
 
     public void printMemberBitmapHex(int castLib, int castMember) {
-        // TODO: Implement bitmap hex print for debugging
         logger.info("Print member bitmap hex: cast {} member {}", castLib, castMember);
+        CastMemberRef memberRef = new CastMemberRef(castLib, castMember);
+        CastMember member = movie.castManager.findMemberByRef(memberRef);
+        if (member == null) {
+            logger.warn("Member not found: {} {}", castLib, castMember);
+            return;
+        }
+        if (member.bitmap != null && member.bitmap.getBitmap() != null) {
+            com.dirplayer.player.bitmap.Bitmap bitmap = member.bitmap.getBitmap();
+            StringBuilder sb = new StringBuilder();
+            sb.append("Bitmap: ").append(bitmap.width).append("x").append(bitmap.height);
+            sb.append(" depth=").append(bitmap.depth);
+            sb.append("\nFirst 64 bytes: ");
+            int maxBytes = Math.min(64, bitmap.data.length);
+            for (int i = 0; i < maxBytes; i++) {
+                sb.append(String.format("%02X ", bitmap.data[i] & 0xFF));
+            }
+            logger.info(sb.toString());
+        } else {
+            logger.warn("Member has no bitmap data");
+        }
     }
 
     public boolean getBreakOnError() {
@@ -1089,37 +1134,14 @@ public class DirPlayer {
     }
 
     public int getMemberProp(CastMemberRef memberRef, String propName) throws ScriptError {
-        CastMember member = movie.castManager.getMember(memberRef);
-        if (member == null) {
-            throw new ScriptError("Member not found: " + memberRef);
-        }
-        // TODO: Implement member property get based on member type
-        switch (propName.toLowerCase()) {
-            case "name":
-                return allocDatum(com.dirplayer.director.lingo.Datum.ofString(member.name != null ? member.name : ""));
-            case "number":
-                return allocDatum(com.dirplayer.director.lingo.Datum.ofInt(memberRef.getCastMember()));
-            case "type":
-                return allocDatum(com.dirplayer.director.lingo.Datum.ofSymbol(member.type.getName()));
-            default:
-                return 0; // Void
-        }
+        // Delegate to CastMemberRefHandlers which has comprehensive property handling
+        return com.dirplayer.player.handlers.datum.CastMemberRefHandlers.getMemberProp(this, memberRef, propName);
     }
 
     public void setMemberProp(CastMemberRef memberRef, String propName, com.dirplayer.director.lingo.Datum value) throws ScriptError {
-        CastMember member = movie.castManager.getMember(memberRef);
-        if (member == null) {
-            throw new ScriptError("Member not found: " + memberRef);
-        }
-        // TODO: Implement member property set based on member type
-        switch (propName.toLowerCase()) {
-            case "name":
-                member.name = value.stringValue();
-                break;
-            default:
-                // Ignore unknown properties for now
-                break;
-        }
+        // Allocate datum for the value, then delegate to handler
+        int valueRef = allocDatum(value);
+        com.dirplayer.player.handlers.datum.CastMemberRefHandlers.setMemberProp(this, memberRef, propName, valueRef);
     }
 
     public int getDateProp(int dateRef, String propName) throws ScriptError {
@@ -1282,7 +1304,11 @@ public class DirPlayer {
                 CastMember member = movie.castManager.findMemberByRef(sprite.memberRef);
                 if (member != null && member.memberType == com.dirplayer.director.MemberType.FilmLoop) {
                     // Advance filmloop frame
-                    // TODO: Implement when FilmLoopMember is fully ported
+                    if (member.specificData instanceof com.dirplayer.player.cast.FilmLoopMember) {
+                        com.dirplayer.player.cast.FilmLoopMember filmLoop =
+                            (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                        filmLoop.advanceFrame();
+                    }
                 }
             }
         }
@@ -1316,7 +1342,14 @@ public class DirPlayer {
                 if (member != null && member.memberType == com.dirplayer.director.MemberType.FilmLoop) {
                     if (!processedFilmLoops.contains(sprite.memberRef)) {
                         processedFilmLoops.add(sprite.memberRef);
-                        // TODO: Initialize filmloop score sprites when FilmLoopMember is fully ported
+                        // Initialize filmloop score sprites
+                        if (member.specificData instanceof com.dirplayer.player.cast.FilmLoopMember) {
+                            com.dirplayer.player.cast.FilmLoopMember filmLoop =
+                                (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                            filmLoop.reset();
+                            // The filmloop's score sprites are managed by the FilmLoopMember's own Score
+                            // They will be initialized when the filmloop begins playing
+                        }
                     }
                 }
             }
@@ -1439,5 +1472,30 @@ public class DirPlayer {
      */
     public void soundStop(int channelNum) throws ScriptError {
         soundManager.stopSound(channelNum);
+    }
+
+    /**
+     * Get the XML nodes map for XML processing.
+     * @return Map of XML node ID to XmlNode
+     */
+    public Map<Integer, XmlNode> getXmlNodes() {
+        return xmlNodes;
+    }
+
+    /**
+     * Add an XML node to the node storage.
+     * @param node The node to add
+     */
+    public void addXmlNode(XmlNode node) {
+        xmlNodes.put(node.id, node);
+    }
+
+    /**
+     * Get an XML node by ID.
+     * @param nodeId The node ID
+     * @return The XML node or null
+     */
+    public XmlNode getXmlNode(int nodeId) {
+        return xmlNodes.get(nodeId);
     }
 }

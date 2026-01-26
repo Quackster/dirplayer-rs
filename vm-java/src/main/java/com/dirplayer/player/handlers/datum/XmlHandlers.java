@@ -5,7 +5,9 @@ import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.XmlDocument;
-import com.dirplayer.player.XmlNode;
+import com.dirplayer.player.xml.XmlNode;
+import com.dirplayer.player.xml.XmlNodeType;
+import com.dirplayer.player.xml.XmlParser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,16 +89,29 @@ public class XmlHandlers {
 
         String xmlString = argDatum.stringValue();
 
-        // Parse the XML content
-        // TODO: Implement full XML parsing when XmlParser is complete
-        // For now, create a simple document structure
+        // Parse the XML content using XmlParser
+        XmlParser parser = new XmlParser(player.nextXmlId);
+        XmlParser.ParseResult result = parser.parseXmlContent(xmlString);
+
+        // Update next XML ID in player
+        player.nextXmlId = parser.getNextXmlId();
+
+        // Add all parsed nodes to the player's xml_nodes
+        // Need to convert from xml package XmlNode to player's storage format
+        for (Map.Entry<Integer, com.dirplayer.player.xml.XmlNode> entry : result.nodes.entrySet()) {
+            com.dirplayer.player.xml.XmlNode srcNode = entry.getValue();
+            // Store directly since DirPlayer uses xml.XmlNode
+            player.xmlNodes.put(entry.getKey(), srcNode);
+        }
+
+        // Update the parser document with the parsed content
         XmlDocument parserDoc = player.xmlDocuments.get(parserId);
         if (parserDoc != null) {
-            parserDoc.setRootElement(null);
+            parserDoc.setRootElement(result.rootElementId);
             parserDoc.setContent(xmlString);
         } else {
             // Create new document if it doesn't exist
-            XmlDocument xmlDoc = new XmlDocument(parserId, null, xmlString, false);
+            XmlDocument xmlDoc = new XmlDocument(parserId, result.rootElementId, xmlString, false);
             player.xmlDocuments.put(parserId, xmlDoc);
         }
 
@@ -131,12 +146,11 @@ public class XmlHandlers {
         // Create a new XML element node
         int elementId = player.nextXmlId++;
 
-        XmlNode elementNode = new XmlNode(elementId, elementName);
-        elementNode.nodeType = XmlNode.XmlNodeType.Element;
+        XmlNode elementNode = new XmlNode(elementId, XmlNodeType.Element, elementName);
         elementNode.value = null;
         elementNode.attributes = new HashMap<>();
-        elementNode.parentNode = 0;
-        elementNode.childNodes = new ArrayList<>();
+        elementNode.parentId = null;
+        elementNode.childIds = new ArrayList<>();
 
         player.xmlNodes.put(elementId, elementNode);
 
@@ -178,14 +192,14 @@ public class XmlHandlers {
             }
 
             // Add to children list if not already there
-            if (!parentNode.childNodes.contains(childId)) {
-                parentNode.childNodes.add(childId);
+            if (!parentNode.childIds.contains(childId)) {
+                parentNode.childIds.add(childId);
             }
 
             // Update child's parent reference
             XmlNode childNode = player.xmlNodes.get(childId);
             if (childNode != null) {
-                childNode.parentNode = parentId;
+                childNode.parentId = parentId;
             }
         }
 
@@ -244,13 +258,13 @@ public class XmlHandlers {
                 }
 
                 // Check if has children
-                if (node.childNodes.isEmpty()) {
+                if (node.childIds.isEmpty()) {
                     xml.append(" />");
                 } else {
                     xml.append(">");
 
                     // Serialize children
-                    for (Integer childId : node.childNodes) {
+                    for (Integer childId : node.childIds) {
                         xml.append(serializeNode(player, childId));
                     }
 
@@ -443,12 +457,12 @@ public class XmlHandlers {
         List<Integer> children = new ArrayList<>();
         boolean ignoreWhite = shouldIgnoreWhitespace(player, nodeId);
 
-        for (Integer childId : node.childNodes) {
+        for (Integer childId : node.childIds) {
             XmlNode childNode = player.xmlNodes.get(childId);
             if (childNode != null) {
                 boolean shouldInclude = true;
 
-                if (childNode.nodeType == XmlNode.XmlNodeType.Text) {
+                if (childNode.nodeType == XmlNodeType.Text) {
                     String text = childNode.value;
                     if (text != null && text.trim().isEmpty() && ignoreWhite) {
                         shouldInclude = false;
@@ -496,8 +510,8 @@ public class XmlHandlers {
     private static boolean isDescendantOf(DirPlayer player, int nodeId, int ancestorId) {
         XmlNode node = player.xmlNodes.get(nodeId);
         if (node != null) {
-            int parentId = node.parentNode;
-            if (parentId != 0) {
+            Integer parentId = node.parentId;
+            if (parentId != null && parentId != 0) {
                 if (parentId == ancestorId) {
                     return true;
                 } else {
@@ -555,7 +569,7 @@ public class XmlHandlers {
         }
 
         // Recurse into children
-        for (Integer childId : node.childNodes) {
+        for (Integer childId : node.childIds) {
             searchNodesRecursive(player, childId, targetName, results);
         }
     }

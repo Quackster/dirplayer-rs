@@ -208,7 +208,8 @@ public class BitmapDrawing {
         if (x < 0 || y < 0 || x >= bitmap.width || y >= bitmap.height) {
             return;
         }
-        bitmap.matte = null; // TODO draw on matte instead
+        // Invalidate matte when pixels change - the matte mask needs to be regenerated
+        bitmap.matte = null;
         int r = color[0];
         int g = color[1];
         int b = color[2];

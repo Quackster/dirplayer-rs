@@ -3,10 +3,17 @@ package com.dirplayer.player.handlers.datum.castmember;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.StringChunkType;
 import com.dirplayer.player.CastMemberRef;
+import com.dirplayer.player.ColorRef;
 import com.dirplayer.player.DirPlayer;
+import com.dirplayer.player.FontManager;
 import com.dirplayer.player.ScriptError;
+import com.dirplayer.player.bitmap.Bitmap;
+import com.dirplayer.player.bitmap.BuiltInPalette;
+import com.dirplayer.player.bitmap.PaletteMap;
+import com.dirplayer.player.bitmap.PaletteRef;
 import com.dirplayer.player.cast.FieldMember;
 import com.dirplayer.player.handlers.datum.StringChunkHandlers;
+import com.dirplayer.rendering.CopyPixelsParams;
 
 import java.util.List;
 
@@ -129,8 +136,7 @@ public class FieldMemberHandlers {
                     case "height":
                         return player.allocDatum(Datum.ofInt(height));
                     case "image":
-                        // TODO: Generate bitmap image from field text
-                        return 0; // Void for now
+                        return generateFieldImage(player, field, width, height);
                     default:
                         throw new ScriptError("Unexpected property: " + prop);
                 }
@@ -257,5 +263,81 @@ public class FieldMemberHandlers {
         }
         int lineHeight = field.fixedLineSpace > 0 ? field.fixedLineSpace : (field.fontSize > 0 ? field.fontSize + 4 : 16);
         return lineCount * lineHeight + field.topSpacing;
+    }
+
+    /**
+     * Generate a bitmap image from field text using the font manager.
+     */
+    private static int generateFieldImage(DirPlayer player, FieldMember field, int width, int height) throws ScriptError {
+        // Create a new bitmap for the field text
+        com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
+            width, height, 32, 8, 0,
+            com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(com.dirplayer.player.bitmap.BuiltInPalette.SystemWin)
+        );
+
+        // Fill with transparent background
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = (y * width + x) * 4;
+                if (index + 3 < bitmap.getData().length) {
+                    bitmap.getData()[index] = 0;     // R
+                    bitmap.getData()[index + 1] = 0; // G
+                    bitmap.getData()[index + 2] = 0; // B
+                    bitmap.getData()[index + 3] = 0; // A (transparent)
+                }
+            }
+        }
+
+        // Try to get the font for rendering text
+        String fontName = field.font != null && !field.font.isEmpty() ? field.font : "system";
+        com.dirplayer.player.FontManager.BitmapFont font = null;
+
+        if (player.fontManager != null) {
+            font = player.fontManager.getFontWithCast(
+                fontName,
+                player.movie.castManager,
+                field.fontSize > 0 ? field.fontSize : 12,
+                null
+            );
+
+            if (font == null) {
+                font = player.fontManager.getSystemFont();
+            }
+        }
+
+        // If we have a font, render the text
+        if (font != null && field.text != null && !field.text.isEmpty()) {
+            com.dirplayer.player.bitmap.Bitmap fontBitmap = player.bitmapManager.getBitmap(font.bitmapRef);
+            if (fontBitmap != null) {
+                java.util.List<int[][]> palettes = player.movie.castManager.palettes();
+
+                com.dirplayer.rendering.CopyPixelsParams params = new com.dirplayer.rendering.CopyPixelsParams();
+                params.blend = 100;
+                params.ink = 36;
+                params.color = bitmap.getFgColorRef();
+                params.bgColor = com.dirplayer.player.ColorRef.paletteIndex(0);
+                params.maskImage = null;
+                params.isTextRendering = true;
+                params.rotation = 0.0;
+                params.sprite = null;
+                params.originalDstRect = null;
+
+                bitmap.drawText(
+                    field.text,
+                    font,
+                    fontBitmap,
+                    0,
+                    field.topSpacing,
+                    params,
+                    palettes,
+                    field.fixedLineSpace,
+                    field.topSpacing
+                );
+            }
+        }
+
+        // Store the bitmap and return a reference
+        int bitmapRef = player.bitmapManager.addBitmap(bitmap);
+        return player.allocDatum(Datum.ofBitmapRef(bitmapRef));
     }
 }

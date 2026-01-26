@@ -46,10 +46,11 @@ public class BitmapMemberHandlers {
             case "paletteref": {
                 PaletteRef paletteRef = bitmap.paletteRef;
                 if (paletteRef != null) {
-                    // TODO: Return proper palette ref datum when supported
-                    return player.allocDatum(Datum.ofInt(0));
+                    return player.allocDatum(Datum.ofPaletteRef(paletteRef));
                 }
-                return 0; // Void
+                // Default to grayscale if no palette set
+                return player.allocDatum(Datum.ofPaletteRef(
+                    PaletteRef.ofBuiltIn(BuiltInPalette.GrayScale)));
             }
 
             case "regpoint": {

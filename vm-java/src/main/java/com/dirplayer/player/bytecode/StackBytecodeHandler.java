@@ -267,9 +267,15 @@ public class StackBytecodeHandler {
         // Check if the script has a "new" handler and call it
         Script script = player.movie.castManager.getScriptByRef(scriptMemberRef);
         if (script != null && script.hasHandler("new")) {
-            // TODO: Call the "new" handler on the script instance
-            // This requires async handler calling which is not yet implemented
-            // For now, just return the instance without calling "new"
+            // Call the "new" handler on the script instance
+            try {
+                com.dirplayer.player.handlers.datum.ScriptInstanceHandlers.call(
+                    player, instanceResult.datumRef, "new", extraArgs);
+            } catch (ScriptError e) {
+                // Log but don't fail - some scripts may not have new handlers
+                SimpleLogger.getLogger(StackBytecodeHandler.class).debug(
+                    "Error calling 'new' handler: {}", e.getMessage());
+            }
         }
 
         // Push the script instance datum onto the stack

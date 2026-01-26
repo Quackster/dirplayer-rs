@@ -4,6 +4,7 @@ import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.bitmap.BitmapRef;
+import com.dirplayer.player.bitmap.PaletteRef;
 import com.dirplayer.player.ColorRef;
 import com.dirplayer.player.CursorRef;
 import com.dirplayer.player.script.ScriptInstanceRef;
@@ -42,7 +43,7 @@ public class Datum {
     private ColorRef colorRef;
     private BitmapRef bitmapRef;
     private CursorRef cursorRef;
-    private int paletteRef;
+    private PaletteRef paletteRefValue;
 
     // String chunk specific
     private StringChunkExpr stringChunkExpr;
@@ -280,6 +281,15 @@ public class Datum {
     public static Datum ofBitmapRef(int bitmapId) {
         Datum d = new Datum(DatumType.BitmapRef);
         d.bitmapRef = new BitmapRef(bitmapId);
+        return d;
+    }
+
+    /**
+     * Create a palette reference datum.
+     */
+    public static Datum ofPaletteRef(PaletteRef ref) {
+        Datum d = new Datum(DatumType.PaletteRef);
+        d.paletteRefValue = ref;
         return d;
     }
 
@@ -767,6 +777,13 @@ public class Datum {
         return xmlRef;
     }
 
+    public PaletteRef getPaletteRefValue() throws ScriptError {
+        if (type != DatumType.PaletteRef) {
+            throw new ScriptError("Cannot get palette ref from non-palette-ref datum");
+        }
+        return paletteRefValue;
+    }
+
     public StringChunkExpr getStringChunkExpr() throws ScriptError {
         if (type != DatumType.StringChunk) {
             throw new ScriptError("Cannot get string chunk expr from non-string-chunk");
@@ -1032,7 +1049,7 @@ public class Datum {
         d.colorRef = colorRef;
         d.bitmapRef = bitmapRef;
         d.cursorRef = cursorRef;
-        d.paletteRef = paletteRef;
+        d.paletteRefValue = paletteRefValue;
         d.stringChunkExpr = stringChunkExpr;
         d.stringChunkSourceRef = stringChunkSourceRef;
         d.stringChunkMemberRef = stringChunkMemberRef;

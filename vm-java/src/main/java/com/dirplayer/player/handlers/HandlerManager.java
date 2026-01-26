@@ -8,11 +8,14 @@ import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.NetTask;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.CastLib;
+import com.dirplayer.player.CastMember;
 import com.dirplayer.player.handlers.datum.ListHandlers;
 import com.dirplayer.player.handlers.datum.PointHandlers;
 import com.dirplayer.player.handlers.datum.PropListHandlers;
 import com.dirplayer.player.handlers.datum.ScriptInstanceHandlers;
 import com.dirplayer.player.script.ScriptInstanceRef;
+import com.dirplayer.director.chunks.MemberType;
 
 import com.dirplayer.SimpleLogger;
 
@@ -1288,9 +1291,25 @@ public class HandlerManager {
             throw new ScriptError("First argument must be an XML node reference");
         }
 
-        // TODO: Implement XML node searching when XmlHelper is ported
-        // For now, return empty list
-        return player.allocDatum(Datum.ofList(DatumType.List, new ArrayList<>(), false));
+        // Search for matching nodes using XmlParser helper
+        int xmlId = xmlNode.getXmlRef();
+
+        // Get the XML nodes from player's XML storage
+        java.util.Map<Integer, com.dirplayer.player.xml.XmlNode> nodes = player.getXmlNodes();
+        if (nodes == null || nodes.isEmpty()) {
+            return player.allocDatum(Datum.ofList(DatumType.List, new ArrayList<>(), false));
+        }
+
+        // Find child nodes matching the name
+        List<Integer> matchingIds = com.dirplayer.player.xml.XmlParser.findNodesByName(nodes, xmlId, nodeName);
+
+        // Convert to datum refs
+        List<Integer> resultRefs = new ArrayList<>();
+        for (int nodeId : matchingIds) {
+            resultRefs.add(player.allocDatum(Datum.ofXmlRef(nodeId)));
+        }
+
+        return player.allocDatum(Datum.ofList(DatumType.List, resultRefs, false));
     }
 
     /**
@@ -1472,12 +1491,42 @@ public class HandlerManager {
 
         for (int frameNum = startFrame; frameNum <= endFrame; frameNum++) {
             // Check channel initialization data for this frame
-            // TODO: Implement when score channel data is fully ported
+            for (com.dirplayer.director.chunks.ScoreFrameData.FrameChannelEntry entry : player.movie.score.channelInitializationData) {
+                if (entry.frameIndex + 1 == frameNum) {
+                    // Skip empty sprites
+                    if (entry.data.castLib > 0 && entry.data.castMember > 0) {
+                        castMembersToCheck.add(entry.data.castLib + ":" + entry.data.castMember);
+                    }
+                }
+            }
         }
 
         logger.debug("Found {} unique cast members to check", castMembersToCheck.size());
 
-        // For now, assume all frames are ready
+        // Check if all cast members are loaded
+        for (String key : castMembersToCheck) {
+            String[] parts = key.split(":");
+            int castLib = Integer.parseInt(parts[0]);
+            int castMemberNum = Integer.parseInt(parts[1]);
+
+            CastLib cast = player.movie.castManager.getCast(castLib);
+            if (cast != null) {
+                CastMember member = cast.members.get(castMemberNum);
+                if (member == null) {
+                    // Cast member not loaded yet
+                    logger.debug("Cast member {}:{} not loaded", castLib, castMemberNum);
+                    return player.allocDatum(Datum.ofInt(0));
+                }
+                // For bitmap members, check if bitmap is loaded
+                if (member.memberType == MemberType.Bitmap) {
+                    if (member.bitmap == null || !member.bitmap.isLoaded()) {
+                        logger.debug("Bitmap not loaded for member {}:{}", castLib, castMemberNum);
+                        return player.allocDatum(Datum.ofInt(0));
+                    }
+                }
+            }
+        }
+
         logger.debug("All frames ready!");
         return player.allocDatum(Datum.ofInt(1));
     }
@@ -2240,6 +2289,12 @@ public class HandlerManager {
     private static void dispatchExternalEvent(String eventString) {
         // Log the event
         logger.info("External Event: {}", eventString);
-        // TODO: Implement callback to JavaScript when running in browser
+        // Emit via JsApi if available (TeaVM environment)
+        try {
+            com.dirplayer.JsApi.dispatchExternalEvent(eventString);
+        } catch (Exception e) {
+            // JsApi may not be available in non-browser environments
+            logger.debug("JsApi not available for external event dispatch");
+        }
     }
 }

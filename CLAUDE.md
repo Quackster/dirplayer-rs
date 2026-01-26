@@ -6,12 +6,45 @@ This is a Java port of **DirPlayer**, a Shockwave/Director Player emulator origi
 ## Task
 Port the entirety of the Rust project (`vm-rust/`) to Java (`vm-java/`) without changing any behavior or skipping any features.
 
-## Current Status: SUBSTANTIALLY COMPLETE
+## Current Status: TODO COMPLETION IN PROGRESS
 
 ### Statistics
 - **Original Rust**: 149 .rs files, 61,630 lines
-- **Java Port**: 262 .java files, 56,114 lines (~91% coverage)
+- **Java Port**: 263+ .java files
 - **Build Status**: Compiles successfully
+- **TODO Progress**: ~50 TODOs completed, ~40 remaining
+
+### Completed TODOs (this session)
+1. **HandlerManager.java** (31 TODOs) - COMPLETED
+   - All network handlers (preloadNetThing, netDone, getNetText, getStreamStatus, netError, netTextResult, postNetText)
+   - Script/member handlers (script, member, puppetSprite)
+   - External params (externalParamName, externalParamValue)
+   - Event handlers (stopEvent, sendSprite, sendAllSprites, updateStage)
+   - Misc handlers (getPref, setPref, goToNetPage, puppetSound, cursor, timeout, image, xtra)
+   - newInstance and callAncestor
+
+2. **DirPlayer.java** (6 TODOs) - COMPLETED
+   - getMemberProp/setMemberProp - now delegates to CastMemberRefHandlers
+   - Xtra handler calls - now delegates to XtraHandlers
+   - FilmLoop frame advancement
+   - Bitmap hex print for debugging
+
+3. **CastManager.java** (2 TODOs) - COMPLETED
+   - getFieldValueByIdentifiers - now returns member text
+   - palettes() - now extracts palette data from PaletteMember
+
+4. **New Files Created**:
+   - `XtraHandlers.java` - Handles Xtra method calls, property get/set
+
+### In Progress
+- **Renderer.java** - FilmLoop rendering, text rendering
+- **EventDispatcher.java** - FilmLoop sprite collection
+
+### Remaining TODOs by File
+1. **Renderer.java** (~4 items): Text/Field rendering, FilmLoop rendering
+2. **EventDispatcher.java** (~2 items): FilmLoop sprite collection
+3. **Stage.java** (~2 items): Stage image getter
+4. **Remaining files** (~15 items): Various edge cases
 
 ## Completed Modules
 
@@ -30,11 +63,12 @@ Port the entirety of the Rust project (`vm-rust/`) to Java (`vm-java/`) without 
 - **Core Runtime**: DirPlayer, Movie, Score, Sprite, CastManager, CastLib
 - **Bytecode Execution**: BytecodeHandlerManager, GetSetBytecodeHandler, StackBytecodeHandler, FlowControlBytecodeHandler, etc.
 - **Event System**: EventDispatcher with full event dispatch support
-- **Datum Handlers (24+ types)**: ListHandlers, PropListHandlers, StringDatumHandlers, CastMemberRefHandlers, SpriteHandlers, etc.
+- **Datum Handlers (25+ types)**: ListHandlers, PropListHandlers, StringDatumHandlers, CastMemberRefHandlers, SpriteHandlers, XtraHandlers, etc.
 - **Bitmap Module**: Bitmap, BitmapDrawing, BitmapDecoder, Palettes, PaletteRef
 - **Score/Keyframes**: KeyframeUtils, SpritePathKeyframes, SpritePropertyUtils
 - **Rendering**: StageRenderer, PlayerCanvasRenderer, FilmLoopRenderer, InkEffect
 - **Support Systems**: SoundManager, FontManager, TimeoutManager, NetManager, KeyboardManager
+- **Xtra Support**: XtraManager, MultiUserXtra, FileIOXtra, NetLingoXtra
 
 ### 4. JavaScript Bridge
 - `JsApi.java` - TeaVM JSO bindings for browser integration
@@ -54,7 +88,7 @@ com.dirplayer
 │   ├── commands/           # Command execution
 │   ├── events/             # Event dispatch
 │   ├── handlers/           # Built-in handlers
-│   │   └── datum/          # Type-specific handlers
+│   │   └── datum/          # Type-specific handlers (25+)
 │   │       └── castmember/ # Cast member type handlers
 │   ├── rendering/          # Canvas rendering
 │   ├── score/              # Timeline/score management
@@ -83,13 +117,6 @@ mvn clean compile
 mvn package
 ```
 
-## Remaining Work (Minor)
-
-1. **94 TODO items** - Mostly stubs for edge cases
-2. **FilmLoop support** - Partial implementation
-3. **Xtra handlers** - Not yet implemented
-4. **Some property getters/setters** - Based on member type
-
 ## Technical Notes
 
 ### Rust to Java Mapping
@@ -106,5 +133,12 @@ mvn package
 - Event dispatch follows original Rust patterns
 - Property access uses the same name constants as Rust
 
+## Reference Files
+When implementing remaining TODOs, refer to these Rust sources:
+- `vm-rust/src/rendering.rs` - Full filmloop rendering implementation
+- `vm-rust/src/player/handlers/movie.rs` - Movie handlers
+- `vm-rust/src/player/handlers/net.rs` - Network handlers
+- `vm-rust/src/player/events.rs` - Event dispatch
+
 ## Last Updated
-2026-01-27
+2026-01-27 (TODO completion session in progress)

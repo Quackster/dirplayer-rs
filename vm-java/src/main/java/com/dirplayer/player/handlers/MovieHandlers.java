@@ -474,7 +474,11 @@ public class MovieHandlers {
      * @throws ScriptError never
      */
     public static int stopEvent(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement event stopping
+        // Stop event propagation by marking the current scope as not passed
+        int scopeRef = player.currentScopeRef();
+        if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
+            player.scopes.get(scopeRef).passed = false;
+        }
         return 0; // Void
     }
 

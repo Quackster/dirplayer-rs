@@ -706,7 +706,24 @@ public class EventDispatcher {
             data.allChannels.add(new SpriteChannelRef(ScoreRef.stage(), channel.number));
         }
 
-        // TODO: Also collect filmloop sprites here
+        // Collect filmloop sprites
+        for (var channel : player.movie.score.channels) {
+            if (channel.sprite == null || channel.sprite.memberRef == null) {
+                continue;
+            }
+            var member = player.movie.castManager.findMemberByRef(channel.sprite.memberRef);
+            if (member != null && member.memberType == com.dirplayer.director.MemberType.FilmLoop) {
+                if (member.specificData instanceof com.dirplayer.player.cast.FilmLoopMember) {
+                    com.dirplayer.player.cast.FilmLoopMember filmLoop =
+                        (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                    ScoreRef filmLoopRef = ScoreRef.filmLoop(channel.sprite.memberRef);
+                    // Add filmloop channels to allChannels
+                    for (var filmLoopChannel : filmLoop.getScore().channels) {
+                        data.allChannels.add(new SpriteChannelRef(filmLoopRef, filmLoopChannel.number));
+                    }
+                }
+            }
+        }
 
         return data;
     }
@@ -776,7 +793,40 @@ public class EventDispatcher {
             }
         }
 
-        // TODO: Also collect filmloop sprites here
+        // Collect filmloop sprite behaviors
+        for (var channel : player.movie.score.channels) {
+            if (channel.sprite == null || channel.sprite.memberRef == null) {
+                continue;
+            }
+            var member = player.movie.castManager.findMemberByRef(channel.sprite.memberRef);
+            if (member != null && member.memberType == com.dirplayer.director.MemberType.FilmLoop) {
+                if (member.specificData instanceof com.dirplayer.player.cast.FilmLoopMember) {
+                    com.dirplayer.player.cast.FilmLoopMember filmLoop =
+                        (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                    ScoreRef filmLoopRef = ScoreRef.filmLoop(channel.sprite.memberRef);
+
+                    for (var filmLoopChannel : filmLoop.getScore().channels) {
+                        if (filmLoopChannel.sprite == null ||
+                            filmLoopChannel.sprite.scriptInstanceList.isEmpty()) {
+                            continue;
+                        }
+                        if (!filmLoopChannel.sprite.entered) {
+                            continue;
+                        }
+
+                        List<ScriptInstanceRef> filmLoopBehaviors = new ArrayList<>();
+                        for (int id : filmLoopChannel.sprite.scriptInstanceList) {
+                            filmLoopBehaviors.add(new ScriptInstanceRef(id));
+                        }
+
+                        if (filmLoopChannel.number > 0) {
+                            data.spriteBehaviors.add(new SpriteBehaviorData(
+                                    filmLoopRef, filmLoopChannel.number, filmLoopBehaviors));
+                        }
+                    }
+                }
+            }
+        }
 
         return data;
     }

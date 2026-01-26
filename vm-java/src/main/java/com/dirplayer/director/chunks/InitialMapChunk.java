@@ -18,7 +18,8 @@ public class InitialMapChunk {
     }
 
     public static InitialMapChunk fromReader(BinaryReader reader, int dirVersion) {
-        // TODO: Implement proper parsing
-        throw new UnsupportedOperationException("InitialMapChunk parsing not yet implemented");
+        // Note: The Rust implementation also returns Err("TODO") for this chunk.
+        // InitialMapChunk is not used in the main Director file parsing workflow.
+        throw new UnsupportedOperationException("InitialMapChunk parsing not implemented (matches Rust)");
     }
 }

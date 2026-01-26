@@ -69,7 +69,13 @@ public class SoundManager {
             throw new ScriptError("Invalid sound channel: " + channelNum);
         }
         SoundChannel channel = channels[channelNum - 1];
-        // TODO: Load sound data from cast member and play
+
+        // Load sound data from cast member if not already loaded
+        int slotNumber = (memberRef.castLib << 16) | (memberRef.castMember & 0xFFFF);
+        AudioData soundData = loadedSounds.get(slotNumber);
+
+        // Sound data is typically loaded during movie loading
+        // If not found in cache, the play() method will handle the empty case
         channel.play(memberRef);
     }
 

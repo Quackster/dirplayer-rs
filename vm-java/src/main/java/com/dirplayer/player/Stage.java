@@ -36,32 +36,40 @@ public class Stage {
                 return Datum.ofRect(refs);
             }
             case "sourceRect": {
-                // TODO where does this come from?
-                int width = player.movie.rect.width();
-                int height = player.movie.rect.height();
+                // sourceRect is the original movie rect before any scaling
+                // This represents the original dimensions from the DCR/DXR file
+                int width = player.movie.sourceRect != null ? player.movie.sourceRect.width() : player.movie.rect.width();
+                int height = player.movie.sourceRect != null ? player.movie.sourceRect.height() : player.movie.rect.height();
+                int left = player.movie.sourceRect != null ? player.movie.sourceRect.left : 0;
+                int top = player.movie.sourceRect != null ? player.movie.sourceRect.top : 0;
                 int[] refs = new int[] {
-                    player.allocDatum(Datum.ofInt(0)),
-                    player.allocDatum(Datum.ofInt(0)),
-                    player.allocDatum(Datum.ofInt(width)),
-                    player.allocDatum(Datum.ofInt(height))
+                    player.allocDatum(Datum.ofInt(left)),
+                    player.allocDatum(Datum.ofInt(top)),
+                    player.allocDatum(Datum.ofInt(left + width)),
+                    player.allocDatum(Datum.ofInt(top + height))
                 };
                 return Datum.ofRect(refs);
             }
             case "bgColor":
                 return Datum.ofColorRef(player.bgColor);
             case "image": {
-                logger.warn("TODO get stage image");
+                // Return a bitmap snapshot of the current stage
                 int width = player.movie.rect.width();
                 int height = player.movie.rect.height();
-                Bitmap newBitmap = new Bitmap(
+                Bitmap stageBitmap = new Bitmap(
                     width,
                     height,
                     32,
                     32,
-                    0,
+                    8,
                     PaletteRef.ofBuiltIn(getSystemDefaultPalette())
                 );
-                int bitmapId = player.bitmapManager.addBitmap(newBitmap);
+                stageBitmap.useAlpha = true;
+
+                // Render current stage to this bitmap
+                com.dirplayer.rendering.Renderer.renderStageToBitmap(player, stageBitmap, null);
+
+                int bitmapId = player.bitmapManager.addBitmap(stageBitmap);
                 return Datum.ofBitmapRef(bitmapId);
             }
             default:

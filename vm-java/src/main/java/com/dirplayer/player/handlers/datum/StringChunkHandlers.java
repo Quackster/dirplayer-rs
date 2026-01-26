@@ -52,7 +52,7 @@ public class StringChunkHandlers {
             case "font":
             case "fontstyle":
             case "color":
-                // TODO: Implement text styling
+                // Note: Text styling for string chunks is not implemented in Rust either
                 break;
             default:
                 throw new ScriptError("Cannot set property " + prop + " for string chunk datum");

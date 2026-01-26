@@ -45,6 +45,13 @@ public class ScoreRef {
         return memberRef;
     }
 
+    /**
+     * Alias for getMemberRef() when used with filmloops.
+     */
+    public CastMemberRef getFilmLoopMemberRef() {
+        return memberRef;
+    }
+
     @Override
     public String toString() {
         if (type == Type.STAGE) {

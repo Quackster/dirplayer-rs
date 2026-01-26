@@ -39,10 +39,11 @@ public class XmlNode {
     }
 
     public enum XmlNodeType {
+        Document,
         Element,
         Text,
         Comment,
-        CData,
-        Document
+        ProcessingInstruction,
+        CData
     }
 }

@@ -68,8 +68,9 @@ public class NetHandlers {
             throw new ScriptError("Cannot decode URL: " + e.getMessage());
         }
 
-        // TODO: The task could be tagged as a text task
+        // Tag the task as a text task for text retrieval
         int taskId = player.netManager.preloadNetThing(url);
+        player.netManager.tagTaskAsText(taskId);
 
         return player.allocDatum(Datum.ofInt(taskId));
     }
