@@ -49,7 +49,7 @@ public class BitmapManager {
         return id;
     }
 
-    public BitmapData getBitmap(int id) {
+    public BitmapData getBitmapData(int id) {
         return bitmaps.get(id);
     }
 

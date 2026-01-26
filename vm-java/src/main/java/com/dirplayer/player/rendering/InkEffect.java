@@ -121,7 +121,7 @@ public final class InkEffect {
             case MASK: return "Mask";
             case BLEND: return "Blend";
             case ADD_PIN: return "Add Pin";
-            case ADD: return "Add";
+            case Add: return "Add";
             case SUBTRACT_PIN: return "Subtract Pin";
             case BACKGROUND_TRANSPARENT: return "Background Transparent";
             case LIGHTEST: return "Lightest";

@@ -1,7 +1,7 @@
 package com.dirplayer.player;
 
-import com.dirplayer.director.enums.ScriptType;
-import com.dirplayer.director.lingo.datum.Datum;
+import com.dirplayer.director.ScriptType;
+import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.cast.CastMemberData;
 import com.dirplayer.player.script.Script;
 import org.slf4j.Logger;

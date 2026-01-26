@@ -43,33 +43,33 @@ public class StackExpressionTracker {
             // PUSH OPERATIONS
             // ============================================================
 
-            case PUSH_INT8:
-            case PUSH_INT16:
-            case PUSH_INT32: {
+            case PushInt8:
+            case PushInt16:
+            case PushInt32: {
                 String expr = String.valueOf(bytecode.obj);
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case PUSH_FLOAT32: {
+            case PushFloat32: {
                 float f = Float.intBitsToFloat((int) bytecode.obj);
                 String expr = String.valueOf(f);
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case PUSH_ZERO:
+            case PushZero:
                 stack.add("0");
                 return "<0>";
 
-            case PUSH_SYMB: {
+            case PushSymb: {
                 String name = getName(lctx, (int) bytecode.obj);
                 String expr = "#" + name;
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case PUSH_CONS: {
+            case PushCons: {
                 int literalId = (int) (bytecode.obj / multiplier);
                 if (literalId < literals.size()) {
                     Datum literal = literals.get(literalId);
@@ -87,14 +87,14 @@ public class StackExpressionTracker {
             // VARIABLE ACCESS - LOCAL
             // ============================================================
 
-            case GET_LOCAL: {
+            case GetLocal: {
                 int localIndex = (int) (bytecode.obj / multiplier);
                 String name = getLocalName(handler, lctx, localIndex);
                 stack.add(name);
                 return "<" + name + ">";
             }
 
-            case SET_LOCAL: {
+            case SetLocal: {
                 int localIndex = (int) (bytecode.obj / multiplier);
                 String name = getLocalName(handler, lctx, localIndex);
                 if (!stack.isEmpty()) {
@@ -107,14 +107,14 @@ public class StackExpressionTracker {
             // VARIABLE ACCESS - PARAMETER
             // ============================================================
 
-            case GET_PARAM: {
+            case GetParam: {
                 int paramIndex = (int) (bytecode.obj / multiplier);
                 String name = getParamName(handler, lctx, paramIndex);
                 stack.add(name);
                 return "<" + name + ">";
             }
 
-            case SET_PARAM: {
+            case SetParam: {
                 int paramIndex = (int) (bytecode.obj / multiplier);
                 String name = getParamName(handler, lctx, paramIndex);
                 if (!stack.isEmpty()) {
@@ -127,13 +127,13 @@ public class StackExpressionTracker {
             // VARIABLE ACCESS - GLOBAL
             // ============================================================
 
-            case GET_GLOBAL: {
+            case GetGlobal: {
                 String name = getName(lctx, (int) bytecode.obj);
                 stack.add(name);
                 return "<" + name + ">";
             }
 
-            case SET_GLOBAL: {
+            case SetGlobal: {
                 String name = getName(lctx, (int) bytecode.obj);
                 if (!stack.isEmpty()) {
                     return "<" + name + " = " + stack.get(stack.size() - 1) + ">";
@@ -145,14 +145,14 @@ public class StackExpressionTracker {
             // PROPERTY ACCESS
             // ============================================================
 
-            case GET_PROP: {
+            case GetProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 String expr = "me." + name;
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case SET_PROP: {
+            case SetProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 if (stack.size() >= 2) {
                     String value = stack.remove(stack.size() - 1);
@@ -165,7 +165,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case GET_CHAINED_PROP: {
+            case GetChainedProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 if (stack.isEmpty()) {
                     String expr = "me." + name;
@@ -179,7 +179,7 @@ public class StackExpressionTracker {
                 }
             }
 
-            case GET_OBJ_PROP: {
+            case GetObjProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 if (stack.isEmpty()) {
                     String expr = "me[#" + name + "]";
@@ -193,7 +193,7 @@ public class StackExpressionTracker {
                 }
             }
 
-            case SET_OBJ_PROP: {
+            case SetObjProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 if (stack.size() >= 2) {
                     String value = stack.remove(stack.size() - 1);
@@ -206,7 +206,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case GET_TOP_LEVEL_PROP: {
+            case GetTopLevelProp: {
                 String name = getName(lctx, (int) bytecode.obj);
                 String expr = "_global." + name;
                 stack.add(expr);
@@ -217,21 +217,21 @@ public class StackExpressionTracker {
             // THE BUILTIN & MOVIE PROPERTIES
             // ============================================================
 
-            case THE_BUILTIN: {
+            case TheBuiltin: {
                 String propName = getBuiltinName((int) bytecode.obj);
                 String expr = "the " + propName;
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case GET_MOVIE_PROP: {
+            case GetMovieProp: {
                 String propName = getMoviePropName((int) bytecode.obj);
                 String expr = "the " + propName;
                 stack.add(expr);
                 return "<" + expr + ">";
             }
 
-            case SET_MOVIE_PROP: {
+            case SetMovieProp: {
                 String propName = getMoviePropName((int) bytecode.obj);
                 if (!stack.isEmpty()) {
                     return "<the " + propName + " = " + stack.get(stack.size() - 1) + ">";
@@ -243,18 +243,18 @@ public class StackExpressionTracker {
             // ARITHMETIC OPERATIONS
             // ============================================================
 
-            case ADD:
+            case Add:
                 return binaryOp("+");
-            case SUB:
+            case Sub:
                 return binaryOp("-");
-            case MUL:
+            case Mul:
                 return binaryOp("*");
-            case DIV:
+            case Div:
                 return binaryOp("/");
-            case MOD:
+            case Mod:
                 return binaryOp("mod");
 
-            case INV: {
+            case Inv: {
                 if (!stack.isEmpty()) {
                     String a = stack.remove(stack.size() - 1);
                     String expr = "-(" + a + ")";
@@ -268,16 +268,16 @@ public class StackExpressionTracker {
             // STRING OPERATIONS
             // ============================================================
 
-            case JOIN_STR:
+            case JoinStr:
                 return binaryOp("&");
-            case JOIN_PAD_STR:
+            case JoinPadStr:
                 return binaryOp("&&");
-            case CONTAINS_STR:
+            case ContainsStr:
                 return binaryOp("contains");
-            case CONTAINS_0_STR:
+            case Contains0Str:
                 return binaryOp("starts");
 
-            case GET_CHUNK: {
+            case GetChunk: {
                 // Pop chunk expression components
                 if (stack.size() >= 3) {
                     String endIdx = stack.remove(stack.size() - 1);
@@ -290,7 +290,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case PUT: {
+            case Put: {
                 // put <source> into/after/before <dest>
                 if (stack.size() >= 2) {
                     String dest = stack.remove(stack.size() - 1);
@@ -300,7 +300,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case PUT_CHUNK: {
+            case PutChunk: {
                 // put <value> into char X to Y of <string>
                 if (stack.size() >= 2) {
                     String chunk = stack.remove(stack.size() - 1);
@@ -310,7 +310,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case DELETE_CHUNK: {
+            case DeleteChunk: {
                 if (!stack.isEmpty()) {
                     String chunk = stack.remove(stack.size() - 1);
                     return "<delete " + chunk + ">";
@@ -322,29 +322,29 @@ public class StackExpressionTracker {
             // COMPARISON OPERATIONS
             // ============================================================
 
-            case EQ:
+            case Eq:
                 return binaryOp("=");
-            case NT_EQ:
+            case NtEq:
                 return binaryOp("<>");
-            case LT:
+            case Lt:
                 return binaryOp("<");
-            case LT_EQ:
+            case LtEq:
                 return binaryOp("<=");
-            case GT:
+            case Gt:
                 return binaryOp(">");
-            case GT_EQ:
+            case GtEq:
                 return binaryOp(">=");
 
             // ============================================================
             // LOGICAL OPERATIONS
             // ============================================================
 
-            case AND:
+            case And:
                 return binaryOp("and");
-            case OR:
+            case Or:
                 return binaryOp("or");
 
-            case NOT: {
+            case Not: {
                 if (!stack.isEmpty()) {
                     String a = stack.remove(stack.size() - 1);
                     String expr = "not (" + a + ")";
@@ -358,7 +358,7 @@ public class StackExpressionTracker {
             // LIST OPERATIONS
             // ============================================================
 
-            case PUSH_LIST: {
+            case PushList: {
                 int count = lastArgCount;
                 List<String> items = new ArrayList<>();
                 for (int i = 0; i < count && !stack.isEmpty(); i++) {
@@ -369,7 +369,7 @@ public class StackExpressionTracker {
                 return "<" + expr + ">";
             }
 
-            case PUSH_PROP_LIST: {
+            case PushPropList: {
                 int count = lastArgCount / 2;
                 List<String> items = new ArrayList<>();
                 for (int i = 0; i < count && stack.size() >= 2; i++) {
@@ -382,8 +382,8 @@ public class StackExpressionTracker {
                 return "<" + expr + ">";
             }
 
-            case PUSH_ARG_LIST:
-            case PUSH_ARG_LIST_NO_RET:
+            case PushArgList:
+            case PushArgListNoRet:
                 lastArgCount = (int) bytecode.obj;
                 return "<" + bytecode.obj + ">";
 
@@ -391,7 +391,7 @@ public class StackExpressionTracker {
             // FUNCTION CALLS
             // ============================================================
 
-            case EXT_CALL: {
+            case ExtCall: {
                 String name = getName(lctx, (int) bytecode.obj);
                 int count = lastArgCount;
                 List<String> args = new ArrayList<>();
@@ -403,7 +403,7 @@ public class StackExpressionTracker {
                 return expr;
             }
 
-            case LOCAL_CALL: {
+            case LocalCall: {
                 String name = getName(lctx, (int) bytecode.obj);
                 int count = lastArgCount;
                 List<String> args = new ArrayList<>();
@@ -413,7 +413,7 @@ public class StackExpressionTracker {
                 return name + "(" + String.join(", ", args) + ")";
             }
 
-            case OBJ_CALL: {
+            case ObjCall: {
                 String name = getName(lctx, (int) bytecode.obj);
                 int count = lastArgCount;
                 List<String> args = new ArrayList<>();
@@ -433,7 +433,7 @@ public class StackExpressionTracker {
             // OBJECT CREATION
             // ============================================================
 
-            case NEW_OBJ: {
+            case NewObj: {
                 if (!stack.isEmpty()) {
                     String objType = stack.remove(stack.size() - 1);
                     int count = lastArgCount;
@@ -454,25 +454,25 @@ public class StackExpressionTracker {
             // CONTROL FLOW
             // ============================================================
 
-            case RET:
+            case Ret:
                 return "exit";
 
-            case JMP_IF_Z: {
+            case JmpIfZ: {
                 if (!stack.isEmpty()) {
                     return "if " + stack.get(stack.size() - 1) + " then";
                 }
                 return "if ? then";
             }
 
-            case JMP:
-            case END_REPEAT:
+            case Jmp:
+            case EndRepeat:
                 return "";
 
             // ============================================================
             // STACK MANIPULATION
             // ============================================================
 
-            case POP: {
+            case Pop: {
                 int count = (int) bytecode.obj;
                 for (int i = 0; i < count && !stack.isEmpty(); i++) {
                     stack.remove(stack.size() - 1);
@@ -480,7 +480,7 @@ public class StackExpressionTracker {
                 return count == 1 ? "end case" : "";
             }
 
-            case SWAP: {
+            case Swap: {
                 if (stack.size() >= 2) {
                     int len = stack.size();
                     String temp = stack.get(len - 1);
@@ -490,7 +490,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case PEEK: {
+            case Peek: {
                 int offset = (int) bytecode.obj;
                 if (offset < stack.size()) {
                     int idx = stack.size() - 1 - offset;
@@ -503,7 +503,7 @@ public class StackExpressionTracker {
             // SPRITE OPERATIONS
             // ============================================================
 
-            case ONTO_SPR: {
+            case OntoSpr: {
                 if (stack.size() >= 2) {
                     String sprite = stack.remove(stack.size() - 1);
                     String point = stack.remove(stack.size() - 1);
@@ -514,7 +514,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case INTO_SPR: {
+            case IntoSpr: {
                 if (stack.size() >= 2) {
                     String sprite = stack.remove(stack.size() - 1);
                     String point = stack.remove(stack.size() - 1);
@@ -529,11 +529,11 @@ public class StackExpressionTracker {
             // FIELD OPERATIONS
             // ============================================================
 
-            case GET_FIELD:
+            case GetField:
                 // This is complex - field references
                 return "";
 
-            case SET: {
+            case Set: {
                 // Generic set operation
                 if (stack.size() >= 2) {
                     String value = stack.remove(stack.size() - 1);
@@ -543,7 +543,7 @@ public class StackExpressionTracker {
                 return "";
             }
 
-            case GET:
+            case Get:
                 // Generic get operation
                 return "";
 
@@ -551,7 +551,7 @@ public class StackExpressionTracker {
             // CHUNK VARIABLE REFERENCES
             // ============================================================
 
-            case PUSH_CHUNK_VAR_REF: {
+            case PushChunkVarRef: {
                 // Push a reference to a chunk for later assignment
                 if (stack.size() >= 3) {
                     String endIdx = stack.remove(stack.size() - 1);

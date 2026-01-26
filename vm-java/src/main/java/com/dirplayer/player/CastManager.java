@@ -1,7 +1,7 @@
 package com.dirplayer.player;
 
-import com.dirplayer.director.enums.ScriptType;
-import com.dirplayer.director.lingo.datum.Datum;
+import com.dirplayer.director.ScriptType;
+import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.bitmap.PaletteMap;
 import com.dirplayer.player.cast.CastMemberType;
 import com.dirplayer.player.cast.PaletteMember;

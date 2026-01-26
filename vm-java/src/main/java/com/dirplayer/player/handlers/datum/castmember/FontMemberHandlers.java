@@ -592,21 +592,4 @@ public class FontMemberHandlers {
         }
     }
 
-    /**
-     * Text alignment enum.
-     */
-    public enum TextAlignment {
-        LEFT,
-        CENTER,
-        RIGHT;
-
-        public static TextAlignment fromString(String s) {
-            if (s == null) return LEFT;
-            switch (s.toLowerCase()) {
-                case "center": return CENTER;
-                case "right": return RIGHT;
-                default: return LEFT;
-            }
-        }
-    }
 }

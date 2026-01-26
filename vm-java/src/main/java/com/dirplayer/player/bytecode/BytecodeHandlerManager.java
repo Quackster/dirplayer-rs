@@ -113,11 +113,11 @@ public class BytecodeHandlerManager {
      */
     public static boolean hasAsyncHandler(OpCode opcode) {
         switch (opcode) {
-            case NEW_OBJ:
-            case EXT_CALL:
-            case OBJ_CALL:
-            case LOCAL_CALL:
-            case SET_OBJ_PROP:
+            case NewObj:
+            case ExtCall:
+            case ObjCall:
+            case LocalCall:
+            case SetObjProp:
                 return true;
             default:
                 return false;
@@ -134,137 +134,137 @@ public class BytecodeHandlerManager {
     ) throws ScriptError {
         switch (opcode) {
             // Arithmetic
-            case ADD:
+            case Add:
                 return ArithmeticsBytecodeHandler.add(player, ctx);
-            case SUB:
+            case Sub:
                 return ArithmeticsBytecodeHandler.sub(player, ctx);
-            case MUL:
+            case Mul:
                 return ArithmeticsBytecodeHandler.mul(player, ctx);
-            case DIV:
+            case Div:
                 return ArithmeticsBytecodeHandler.div(player, ctx);
-            case MOD:
+            case Mod:
                 return ArithmeticsBytecodeHandler.mod(player, ctx);
-            case INV:
+            case Inv:
                 return ArithmeticsBytecodeHandler.inv(player, ctx);
 
             // Stack operations
-            case PUSH_INT8:
-            case PUSH_INT16:
-            case PUSH_INT32:
+            case PushInt8:
+            case PushInt16:
+            case PushInt32:
                 return StackBytecodeHandler.pushInt(player, ctx);
-            case PUSH_FLOAT32:
+            case PushFloat32:
                 return StackBytecodeHandler.pushF32(player, ctx);
-            case PUSH_ARG_LIST:
+            case PushArgList:
                 return StackBytecodeHandler.pushArglist(player, ctx);
-            case PUSH_ARG_LIST_NO_RET:
+            case PushArgListNoRet:
                 return StackBytecodeHandler.pushArglistNoRet(player, ctx);
-            case PUSH_SYMB:
+            case PushSymb:
                 return StackBytecodeHandler.pushSymb(player, ctx);
-            case PUSH_CONS:
+            case PushCons:
                 return StackBytecodeHandler.pushCons(player, ctx);
-            case PUSH_ZERO:
+            case PushZero:
                 return StackBytecodeHandler.pushZero(player, ctx);
-            case PUSH_PROP_LIST:
+            case PushPropList:
                 return StackBytecodeHandler.pushPropList(player, ctx);
-            case PUSH_LIST:
+            case PushList:
                 return StackBytecodeHandler.pushList(player, ctx);
-            case PUSH_CHUNK_VAR_REF:
+            case PushChunkVarRef:
                 return StackBytecodeHandler.pushChunkVarRef(player, ctx);
-            case SWAP:
+            case Swap:
                 return StackBytecodeHandler.swap(player, ctx);
-            case PEEK:
+            case Peek:
                 return StackBytecodeHandler.peek(player, ctx);
-            case POP:
+            case Pop:
                 return StackBytecodeHandler.pop(player, ctx);
 
             // Comparison
-            case GT:
+            case Gt:
                 return CompareBytecodeHandler.gt(player, ctx);
-            case LT:
+            case Lt:
                 return CompareBytecodeHandler.lt(player, ctx);
-            case GT_EQ:
+            case GtEq:
                 return CompareBytecodeHandler.gtEq(player, ctx);
-            case LT_EQ:
+            case LtEq:
                 return CompareBytecodeHandler.ltEq(player, ctx);
-            case NOT:
+            case Not:
                 return CompareBytecodeHandler.not(player, ctx);
-            case NT_EQ:
+            case NtEq:
                 return CompareBytecodeHandler.ntEq(player, ctx);
-            case AND:
+            case And:
                 return CompareBytecodeHandler.and(player, ctx);
-            case OR:
+            case Or:
                 return CompareBytecodeHandler.or(player, ctx);
-            case EQ:
+            case Eq:
                 return CompareBytecodeHandler.eq(player, ctx);
 
             // Flow control
-            case RET:
+            case Ret:
                 return FlowControlBytecodeHandler.ret(player, ctx);
-            case JMP_IF_Z:
+            case JmpIfZ:
                 return FlowControlBytecodeHandler.jmpIfZero(player, ctx);
-            case JMP:
+            case Jmp:
                 return FlowControlBytecodeHandler.jmp(player, ctx);
-            case END_REPEAT:
+            case EndRepeat:
                 return FlowControlBytecodeHandler.endRepeat(player, ctx);
 
             // Get/Set
-            case GET_PROP:
+            case GetProp:
                 return GetSetBytecodeHandler.getProp(player, ctx);
-            case SET_PROP:
+            case SetProp:
                 return GetSetBytecodeHandler.setProp(player, ctx);
-            case GET_OBJ_PROP:
+            case GetObjProp:
                 return GetSetBytecodeHandler.getObjProp(player, ctx);
-            case GET_MOVIE_PROP:
+            case GetMovieProp:
                 return GetSetBytecodeHandler.getMovieProp(player, ctx);
-            case SET_MOVIE_PROP:
+            case SetMovieProp:
                 return GetSetBytecodeHandler.setMovieProp(player, ctx);
-            case SET:
+            case Set:
                 return GetSetBytecodeHandler.set(player, ctx);
-            case GET:
+            case Get:
                 return GetSetBytecodeHandler.get(player, ctx);
-            case GET_GLOBAL:
+            case GetGlobal:
                 return GetSetBytecodeHandler.getGlobal(player, ctx);
-            case SET_GLOBAL:
+            case SetGlobal:
                 return GetSetBytecodeHandler.setGlobal(player, ctx);
-            case GET_FIELD:
+            case GetField:
                 return GetSetBytecodeHandler.getField(player, ctx);
-            case GET_LOCAL:
+            case GetLocal:
                 return GetSetBytecodeHandler.getLocal(player, ctx);
-            case SET_LOCAL:
+            case SetLocal:
                 return GetSetBytecodeHandler.setLocal(player, ctx);
-            case GET_PARAM:
+            case GetParam:
                 return GetSetBytecodeHandler.getParam(player, ctx);
-            case SET_PARAM:
+            case SetParam:
                 return GetSetBytecodeHandler.setParam(player, ctx);
-            case THE_BUILTIN:
+            case TheBuiltin:
                 return GetSetBytecodeHandler.theBuiltIn(player, ctx);
-            case GET_CHAINED_PROP:
+            case GetChainedProp:
                 return GetSetBytecodeHandler.getChainedProp(player, ctx);
-            case GET_TOP_LEVEL_PROP:
+            case GetTopLevelProp:
                 return GetSetBytecodeHandler.getTopLevelProp(player, ctx);
 
             // String operations
-            case CONTAINS_STR:
+            case ContainsStr:
                 return StringBytecodeHandler.containsStr(player, ctx);
-            case CONTAINS_0_STR:
+            case Contains0Str:
                 return StringBytecodeHandler.contains0Str(player, ctx);
-            case JOIN_PAD_STR:
+            case JoinPadStr:
                 return StringBytecodeHandler.joinPadStr(player, ctx);
-            case JOIN_STR:
+            case JoinStr:
                 return StringBytecodeHandler.joinStr(player, ctx);
-            case PUT:
+            case Put:
                 return StringBytecodeHandler.put(player, ctx);
-            case GET_CHUNK:
+            case GetChunk:
                 return StringBytecodeHandler.getChunk(player, ctx);
-            case DELETE_CHUNK:
+            case DeleteChunk:
                 return StringBytecodeHandler.deleteChunk(player, ctx);
-            case PUT_CHUNK:
+            case PutChunk:
                 return StringBytecodeHandler.putChunk(player, ctx);
 
             // Sprite operations
-            case ONTO_SPR:
+            case OntoSpr:
                 return SpriteCompareBytecodeHandler.ontoSprite(player, ctx);
-            case INTO_SPR:
+            case IntoSpr:
                 return SpriteCompareBytecodeHandler.intoSprite(player, ctx);
 
             default:
@@ -284,15 +284,15 @@ public class BytecodeHandlerManager {
         BytecodeHandlerContext ctx
     ) throws ScriptError {
         switch (opcode) {
-            case NEW_OBJ:
+            case NewObj:
                 return StackBytecodeHandler.newObj(player, ctx);
-            case EXT_CALL:
+            case ExtCall:
                 return FlowControlBytecodeHandler.extCall(player, ctx);
-            case OBJ_CALL:
+            case ObjCall:
                 return FlowControlBytecodeHandler.objCall(player, ctx);
-            case LOCAL_CALL:
+            case LocalCall:
                 return FlowControlBytecodeHandler.localCall(player, ctx);
-            case SET_OBJ_PROP:
+            case SetObjProp:
                 return GetSetBytecodeHandler.setObjProp(player, ctx);
 
             default:

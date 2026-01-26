@@ -1,7 +1,6 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.teavm' version '0.10.2'
 }
 
 group = 'com.dirplayer'
@@ -40,78 +39,10 @@ application {
     mainClass = 'com.dirplayer.DirPlayer'
 }
 
-// TeaVM configuration for WebAssembly output
-teavm {
-    js {
-        // Main entry point for JavaScript compilation
-        mainClass = 'com.dirplayer.JsApi'
-        // Output directory
-        targetDirectory = file("$buildDir/generated/teavm/js")
-        // Enable source maps for debugging
-        sourceMap = true
-        // Minification
-        minified = false
-        // Target file name
-        targetFileName = 'dirplayer.js'
-        // Optimization level
-        optimization = org.teavm.gradle.api.OptimizationLevel.BALANCED
-    }
-
-    wasm {
-        // Main entry point for WASM compilation
-        mainClass = 'com.dirplayer.JsApi'
-        // Output directory
-        targetDirectory = file("$buildDir/generated/teavm/wasm")
-        // Target file name
-        targetFileName = 'dirplayer.wasm'
-        // Optimization level
-        optimization = org.teavm.gradle.api.OptimizationLevel.BALANCED
-        // Enable debugging info
-        debugInfo = true
-    }
-
-    wasmGC {
-        // Main entry point for WASM-GC compilation (newer, more efficient)
-        mainClass = 'com.dirplayer.JsApi'
-        // Output directory
-        targetDirectory = file("$buildDir/generated/teavm/wasm-gc")
-        // Target file name
-        targetFileName = 'dirplayer.wasm'
-        // Optimization level
-        optimization = org.teavm.gradle.api.OptimizationLevel.BALANCED
-    }
-
-    all {
-        // Common settings for all targets
-        outOfProcess = false
-        // Classes to preserve (for reflection)
-        preservedClasses = ['com.dirplayer.**']
-    }
-}
-
 test {
     useJUnitPlatform()
 }
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
-}
-
-// Task to copy WASM output to web directory
-task copyWasmToWeb(type: Copy) {
-    dependsOn 'generateWasm'
-    from "$buildDir/generated/teavm/wasm"
-    into "$projectDir/../web/wasm"
-}
-
-// Task to copy JS output to web directory
-task copyJsToWeb(type: Copy) {
-    dependsOn 'generateJavaScript'
-    from "$buildDir/generated/teavm/js"
-    into "$projectDir/../web/js"
-}
-
-// Convenience task to build for web
-task buildForWeb {
-    dependsOn 'copyWasmToWeb', 'copyJsToWeb'
 }

@@ -170,7 +170,7 @@ public class BitmapMemberHandlers {
                     int paletteNum = value.intValue();
                     if (paletteNum < 0) {
                         // Built-in palette
-                        BuiltInPalette builtIn = BuiltInPalette.fromValue((short) paletteNum);
+                        BuiltInPalette builtIn = BuiltInPalette.fromValue(paletteNum);
                         if (builtIn != null) {
                             bitmap.paletteRef = PaletteRef.ofBuiltIn(builtIn);
                         }

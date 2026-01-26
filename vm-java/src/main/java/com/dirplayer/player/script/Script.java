@@ -2,7 +2,7 @@ package com.dirplayer.player.script;
 
 import com.dirplayer.director.chunks.HandlerDef;
 import com.dirplayer.director.chunks.ScriptChunk;
-import com.dirplayer.director.enums.ScriptType;
+import com.dirplayer.director.ScriptType;
 import com.dirplayer.player.CastMemberRef;
 
 import java.util.ArrayList;
