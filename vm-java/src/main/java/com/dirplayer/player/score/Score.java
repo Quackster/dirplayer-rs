@@ -64,6 +64,9 @@ public class Score {
     /** Track the last frame where we cleared sound triggers */
     public Integer lastSoundClearFrame;
 
+    /** Total number of frames in the score */
+    public int totalFrames;
+
     public Score() {
         this.channels = new ArrayList<>();
         this.spriteSpans = new ArrayList<>();
@@ -75,6 +78,7 @@ public class Score {
         this.keyframesCache = new HashMap<>();
         this.spriteDetails = new HashMap<>();
         this.lastSoundClearFrame = null;
+        this.totalFrames = 1;
     }
 
     /**
@@ -500,6 +504,15 @@ public class Score {
                 }
                 return Integer.compare(a.number, b.number);
             })
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get sorted channel numbers for rendering (by z-order).
+     */
+    public List<Integer> getSortedChannelNumbers(int frameNum) {
+        return getSortedChannels(frameNum).stream()
+            .map(ch -> ch.number)
             .collect(Collectors.toList());
     }
 

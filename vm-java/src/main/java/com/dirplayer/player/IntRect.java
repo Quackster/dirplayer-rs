@@ -24,6 +24,23 @@ public class IntRect {
         this.bottom = bottom;
     }
 
+    public static IntRect from(int left, int top, int right, int bottom) {
+        return new IntRect(left, top, right, bottom);
+    }
+
+    public static IntRect fromSize(int x, int y, int width, int height) {
+        return new IntRect(x, y, x + width, y + height);
+    }
+
+    public static IntRect fromQuad(int[] topLeft, int[] topRight, int[] bottomRight, int[] bottomLeft) {
+        // For axis-aligned rectangles
+        if (topLeft[1] != topRight[1] || bottomLeft[1] != bottomRight[1] ||
+            topLeft[0] != bottomLeft[0] || topRight[0] != bottomRight[0]) {
+            return new IntRect(0, 0, 0, 0);
+        }
+        return new IntRect(topLeft[0], topLeft[1], topRight[0], bottomRight[1]);
+    }
+
     public int getWidth() {
         return right - left;
     }

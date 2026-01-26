@@ -252,6 +252,17 @@ public class Datum {
         return d;
     }
 
+    /**
+     * Create a string chunk datum.
+     */
+    public static Datum ofStringChunk(int sourceRef, StringChunkExpr chunkExpr, String resolvedValue) {
+        Datum d = new Datum(DatumType.StringChunk);
+        d.stringChunkSourceRef = sourceRef;
+        d.stringChunkExpr = chunkExpr;
+        d.stringValue = resolvedValue;
+        return d;
+    }
+
     public static Datum ofBool(boolean value) {
         return value ? TRUE : FALSE;
     }
@@ -582,6 +593,20 @@ public class Datum {
             throw new ScriptError("Cannot convert datum to math ref");
         }
         return mathRef;
+    }
+
+    public StringChunkExpr getStringChunkExpr() throws ScriptError {
+        if (type != DatumType.StringChunk) {
+            throw new ScriptError("Cannot get string chunk expr from non-string-chunk");
+        }
+        return stringChunkExpr;
+    }
+
+    public int getStringChunkSourceRef() throws ScriptError {
+        if (type != DatumType.StringChunk) {
+            throw new ScriptError("Cannot get string chunk source from non-string-chunk");
+        }
+        return stringChunkSourceRef;
     }
 
     // Setters for mutable operations

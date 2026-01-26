@@ -62,6 +62,11 @@ public class TextMember {
         return copy;
     }
 
+    // Getter methods for rendering
+    public String getFont() { return font; }
+    public Integer getFontSize() { return fontSize; }
+    public String getText() { return text; }
+
     /**
      * Styled text span for HTML-style text formatting.
      */

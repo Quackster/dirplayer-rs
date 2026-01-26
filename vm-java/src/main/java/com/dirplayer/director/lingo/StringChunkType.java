@@ -60,6 +60,29 @@ public enum StringChunkType {
         throw new IllegalArgumentException("Invalid string chunk type: " + name);
     }
 
+    /**
+     * Parse chunk type from string (case-insensitive, handles plurals).
+     */
+    public static StringChunkType fromString(String str) {
+        String lower = str.toLowerCase();
+        switch (lower) {
+            case "char":
+            case "chars":
+                return CHAR;
+            case "word":
+            case "words":
+                return WORD;
+            case "item":
+            case "items":
+                return ITEM;
+            case "line":
+            case "lines":
+                return LINE;
+            default:
+                throw new IllegalArgumentException("Invalid string chunk type: " + str);
+        }
+    }
+
     @Override
     public String toString() {
         return name;

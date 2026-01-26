@@ -27,4 +27,20 @@ public class StringChunkExpr {
     public StringChunkExpr copy() {
         return new StringChunkExpr(chunkType, start, end, itemDelimiter);
     }
+
+    public StringChunkType getChunkType() {
+        return chunkType;
+    }
+
+    public int getStart() {
+        return start;
+    }
+
+    public int getEnd() {
+        return end;
+    }
+
+    public char getItemDelimiter() {
+        return itemDelimiter;
+    }
 }

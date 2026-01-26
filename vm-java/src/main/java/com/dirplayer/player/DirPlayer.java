@@ -377,6 +377,86 @@ public class DirPlayer {
         return 0;
     }
 
+    // Datum allocation and access methods
+    public com.dirplayer.director.lingo.Datum getDatum(int ref) {
+        return allocator.get(ref);
+    }
+
+    public int allocDatum(com.dirplayer.director.lingo.Datum datum) {
+        return allocator.alloc(datum);
+    }
+
+    public String formatDatum(com.dirplayer.director.lingo.Datum datum) {
+        if (datum == null) {
+            return "VOID";
+        }
+        try {
+            switch (datum.getType()) {
+                case Int:
+                    return String.valueOf(datum.intValue());
+                case Float:
+                    return String.valueOf(datum.floatValue());
+                case String:
+                    return datum.stringValue();
+                case Symbol:
+                    return "#" + datum.symbolValue();
+                case Void:
+                    return "VOID";
+                case List:
+                    return "[list]";
+                case PropList:
+                    return "[propList]";
+                default:
+                    return "<" + datum.typeStr() + ">";
+            }
+        } catch (ScriptError e) {
+            return "<error>";
+        }
+    }
+
+    public char getItemDelimiter() {
+        return movie.itemDelimiter;
+    }
+
+    /**
+     * Convert datum to string for concatenation operations.
+     */
+    public String datumToStringForConcat(com.dirplayer.director.lingo.Datum datum) {
+        return DatumFormatter.datumToStringForConcat(datum, this);
+    }
+
+    public int[] resolvePaletteColor(int index) {
+        // Default VGA palette approximation
+        if (index < 0 || index > 255) {
+            return new int[] { 0, 0, 0 };
+        }
+        // Standard VGA colors for indices 0-15
+        int[][] vgaColors = {
+            {0, 0, 0},       // 0: Black
+            {0, 0, 170},     // 1: Blue
+            {0, 170, 0},     // 2: Green
+            {0, 170, 170},   // 3: Cyan
+            {170, 0, 0},     // 4: Red
+            {170, 0, 170},   // 5: Magenta
+            {170, 85, 0},    // 6: Brown
+            {170, 170, 170}, // 7: Light Gray
+            {85, 85, 85},    // 8: Dark Gray
+            {85, 85, 255},   // 9: Light Blue
+            {85, 255, 85},   // 10: Light Green
+            {85, 255, 255},  // 11: Light Cyan
+            {255, 85, 85},   // 12: Light Red
+            {255, 85, 255},  // 13: Light Magenta
+            {255, 255, 85},  // 14: Yellow
+            {255, 255, 255}  // 15: White
+        };
+        if (index < 16) {
+            return vgaColors[index];
+        }
+        // Grayscale ramp for higher indices
+        int gray = (index - 16) * 255 / 239;
+        return new int[] { gray, gray, gray };
+    }
+
     // Placeholder inner classes - these would be fully implemented
     public static class Scope {
         public int scriptInstanceRef;
