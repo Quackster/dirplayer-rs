@@ -28,16 +28,16 @@ public class ScriptContextChunk {
 
         ScriptContextChunk chunk = new ScriptContextChunk();
 
-        int unknown0 = reader.readU32();
-        int unknown1 = reader.readU32();
-        chunk.entryCount = reader.readU32();
-        chunk.entryCount2 = reader.readU32();
+        int unknown0 = (int) reader.readU32();
+        int unknown1 = (int) reader.readU32();
+        chunk.entryCount = (int) reader.readU32();
+        chunk.entryCount2 = (int) reader.readU32();
         chunk.entriesOffset = reader.readU16();
         int unknown2 = reader.readU16();
-        int unknown3 = reader.readU32();
-        int unknown4 = reader.readU32();
-        int unknown5 = reader.readU32();
-        chunk.lnamSectionId = reader.readU32();
+        int unknown3 = (int) reader.readU32();
+        int unknown4 = (int) reader.readU32();
+        int unknown5 = (int) reader.readU32();
+        chunk.lnamSectionId = (int) reader.readU32();
         chunk.validCount = reader.readU16();
         chunk.flags = reader.readU16();
         chunk.freePointer = reader.readU16();
@@ -58,7 +58,7 @@ public class ScriptContextChunk {
 
         public static ScriptContextMapEntry fromReader(BinaryReader reader, int dirVersion) {
             ScriptContextMapEntry entry = new ScriptContextMapEntry();
-            entry.unknown0 = reader.readU32();
+            entry.unknown0 = (int) reader.readU32();
             entry.sectionId = reader.readI32();
             entry.unknown1 = reader.readU16();
             entry.unknown2 = reader.readU16();

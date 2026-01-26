@@ -21,10 +21,10 @@ public class ScriptNamesChunk {
 
         ScriptNamesChunk chunk = new ScriptNamesChunk();
 
-        int unknown0 = reader.readU32();
-        int unknown1 = reader.readU32();
-        int len1 = reader.readU32();
-        int len2 = reader.readU32();
+        int unknown0 = (int) reader.readU32();
+        int unknown1 = (int) reader.readU32();
+        int len1 = (int) reader.readU32();
+        int len2 = (int) reader.readU32();
         int namesOffset = reader.readU16();
         int namesCount = reader.readU16();
 

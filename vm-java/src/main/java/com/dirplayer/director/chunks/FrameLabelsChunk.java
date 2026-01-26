@@ -31,7 +31,7 @@ public class FrameLabelsChunk {
             labelFrames.add(new int[] { labelOffset, frameNum });
         }
 
-        int labelsSize = reader.readU32();
+        int labelsSize = (int) reader.readU32();
 
         // Read label strings
         for (int i = 0; i < labelsCount; i++) {

@@ -50,13 +50,13 @@ public class DirectorFile {
         ChunkContainer chunkContainer = new ChunkContainer();
         file.chunkContainer = chunkContainer;
 
-        int metaFourcc = reader.readU32();
+        int metaFourcc = (int) reader.readU32();
         if (metaFourcc == Utils.FOURCC("XFIR")) {
             reader.setEndian(ByteOrder.LITTLE_ENDIAN);
         }
 
-        int metaLength = reader.readU32();
-        int codec = reader.readU32();
+        int metaLength = (int) reader.readU32();
+        int codec = (int) reader.readU32();
         boolean afterBurned = false;
         int ilsBodyOffset = 0;
 
@@ -186,7 +186,7 @@ public class DirectorFile {
             int compSize = abmpReader.readVarInt();
             int uncompSize = abmpReader.readVarInt();
             int compressionType = abmpReader.readVarInt();
-            int tag = abmpReader.readU32();
+            int tag = (int) abmpReader.readU32();
 
             Chunk.ChunkInfo info = new Chunk.ChunkInfo();
             info.id = resId;
@@ -392,8 +392,8 @@ public class DirectorFile {
     }
 
     private static byte[] readChunkDataDirect(BinaryReader reader, int fourcc, int len) {
-        int validFourcc = reader.readU32();
-        int validLen = reader.readU32();
+        int validFourcc = (int) reader.readU32();
+        int validLen = (int) reader.readU32();
 
         if (len == 0xFFFFFFFF) {
             len = validLen;

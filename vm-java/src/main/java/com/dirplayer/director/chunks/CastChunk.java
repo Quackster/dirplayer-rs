@@ -21,7 +21,7 @@ public class CastChunk {
 
         CastChunk chunk = new CastChunk();
         while (!reader.eof()) {
-            chunk.memberIds.add(reader.readU32());
+            chunk.memberIds.add((int) reader.readU32());
         }
         return chunk;
     }

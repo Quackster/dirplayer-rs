@@ -33,7 +33,18 @@ public class ColorRef {
         return new ColorRef(red, green, blue);
     }
 
+    public static ColorRef ofRgb(int red, int green, int blue) {
+        return new ColorRef(red, green, blue);
+    }
+
     public static ColorRef fromPaletteIndex(int index) {
+        ColorRef c = new ColorRef();
+        c.paletteIndex = index;
+        c.isPaletteColor = true;
+        return c;
+    }
+
+    public static ColorRef ofPaletteIndex(int index) {
         ColorRef c = new ColorRef();
         c.paletteIndex = index;
         c.isPaletteColor = true;

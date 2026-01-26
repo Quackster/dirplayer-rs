@@ -30,4 +30,8 @@ public enum ScriptType {
         }
         return Unknown;
     }
+
+    public static ScriptType fromValue(int val) {
+        return from(val);
+    }
 }

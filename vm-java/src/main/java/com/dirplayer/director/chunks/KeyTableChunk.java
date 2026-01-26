@@ -23,8 +23,8 @@ public class KeyTableChunk {
         KeyTableChunk chunk = new KeyTableChunk();
         chunk.entrySize = reader.readU16();
         chunk.entrySize2 = reader.readU16();
-        chunk.entryCount = reader.readU32();
-        chunk.usedCount = reader.readU32();
+        chunk.entryCount = (int) reader.readU32();
+        chunk.usedCount = (int) reader.readU32();
 
         for (int i = 0; i < chunk.entryCount; i++) {
             chunk.entries.add(KeyTableEntry.fromReader(reader, dirVersion));
@@ -40,9 +40,9 @@ public class KeyTableChunk {
 
         public static KeyTableEntry fromReader(BinaryReader reader, int dirVersion) {
             KeyTableEntry entry = new KeyTableEntry();
-            entry.sectionId = reader.readU32();
-            entry.castId = reader.readU32();
-            entry.fourcc = reader.readU32();
+            entry.sectionId = (int) reader.readU32();
+            entry.castId = (int) reader.readU32();
+            entry.fourcc = (int) reader.readU32();
             return entry;
         }
     }

@@ -76,7 +76,7 @@ public class SoundChunk {
         reader.readU32(); // Skip 0x00-0x03
 
         // Offset 0x04: Sample Rate ENCODED
-        int sampleRateEncoded = reader.readU32();
+        int sampleRateEncoded = (int) reader.readU32();
         int rateA = (int) Math.round(sampleRateEncoded / 6.144);
         if (rateA > 15990 && rateA < 16020) {
             rateA = 16000;

@@ -44,7 +44,7 @@ public class CastListChunk {
                     itemReader.setEndian(reader.getEndian());
                     entry.minMember = itemReader.readU16();
                     entry.maxMember = itemReader.readU16();
-                    entry.id = itemReader.readU32();
+                    entry.id = (int) itemReader.readU32();
                 }
             }
 
@@ -63,7 +63,7 @@ public class CastListChunk {
 
         static CastListChunkHeader read(BinaryReader reader, int dirVersion) {
             CastListChunkHeader header = new CastListChunkHeader();
-            header.dataOffset = reader.readU32();
+            header.dataOffset = (int) reader.readU32();
             header.unk0 = reader.readU16();
             header.castCount = reader.readU16();
             header.itemsPerCast = reader.readU16();

@@ -117,6 +117,48 @@ public class Datum {
         return d;
     }
 
+    /**
+     * Create a proplist from int[] pairs (used by handlers).
+     */
+    public static Datum ofPropList(List<int[]> items, boolean sorted, boolean _unused) {
+        Datum d = new Datum(DatumType.PropList);
+        d.propListValue = new ArrayList<>();
+        for (int[] pair : items) {
+            d.propListValue.add(new PropListPair(pair[0], pair[1]));
+        }
+        d.sorted = sorted;
+        return d;
+    }
+
+    /**
+     * Create a list with a specific type.
+     */
+    public static Datum ofList(DatumType listType, List<Integer> items, boolean sorted) {
+        Datum d = new Datum(listType);
+        d.listValue = new ArrayList<>(items);
+        d.sorted = sorted;
+        d.listType = listType;
+        return d;
+    }
+
+    /**
+     * Create a script reference.
+     */
+    public static Datum ofScriptRef(CastMemberRef ref) {
+        Datum d = new Datum(DatumType.ScriptRef);
+        d.castMemberRef = ref;
+        return d;
+    }
+
+    /**
+     * Create a script instance reference.
+     */
+    public static Datum ofScriptInstanceRef(int instanceId) {
+        Datum d = new Datum(DatumType.ScriptInstanceRef);
+        d.scriptInstanceRef = instanceId;
+        return d;
+    }
+
     public static Datum ofCastMember(CastMemberRef ref) {
         Datum d = new Datum(DatumType.CastMemberRef);
         d.castMemberRef = ref;
@@ -135,15 +177,42 @@ public class Datum {
         return d;
     }
 
+    /**
+     * Create a rect from individual datumRefs (left, top, right, bottom).
+     */
+    public static Datum ofRect(int left, int top, int right, int bottom) {
+        Datum d = new Datum(DatumType.Rect);
+        d.rectValue = new int[] { left, top, right, bottom };
+        return d;
+    }
+
     public static Datum ofPoint(int[] values) {
         Datum d = new Datum(DatumType.Point);
         d.pointValue = values;
         return d;
     }
 
+    /**
+     * Create a point from individual datumRefs (x, y).
+     */
+    public static Datum ofPoint(int x, int y) {
+        Datum d = new Datum(DatumType.Point);
+        d.pointValue = new int[] { x, y };
+        return d;
+    }
+
     public static Datum ofVector(double[] values) {
         Datum d = new Datum(DatumType.Vector);
         d.vectorValue = values;
+        return d;
+    }
+
+    /**
+     * Create a vector from individual components (x, y, z).
+     */
+    public static Datum ofVector(double x, double y, double z) {
+        Datum d = new Datum(DatumType.Vector);
+        d.vectorValue = new double[] { x, y, z };
         return d;
     }
 
@@ -156,6 +225,24 @@ public class Datum {
     public static Datum ofColorRef(ColorRef color) {
         Datum d = new Datum(DatumType.ColorRef);
         d.colorRef = color;
+        return d;
+    }
+
+    /**
+     * Create an RGB color from individual components.
+     */
+    public static Datum ofColorRef(int r, int g, int b) {
+        Datum d = new Datum(DatumType.ColorRef);
+        d.colorRef = ColorRef.ofRgb(r, g, b);
+        return d;
+    }
+
+    /**
+     * Create a palette index color.
+     */
+    public static Datum ofPaletteIndexColor(int index) {
+        Datum d = new Datum(DatumType.ColorRef);
+        d.colorRef = ColorRef.ofPaletteIndex(index);
         return d;
     }
 
@@ -211,6 +298,75 @@ public class Datum {
 
     public boolean isNull() {
         return type == DatumType.Null;
+    }
+
+    public boolean isFloat() {
+        return type == DatumType.Float;
+    }
+
+    public boolean isPropList() {
+        return type == DatumType.PropList;
+    }
+
+    public boolean isStringChunk() {
+        return type == DatumType.StringChunk;
+    }
+
+    public boolean isSpriteRef() {
+        return type == DatumType.SpriteRef;
+    }
+
+    public boolean isRect() {
+        return type == DatumType.Rect;
+    }
+
+    public boolean isPoint() {
+        return type == DatumType.Point;
+    }
+
+    public boolean isObject() {
+        return type == DatumType.ScriptInstanceRef;
+    }
+
+    public boolean isScriptInstanceRef() {
+        return type == DatumType.ScriptInstanceRef;
+    }
+
+    public boolean isCastMemberRef() {
+        return type == DatumType.CastMemberRef;
+    }
+
+    public boolean isVector() {
+        return type == DatumType.Vector;
+    }
+
+    public boolean isColorRef() {
+        return type == DatumType.ColorRef;
+    }
+
+    public boolean isArgList() {
+        return type == DatumType.ArgList || type == DatumType.ArgListNoRet;
+    }
+
+    /**
+     * Check if this is a valid cast member reference (non-zero).
+     */
+    public boolean isCastMemberValid() {
+        return type == DatumType.CastMemberRef && castMemberRef != null && castMemberRef.castMember > 0;
+    }
+
+    /**
+     * Get the type as a human-readable string.
+     */
+    public String typeStr() {
+        return type.getTypeName();
+    }
+
+    /**
+     * Convert to float value (for math operations).
+     */
+    public double toFloat() throws ScriptError {
+        return floatValue();
     }
 
     // Value extraction methods
@@ -323,6 +479,41 @@ public class Datum {
         return propListValue;
     }
 
+    /**
+     * Get proplist as List<int[]> for handler compatibility.
+     */
+    public List<int[]> toPropList() throws ScriptError {
+        if (type != DatumType.PropList) {
+            throw new ScriptError("Cannot convert datum to prop list");
+        }
+        List<int[]> result = new ArrayList<>();
+        for (PropListPair pair : propListValue) {
+            result.add(new int[] { pair.key, pair.value });
+        }
+        return result;
+    }
+
+    /**
+     * Get mutable proplist as List<int[]>.
+     */
+    public List<int[]> toPropListMut() throws ScriptError {
+        if (type != DatumType.PropList) {
+            throw new ScriptError("Cannot convert datum to prop list");
+        }
+        // Return a wrapper that modifies the underlying propListValue
+        return new PropListIntArrayWrapper(propListValue);
+    }
+
+    /**
+     * Get mutable list.
+     */
+    public List<Integer> toListMut() throws ScriptError {
+        if (type != DatumType.List && type != DatumType.ArgList && type != DatumType.ArgListNoRet) {
+            throw new ScriptError("Cannot convert datum to list");
+        }
+        return listValue;
+    }
+
     public int[] toRect() throws ScriptError {
         if (type != DatumType.Rect) {
             throw new ScriptError("Cannot convert datum to rect");
@@ -414,6 +605,32 @@ public class Datum {
         this.pointValue = value;
     }
 
+    /**
+     * Set a specific index in a point.
+     */
+    public void setPointAt(int index, int value) throws ScriptError {
+        if (type != DatumType.Point) {
+            throw new ScriptError("Cannot setPointAt on non-point");
+        }
+        if (index < 0 || index >= 2) {
+            throw new ScriptError("Point index out of bounds: " + index);
+        }
+        pointValue[index] = value;
+    }
+
+    /**
+     * Set a specific index in a rect.
+     */
+    public void setRectAt(int index, int value) throws ScriptError {
+        if (type != DatumType.Rect) {
+            throw new ScriptError("Cannot setRectAt on non-rect");
+        }
+        if (index < 0 || index >= 4) {
+            throw new ScriptError("Rect index out of bounds: " + index);
+        }
+        rectValue[index] = value;
+    }
+
     public boolean isSorted() {
         return sorted;
     }
@@ -464,6 +681,109 @@ public class Datum {
                 return "[propList with " + (propListValue != null ? propListValue.size() : 0) + " items]";
             default:
                 return "<" + getTypeName() + ">";
+        }
+    }
+
+    /**
+     * Clone this datum.
+     */
+    public Datum clone() {
+        Datum d = new Datum(type);
+        d.intValue = intValue;
+        d.floatValue = floatValue;
+        d.stringValue = stringValue;
+        d.sorted = sorted;
+        d.listType = listType;
+
+        if (listValue != null) {
+            d.listValue = new ArrayList<>(listValue);
+        }
+        if (propListValue != null) {
+            d.propListValue = new ArrayList<>();
+            for (PropListPair pair : propListValue) {
+                d.propListValue.add(new PropListPair(pair.key, pair.value));
+            }
+        }
+        if (rectValue != null) {
+            d.rectValue = rectValue.clone();
+        }
+        if (pointValue != null) {
+            d.pointValue = pointValue.clone();
+        }
+        if (vectorValue != null) {
+            d.vectorValue = vectorValue.clone();
+        }
+
+        d.castMemberRef = castMemberRef;
+        d.spriteRef = spriteRef;
+        d.soundChannel = soundChannel;
+        d.colorRef = colorRef;
+        d.bitmapRef = bitmapRef;
+        d.cursorRef = cursorRef;
+        d.paletteRef = paletteRef;
+        d.stringChunkExpr = stringChunkExpr;
+        d.stringChunkSourceRef = stringChunkSourceRef;
+        d.stringChunkMemberRef = stringChunkMemberRef;
+        d.stringChunkSourceIsMember = stringChunkSourceIsMember;
+        d.timeoutName = timeoutName;
+        d.timeoutDuration = timeoutDuration;
+        d.timeoutCallback = timeoutCallback;
+        d.timeoutTarget = timeoutTarget;
+        d.timeoutScriptInstance = timeoutScriptInstance;
+        d.xtraName = xtraName;
+        d.xtraInstanceId = xtraInstanceId;
+        d.xmlRef = xmlRef;
+        d.dateRef = dateRef;
+        d.mathRef = mathRef;
+        d.scriptInstanceRef = scriptInstanceRef;
+        d.castLib = castLib;
+
+        return d;
+    }
+
+    /**
+     * Wrapper that allows List<int[]> access to PropListPair list.
+     */
+    private static class PropListIntArrayWrapper extends ArrayList<int[]> {
+        private final List<PropListPair> backing;
+
+        public PropListIntArrayWrapper(List<PropListPair> backing) {
+            this.backing = backing;
+        }
+
+        @Override
+        public int size() {
+            return backing.size();
+        }
+
+        @Override
+        public int[] get(int index) {
+            PropListPair pair = backing.get(index);
+            return new int[] { pair.key, pair.value };
+        }
+
+        @Override
+        public int[] set(int index, int[] element) {
+            PropListPair old = backing.get(index);
+            int[] oldArray = new int[] { old.key, old.value };
+            backing.set(index, new PropListPair(element[0], element[1]));
+            return oldArray;
+        }
+
+        @Override
+        public void add(int index, int[] element) {
+            backing.add(index, new PropListPair(element[0], element[1]));
+        }
+
+        @Override
+        public boolean add(int[] element) {
+            return backing.add(new PropListPair(element[0], element[1]));
+        }
+
+        @Override
+        public int[] remove(int index) {
+            PropListPair old = backing.remove(index);
+            return new int[] { old.key, old.value };
         }
     }
 }

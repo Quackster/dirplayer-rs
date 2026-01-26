@@ -54,9 +54,9 @@ public class CastMemberChunk {
         boolean hasFlags1 = false;
 
         if (dirVersion >= 500) {
-            memberType = MemberType.fromValue(reader.readU32());
-            infoLen = reader.readU32();
-            specificDataLen = reader.readU32();
+            memberType = MemberType.fromValue((int) reader.readU32());
+            infoLen = (int) reader.readU32();
+            specificDataLen = (int) reader.readU32();
 
             // info
             if (infoLen != 0) {
@@ -70,7 +70,7 @@ public class CastMemberChunk {
             specificData = reader.readBytes(specificDataLen);
         } else {
             specificDataLen = reader.readU16();
-            infoLen = reader.readU32();
+            infoLen = (int) reader.readU32();
 
             // these bytes are common but stored in the specific data
             int specificDataLeft = specificDataLen;
@@ -103,23 +103,23 @@ public class CastMemberChunk {
         specificReader.setEndian(reader.getEndian());
 
         switch (memberType) {
-            case SCRIPT:
+            case Script:
                 int scriptTypeVal = specificReader.readU16();
                 chunk.specificData = CastMemberSpecificData.script(ScriptType.fromValue(scriptTypeVal));
                 break;
-            case BITMAP:
+            case Bitmap:
                 chunk.specificData = CastMemberSpecificData.bitmap(BitmapInfo.from(specificData));
                 break;
-            case SHAPE:
+            case Shape:
                 chunk.specificData = CastMemberSpecificData.shape(ShapeInfo.from(specificData));
                 break;
-            case FILM_LOOP:
+            case FilmLoop:
                 chunk.specificData = CastMemberSpecificData.filmLoop(FilmLoopInfo.from(specificData));
                 break;
-            case SOUND:
+            case Sound:
                 chunk.specificData = CastMemberSpecificData.none();
                 break;
-            case TEXT:
+            case Text:
                 chunk.specificData = CastMemberSpecificData.field(FieldInfo.from(specificData));
                 break;
             default:

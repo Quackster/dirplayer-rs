@@ -43,4 +43,11 @@ public enum MemberType {
         }
         return Unknown;
     }
+
+    public static MemberType fromValue(long val) {
+        return from((int) val);
+    }
+
+    // Alias for backward compatibility
+    public static final MemberType NULL = Null;
 }

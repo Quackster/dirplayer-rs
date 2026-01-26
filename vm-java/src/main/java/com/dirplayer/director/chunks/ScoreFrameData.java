@@ -152,9 +152,9 @@ public class ScoreFrameData {
 
         public static ScoreFrameDataHeader read(BinaryReader reader) {
             ScoreFrameDataHeader header = new ScoreFrameDataHeader();
-            int actualLength = reader.readU32();
-            int unk1 = reader.readU32();
-            header.frameCount = reader.readU32();
+            int actualLength = (int) reader.readU32();
+            int unk1 = (int) reader.readU32();
+            header.frameCount = (int) reader.readU32();
             int framesVersion = reader.readU16();
             header.spriteRecordSize = reader.readU16();
             header.numChannels = reader.readU16();

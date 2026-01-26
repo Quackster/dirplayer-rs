@@ -11,7 +11,7 @@ import java.util.List;
 public class BasicListChunk {
 
     public static int readHeader(BinaryReader reader, int dirVersion) {
-        return reader.readU32();
+        return (int) reader.readU32();
     }
 
     public static List<Integer> readOffsetTable(BinaryReader reader, int dirVersion, int dataOffset) {
@@ -20,13 +20,13 @@ public class BasicListChunk {
 
         List<Integer> offsetTable = new ArrayList<>();
         for (int i = 0; i < offsetTableLen; i++) {
-            offsetTable.add(reader.readU32());
+            offsetTable.add((int) reader.readU32());
         }
         return offsetTable;
     }
 
     public static List<byte[]> readItems(BinaryReader reader, int dirVersion, int dataOffset, List<Integer> offsetTable) {
-        int itemsLen = reader.readU32();
+        int itemsLen = (int) reader.readU32();
         int listOffset = reader.getPos();
 
         List<byte[]> items = new ArrayList<>();

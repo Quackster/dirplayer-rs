@@ -41,7 +41,7 @@ public class ScoreChunk {
         // Read offsets table
         List<Integer> offsets = new ArrayList<>();
         for (int i = 0; i <= chunk.header.entryCount; i++) {
-            offsets.add(reader.readU32());
+            offsets.add((int) reader.readU32());
         }
 
         // Validate offsets
@@ -117,7 +117,7 @@ public class ScoreChunk {
                             for (int k = 0; k < behaviorCount; k++) {
                                 int castLib = secReader.readU16();
                                 int castMember = secReader.readU16();
-                                int unk0 = secReader.readU32();
+                                int unk0 = (int) secReader.readU32();
 
                                 if (castLib > 0 && castMember > 0) {
                                     FrameIntervalSecondary secondary = new FrameIntervalSecondary();
@@ -170,9 +170,9 @@ public class ScoreChunk {
         BinaryReader reader = new BinaryReader(entry0);
         reader.setEndian(ByteOrder.BIG_ENDIAN);
 
-        int framesStreamSize = reader.readU32();
-        int version = reader.readU32();
-        int listStart = reader.readU32();
+        int framesStreamSize = (int) reader.readU32();
+        int version = (int) reader.readU32();
+        int listStart = (int) reader.readU32();
 
         if (listStart == 0 || listStart >= entry0.length || listStart + 12 > entry0.length) {
             return details;
@@ -180,9 +180,9 @@ public class ScoreChunk {
 
         reader.setPos(listStart);
 
-        int numEntries = reader.readU32();
-        int listSize = reader.readU32();
-        int maxDataLen = reader.readU32();
+        int numEntries = (int) reader.readU32();
+        int listSize = (int) reader.readU32();
+        int maxDataLen = (int) reader.readU32();
 
         if (numEntries == 0 || numEntries > 100000) {
             return details;
@@ -194,7 +194,7 @@ public class ScoreChunk {
         // Read all absolute offsets
         List<Integer> absoluteOffsets = new ArrayList<>();
         for (int i = 0; i < numEntries; i++) {
-            int relativeOff = reader.readU32();
+            int relativeOff = (int) reader.readU32();
             absoluteOffsets.add(frameDataOffset + relativeOff);
         }
 
@@ -229,7 +229,7 @@ public class ScoreChunk {
             while (behaviorReader.getPos() + 8 <= behaviorSize) {
                 int castLib = behaviorReader.readU16();
                 int castMember = behaviorReader.readU16();
-                int initializerIdx = behaviorReader.readU32();
+                int initializerIdx = (int) behaviorReader.readU32();
 
                 if (castLib == 0 && castMember == 0) {
                     break;
@@ -263,12 +263,12 @@ public class ScoreChunk {
 
         public static ScoreChunkHeader read(BinaryReader reader) {
             ScoreChunkHeader header = new ScoreChunkHeader();
-            header.totalLength = reader.readU32();
-            header.unk1 = reader.readU32();
-            header.unk2 = reader.readU32();
-            header.entryCount = reader.readU32();
-            header.unk3 = reader.readU32();
-            header.entrySizeSum = reader.readU32();
+            header.totalLength = (int) reader.readU32();
+            header.unk1 = (int) reader.readU32();
+            header.unk2 = (int) reader.readU32();
+            header.entryCount = (int) reader.readU32();
+            header.unk3 = (int) reader.readU32();
+            header.entrySizeSum = (int) reader.readU32();
             return header;
         }
     }
@@ -293,11 +293,11 @@ public class ScoreChunk {
 
         public static FrameIntervalPrimary read(BinaryReader reader) {
             FrameIntervalPrimary primary = new FrameIntervalPrimary();
-            primary.startFrame = reader.readU32();
-            primary.endFrame = reader.readU32();
-            primary.xtraInfo = reader.readU32();
-            primary.spriteFlags = reader.readU32();
-            primary.channelIndex = reader.readU32();
+            primary.startFrame = (int) reader.readU32();
+            primary.endFrame = (int) reader.readU32();
+            primary.xtraInfo = (int) reader.readU32();
+            primary.spriteFlags = (int) reader.readU32();
+            primary.channelIndex = (int) reader.readU32();
             primary.tweenInfo = TweenInfo.read(reader);
             return primary;
         }
@@ -330,11 +330,11 @@ public class ScoreChunk {
 
         public static TweenInfo read(BinaryReader reader) {
             TweenInfo info = new TweenInfo();
-            info.curvature = reader.readU32();
-            info.flags = reader.readU32();
-            info.easeIn = reader.readU32();
-            info.easeOut = reader.readU32();
-            info.padding = reader.readU32();
+            info.curvature = (int) reader.readU32();
+            info.flags = (int) reader.readU32();
+            info.easeIn = (int) reader.readU32();
+            info.easeOut = (int) reader.readU32();
+            info.padding = (int) reader.readU32();
             return info;
         }
 

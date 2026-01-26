@@ -30,21 +30,21 @@ public class HandlerRecord {
         HandlerRecord record = new HandlerRecord();
         record.nameId = reader.readU16();
         record.vectorPos = reader.readU16();
-        record.compiledLen = reader.readU32();
-        record.compiledOffset = reader.readU32();
+        record.compiledLen = (int) reader.readU32();
+        record.compiledOffset = (int) reader.readU32();
         record.argumentCount = reader.readU16();
-        record.argumentOffset = reader.readU32();
+        record.argumentOffset = (int) reader.readU32();
         record.localsCount = reader.readU16();
-        record.localsOffset = reader.readU32();
+        record.localsOffset = (int) reader.readU32();
         record.globalsCount = reader.readU16();
-        record.globalsOffset = reader.readU32();
-        record.unknown1 = reader.readU32();
+        record.globalsOffset = (int) reader.readU32();
+        record.unknown1 = (int) reader.readU32();
         record.unknown2 = reader.readU16();
         record.lineCount = reader.readU16();
-        record.lineOffset = reader.readU32();
+        record.lineOffset = (int) reader.readU32();
 
         if (capitalX) {
-            int stackHeight = reader.readU32();
+            int stackHeight = (int) reader.readU32();
         }
 
         return record;

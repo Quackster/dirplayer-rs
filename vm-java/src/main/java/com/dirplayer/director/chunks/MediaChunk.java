@@ -45,12 +45,12 @@ public class MediaChunk {
 
         MediaChunk chunk = new MediaChunk();
 
-        int headerSize = reader.readU32();
-        int unknown1 = reader.readU32();
-        chunk.sampleRate = reader.readU32();
-        int sampleRate2 = reader.readU32();
-        int unknown2 = reader.readU32();
-        chunk.dataSizeField = reader.readU32();
+        int headerSize = (int) reader.readU32();
+        int unknown1 = (int) reader.readU32();
+        chunk.sampleRate = (int) reader.readU32();
+        int sampleRate2 = (int) reader.readU32();
+        int unknown2 = (int) reader.readU32();
+        chunk.dataSizeField = (int) reader.readU32();
 
         int bytesRead = 24;
         int skipBytes = headerSize - bytesRead;

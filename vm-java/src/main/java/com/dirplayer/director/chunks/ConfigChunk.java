@@ -104,20 +104,20 @@ public class ConfigChunk {
         config.bitDepth = reader.readU16();
         config.field17 = reader.readU8();
         config.field18 = reader.readU8();
-        config.field19 = reader.readU32();
+        config.field19 = (int) reader.readU32();
         config.directorVersion = rawVersion;
         reader.readU16(); // skip directorVersion read again
         config.field21 = reader.readU16();
-        config.field22 = reader.readU32();
-        config.field23 = reader.readU32();
-        config.field24 = reader.readU32();
+        config.field22 = (int) reader.readU32();
+        config.field23 = (int) reader.readU32();
+        config.field24 = (int) reader.readU32();
         config.field25 = reader.readU8();
         config.field26 = reader.readU8();
         config.frameRate = reader.readU16();
         config.platform = reader.readU16();
         config.protection = reader.readU16();
-        config.field29 = reader.readU32();
-        config.checksum = reader.readU32();
+        config.field29 = (int) reader.readU32();
+        config.checksum = (int) reader.readU32();
 
         int remainingLen = config.len - reader.getPos();
         if (remainingLen > 0) {

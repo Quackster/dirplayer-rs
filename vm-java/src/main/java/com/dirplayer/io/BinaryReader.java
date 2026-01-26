@@ -91,6 +91,14 @@ public class BinaryReader {
         return buffer.getInt() & 0xFFFFFFFFL;
     }
 
+    /**
+     * Read an unsigned 32-bit integer as int (truncating high bit if set).
+     * Safe for Director files which don't use full u32 range.
+     */
+    public int readU32AsInt() {
+        return (int) readU32();
+    }
+
     public long readI64() {
         byte[] bytes = readBytes(8);
         ByteBuffer buffer = ByteBuffer.wrap(bytes).order(endian);
@@ -171,6 +179,13 @@ public class BinaryReader {
             sb.append((char) b);
         }
         return sb.toString();
+    }
+
+    /**
+     * Alias for readNullTerminatedString (C-style string).
+     */
+    public String readCString() {
+        return readNullTerminatedString();
     }
 
     /**

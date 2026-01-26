@@ -26,14 +26,14 @@ public class TextChunk {
         reader.setEndian(ByteOrder.BIG_ENDIAN);
 
         TextChunk chunk = new TextChunk();
-        chunk.offset = reader.readU32();
+        chunk.offset = (int) reader.readU32();
 
         if (chunk.offset != 12) {
             throw new RuntimeException("Stxt init: unhandled offset");
         }
 
-        chunk.textLength = reader.readU32();
-        chunk.dataLength = reader.readU32();
+        chunk.textLength = (int) reader.readU32();
+        chunk.dataLength = (int) reader.readU32();
         chunk.text = reader.readString(chunk.textLength);
         chunk.data = reader.readBytes(chunk.dataLength);
 
