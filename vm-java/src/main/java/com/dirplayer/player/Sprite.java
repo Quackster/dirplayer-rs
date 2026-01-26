@@ -6,6 +6,7 @@ package com.dirplayer.player;
  */
 public class Sprite {
     public int number;
+    public String name;
     public CastMemberRef memberRef;
     public int locH;
     public int locV;
@@ -21,9 +22,7 @@ public class Sprite {
     public int backColor;
     public int constraint;
     public boolean trails;
-    public boolean stretch;
-    public int rotation;
-    public int skew;
+    public int stretch;  // Changed to int to match Rust
     public boolean flipH;
     public boolean flipV;
 
@@ -57,9 +56,9 @@ public class Sprite {
     public int baseLocV;
     public int baseWidth;
     public int baseHeight;
-    public int baseRotation;
+    public double baseRotation;
     public int baseBlend;
-    public int baseSkew;
+    public double baseSkew;
     public ColorRef baseColor;
     public ColorRef baseBgColor;
 
@@ -67,8 +66,17 @@ public class Sprite {
     public boolean hasForeColor;
     public boolean hasBackColor;
 
+    // Quad for arbitrary quadrilateral rendering [topLeft, topRight, bottomRight, bottomLeft]
+    public int[][] quad;
+
+    // Size change flags
+    public boolean hasSizeTweened;
+    public boolean hasSizeChanged;
+    public boolean bitmapSizeOwnedBySprite;
+
     public Sprite(int number) {
         this.number = number;
+        this.name = "";
         this.memberRef = new CastMemberRef();
         this.locH = 0;
         this.locV = 0;
@@ -84,14 +92,12 @@ public class Sprite {
         this.backColor = 0;
         this.constraint = 0;
         this.trails = false;
-        this.stretch = false;
-        this.rotation = 0;
-        this.skew = 0;
+        this.stretch = 0;
         this.flipH = false;
         this.flipV = false;
         this.scriptNum = 0;
         this.scriptInstanceList = new java.util.ArrayList<>();
-        this.cursor = new CursorRef();
+        this.cursor = null;
         this.startTime = 0;
         this.stopTime = 0;
         this.movieRate = 0;
@@ -99,20 +105,68 @@ public class Sprite {
         this.currentTime = 0;
         this.lineSize = 1;
         this.pattern = 0;
-        this.locZ = 0;
+        this.locZ = number;  // Default to sprite number like Rust
         this.entered = false;
         this.exited = false;
         this.baseLocH = 0;
         this.baseLocV = 0;
         this.baseWidth = 0;
         this.baseHeight = 0;
-        this.baseRotation = 0;
+        this.baseRotation = 0.0;
         this.baseBlend = 100;
-        this.baseSkew = 0;
-        this.baseColor = null;
-        this.baseBgColor = null;
+        this.baseSkew = 0.0;
+        this.baseColor = ColorRef.paletteIndex(255);
+        this.baseBgColor = ColorRef.paletteIndex(0);
         this.hasForeColor = false;
         this.hasBackColor = false;
+        this.quad = null;
+        this.hasSizeTweened = false;
+        this.hasSizeChanged = false;
+        this.bitmapSizeOwnedBySprite = false;
+
+        // Initialize colors
+        this.color = ColorRef.paletteIndex(255);
+        this.bgColor = ColorRef.paletteIndex(0);
+        this.rotationFloat = 0.0f;
+        this.skew = 0.0f;
+    }
+
+    /**
+     * Reset the sprite to default values.
+     * Port of Rust Sprite::reset.
+     */
+    public void reset() {
+        this.name = "";
+        this.puppet = false;
+        this.visible = true;
+        this.stretch = 0;
+        this.locH = 0;
+        this.locV = 0;
+        this.locZ = this.number;
+        this.width = 0;
+        this.height = 0;
+        this.ink = 0;
+        this.blend = 100;
+        this.rotationFloat = 0.0f;
+        this.skew = 0.0f;
+        this.flipH = false;
+        this.flipV = false;
+        this.backColor = 0;
+        this.color = ColorRef.paletteIndex(255);
+        this.bgColor = ColorRef.paletteIndex(0);
+        this.memberRef = null;
+        this.scriptInstanceList.clear();
+        this.cursor = null;
+        this.editableText = false;
+        this.entered = false;
+        this.exited = false;
+        this.quad = null;
+        this.foreColor = 255;
+        this.hasForeColor = false;
+        this.hasBackColor = false;
+        this.hasSizeTweened = false;
+        this.hasSizeChanged = false;
+        this.bitmapSizeOwnedBySprite = false;
     }
 
     public int getLeft() {
@@ -155,8 +209,7 @@ public class Sprite {
     private ColorRef color;
     private ColorRef bgColor;
     private float rotationFloat;
-    private boolean hasSizeTweened;
-    private boolean hasSizeChanged;
+    private float skew;
 
     public CastMemberRef getMember() {
         return memberRef;
@@ -248,9 +301,50 @@ public class Sprite {
         this.hasSizeChanged = hasSizeChanged;
     }
 
+    public float getSkew() {
+        return skew;
+    }
+
+    public void setSkew(float skew) {
+        this.skew = skew;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int[][] getQuad() {
+        return quad;
+    }
+
+    public void setQuad(int[][] quad) {
+        this.quad = quad;
+    }
+
+    public boolean isBitmapSizeOwnedBySprite() {
+        return bitmapSizeOwnedBySprite;
+    }
+
+    public void setBitmapSizeOwnedBySprite(boolean bitmapSizeOwnedBySprite) {
+        this.bitmapSizeOwnedBySprite = bitmapSizeOwnedBySprite;
+    }
+
+    public CursorRef getCursor() {
+        return cursor;
+    }
+
+    public void setCursor(CursorRef cursor) {
+        this.cursor = cursor;
+    }
+
     public Sprite copy() {
         Sprite copy = new Sprite(number);
-        copy.memberRef = memberRef;
+        copy.name = name;
+        copy.memberRef = memberRef != null ? memberRef.copy() : null;
         copy.locH = locH;
         copy.locV = locV;
         copy.width = width;
@@ -266,13 +360,13 @@ public class Sprite {
         copy.constraint = constraint;
         copy.trails = trails;
         copy.stretch = stretch;
-        copy.rotation = rotation;
+        copy.rotationFloat = rotationFloat;
         copy.skew = skew;
         copy.flipH = flipH;
         copy.flipV = flipV;
         copy.scriptNum = scriptNum;
         copy.scriptInstanceList = new java.util.ArrayList<>(scriptInstanceList);
-        copy.cursor = cursor;
+        copy.cursor = cursor != null ? cursor.copy() : null;
         copy.startTime = startTime;
         copy.stopTime = stopTime;
         copy.movieRate = movieRate;
@@ -280,9 +374,8 @@ public class Sprite {
         copy.currentTime = currentTime;
         copy.lineSize = lineSize;
         copy.pattern = pattern;
-        copy.color = color;
-        copy.bgColor = bgColor;
-        copy.rotationFloat = rotationFloat;
+        copy.color = color != null ? color.copy() : null;
+        copy.bgColor = bgColor != null ? bgColor.copy() : null;
         copy.hasSizeTweened = hasSizeTweened;
         copy.hasSizeChanged = hasSizeChanged;
         copy.locZ = locZ;
@@ -295,10 +388,21 @@ public class Sprite {
         copy.baseRotation = baseRotation;
         copy.baseBlend = baseBlend;
         copy.baseSkew = baseSkew;
-        copy.baseColor = baseColor;
-        copy.baseBgColor = baseBgColor;
+        copy.baseColor = baseColor != null ? baseColor.copy() : null;
+        copy.baseBgColor = baseBgColor != null ? baseBgColor.copy() : null;
         copy.hasForeColor = hasForeColor;
         copy.hasBackColor = hasBackColor;
+        copy.quad = quad != null ? copyQuad(quad) : null;
+        copy.bitmapSizeOwnedBySprite = bitmapSizeOwnedBySprite;
+        return copy;
+    }
+
+    private static int[][] copyQuad(int[][] quad) {
+        int[][] copy = new int[4][2];
+        for (int i = 0; i < 4; i++) {
+            copy[i][0] = quad[i][0];
+            copy[i][1] = quad[i][1];
+        }
         return copy;
     }
 }

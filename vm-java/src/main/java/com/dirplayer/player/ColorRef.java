@@ -129,4 +129,52 @@ public class ColorRef {
     public int getPaletteIndex() {
         return paletteIndex;
     }
+
+    /**
+     * Create a ColorRef from a hex string like "#RRGGBB".
+     * Port of Rust ColorRef::from_hex.
+     */
+    public static ColorRef fromHex(String hex) {
+        String h = hex.startsWith("#") ? hex.substring(1) : hex;
+        int r = Integer.parseInt(h.substring(0, 2), 16);
+        int g = Integer.parseInt(h.substring(2, 4), 16);
+        int b = Integer.parseInt(h.substring(4, 6), 16);
+        return fromRgb(r, g, b);
+    }
+
+    /**
+     * Convert this ColorRef to a palette index using the given palette.
+     * If this is already a palette index, returns that index.
+     * Otherwise, finds the closest matching color in the palette.
+     * Port of Rust ColorRef::to_index.
+     *
+     * @param palette Array of RGB triplets [r, g, b]
+     * @return The best matching palette index
+     */
+    public int toIndex(int[][] palette) {
+        if (isPaletteColor) {
+            return paletteIndex;
+        }
+
+        int bestIndex = 0;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (int i = 0; i < palette.length; i++) {
+            int pr = palette[i][0];
+            int pg = palette[i][1];
+            int pb = palette[i][2];
+
+            int dr = red - pr;
+            int dg = green - pg;
+            int db = blue - pb;
+            int distance = dr * dr + dg * dg + db * db;
+
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
+    }
 }

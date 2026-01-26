@@ -441,7 +441,7 @@ public class DirectorFile {
 
     private static SordChunk getScoreOrderChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
         Chunk chunk = getFirstChunk(reader, chunkContainer, rifx, Utils.FOURCC("Sord"));
-        return chunk != null ? (SordChunk) getChunkData(chunk, Chunk.Type.SCORE_ORDER) : null;
+        return chunk != null ? chunk.asScoreOrder() : null;
     }
 
     private static MediaChunk getMediaChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
@@ -451,35 +451,22 @@ public class DirectorFile {
 
     private static XMediaChunk getXMediaChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
         Chunk chunk = getFirstChunk(reader, chunkContainer, rifx, Utils.FOURCC("XMED"));
-        return chunk != null ? (XMediaChunk) getChunkData(chunk, Chunk.Type.XMEDIA) : null;
+        return chunk != null ? chunk.asXMedia() : null;
     }
 
     private static CastInfoChunk getCastInfoChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
         Chunk chunk = getFirstChunk(reader, chunkContainer, rifx, Utils.FOURCC("Cinf"));
-        return chunk != null ? (CastInfoChunk) getChunkData(chunk, Chunk.Type.CST_INFO) : null;
+        return chunk != null ? chunk.asCastInfo() : null;
     }
 
     private static EffectChunk getEffectChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
         Chunk chunk = getFirstChunk(reader, chunkContainer, rifx, Utils.FOURCC("FXmp"));
-        return chunk != null ? (EffectChunk) getChunkData(chunk, Chunk.Type.EFFECT) : null;
+        return chunk != null ? chunk.asEffect() : null;
     }
 
     private static ThumChunk getThumChunk(BinaryReader reader, ChunkContainer chunkContainer, RIFXReaderContext rifx) {
         Chunk chunk = getFirstChunk(reader, chunkContainer, rifx, Utils.FOURCC("Thum"));
-        return chunk != null ? (ThumChunk) getChunkData(chunk, Chunk.Type.THUM) : null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T> T getChunkData(Chunk chunk, Chunk.Type expectedType) {
-        if (chunk == null || chunk.getType() != expectedType) {
-            return null;
-        }
-        try {
-            java.lang.reflect.Method method = Chunk.class.getMethod("as" + expectedType.name().charAt(0) + expectedType.name().substring(1).toLowerCase().replace("_", ""));
-            return (T) method.invoke(chunk);
-        } catch (Exception e) {
-            return null;
-        }
+        return chunk != null ? chunk.asThum() : null;
     }
 
     public static int getVariableMultiplier(boolean capitalX, int dirVersion) {
@@ -490,6 +477,119 @@ public class DirectorFile {
             return 8;
         }
         return 6;
+    }
+
+    /**
+     * Get a cast member chunk by section ID.
+     * Port of Rust get_cast_member_chunk function.
+     */
+    public static CastMemberChunk getCastMemberChunk(BinaryReader reader, ChunkContainer chunkContainer,
+                                                      RIFXReaderContext rifx, int sectionId) {
+        Chunk chunk = getChunk(reader, chunkContainer, rifx, Utils.FOURCC("CASt"), sectionId);
+        if (chunk != null && chunk.asCastMember() != null) {
+            return chunk.asCastMember();
+        } else {
+            throw new RuntimeException("Not a cast member chunk");
+        }
+    }
+
+    /**
+     * Get a cast chunk by section ID.
+     * Port of Rust get_cast_chunk function.
+     */
+    public static CastChunk getCastChunkById(BinaryReader reader, ChunkContainer chunkContainer,
+                                              RIFXReaderContext rifx, int sectionId) {
+        Chunk chunk = getChunk(reader, chunkContainer, rifx, Utils.FOURCC("CAS*"), sectionId);
+        if (chunk != null && chunk.asCast() != null) {
+            return chunk.asCast();
+        } else {
+            throw new RuntimeException("Not a cast chunk");
+        }
+    }
+
+    /**
+     * Find key table entry for a cast's script context (Lctx/LctX).
+     * Port of Rust get_script_context_key_entry_for_cast function.
+     */
+    public static KeyTableChunk.KeyTableEntry getScriptContextKeyEntryForCast(
+            BinaryReader reader, ChunkContainer chunkContainer, KeyTableChunk keyTable,
+            RIFXReaderContext rifx, int castId) {
+        for (KeyTableChunk.KeyTableEntry entry : keyTable.entries) {
+            if (entry.castId == castId &&
+                (entry.fourcc == Utils.FOURCC("Lctx") || entry.fourcc == Utils.FOURCC("LctX"))) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get a script context chunk by fourcc and section ID.
+     * Port of Rust get_script_context_chunk function.
+     */
+    public static ScriptContextChunk getScriptContextChunk(BinaryReader reader, ChunkContainer chunkContainer,
+                                                            RIFXReaderContext rifx, int fourcc, int sectionId) {
+        Chunk chunk = getChunk(reader, chunkContainer, rifx, fourcc, sectionId);
+        if (chunk != null && chunk.asScriptContext() != null) {
+            return chunk.asScriptContext();
+        } else {
+            throw new RuntimeException("Not a script context chunk");
+        }
+    }
+
+    /**
+     * Get a script names chunk by fourcc and section ID.
+     * Port of Rust get_script_names_chunk function.
+     */
+    public static ScriptNamesChunk getScriptNamesChunk(BinaryReader reader, ChunkContainer chunkContainer,
+                                                        RIFXReaderContext rifx, int fourcc, int sectionId) {
+        Chunk chunk = getChunk(reader, chunkContainer, rifx, fourcc, sectionId);
+        if (chunk != null && chunk.asScriptNames() != null) {
+            return chunk.asScriptNames();
+        } else {
+            throw new RuntimeException("Not a script names chunk");
+        }
+    }
+
+    /**
+     * Get a script chunk by fourcc and section ID.
+     * Port of Rust get_script_chunk function.
+     */
+    public static ScriptChunk getScriptChunk(BinaryReader reader, ChunkContainer chunkContainer,
+                                              RIFXReaderContext rifx, int fourcc, int sectionId) {
+        Chunk chunk = getChunk(reader, chunkContainer, rifx, fourcc, sectionId);
+        if (chunk != null && chunk.asScript() != null) {
+            return chunk.asScript();
+        } else {
+            throw new RuntimeException("Not a script chunk");
+        }
+    }
+
+    /**
+     * Find key table entry for a cast (CAS* fourcc).
+     * Port of Rust find_key_table_entry_for_cast function.
+     */
+    public static KeyTableChunk.KeyTableEntry findKeyTableEntryForCast(KeyTableChunk keyTable, int castId) {
+        for (KeyTableChunk.KeyTableEntry entry : keyTable.entries) {
+            if (entry.castId == castId && entry.fourcc == Utils.FOURCC("CAS*")) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get all key table entries that are children of a given chunk.
+     * Port of Rust get_children_of_chunk function.
+     */
+    public static List<KeyTableChunk.KeyTableEntry> getChildrenOfChunk(int chunkId, KeyTableChunk keyTable) {
+        List<KeyTableChunk.KeyTableEntry> children = new ArrayList<>();
+        for (KeyTableChunk.KeyTableEntry entry : keyTable.entries) {
+            if (entry.castId == chunkId) {
+                children.add(entry);
+            }
+        }
+        return children;
     }
 
     /**

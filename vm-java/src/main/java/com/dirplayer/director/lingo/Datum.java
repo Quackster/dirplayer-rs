@@ -59,6 +59,9 @@ public class Datum {
     private String xtraName;
     private int xtraInstanceId;
 
+    // Direct proplist (for inline prop lists)
+    private List<DirectPropListPair> directPropListValue;
+
     // Refs
     private int xmlRef;
     private int dateRef;
@@ -86,6 +89,14 @@ public class Datum {
     }
 
     // Factory methods
+    public static Datum ofVoid() {
+        return VOID;
+    }
+
+    public static Datum ofNull() {
+        return NULL;
+    }
+
     public static Datum ofInt(int value) {
         return new Datum(DatumType.Int, value);
     }
@@ -249,6 +260,67 @@ public class Datum {
     public static Datum ofBitmapRef(BitmapRef ref) {
         Datum d = new Datum(DatumType.BitmapRef);
         d.bitmapRef = ref;
+        return d;
+    }
+
+    /**
+     * Create a bitmap reference from a bitmap ID.
+     */
+    public static Datum ofBitmapRef(int bitmapId) {
+        Datum d = new Datum(DatumType.BitmapRef);
+        d.bitmapRef = new BitmapRef(bitmapId);
+        return d;
+    }
+
+    /**
+     * Create a timeout factory datum.
+     */
+    public static Datum ofTimeoutFactory() {
+        return new Datum(DatumType.TimeoutFactory);
+    }
+
+    /**
+     * Create a timeout reference datum.
+     */
+    public static Datum ofTimeoutRef(String name) {
+        Datum d = new Datum(DatumType.TimeoutRef);
+        d.timeoutName = name;
+        return d;
+    }
+
+    /**
+     * Create an Xtra datum.
+     */
+    public static Datum ofXtra(String name) {
+        Datum d = new Datum(DatumType.Xtra);
+        d.xtraName = name;
+        return d;
+    }
+
+    /**
+     * Create an XML reference datum.
+     */
+    public static Datum ofXmlRef(int id) {
+        Datum d = new Datum(DatumType.XmlRef);
+        d.xmlRef = id;
+        return d;
+    }
+
+    /**
+     * Create a date reference datum.
+     */
+    public static Datum ofDateRef(int id) {
+        Datum d = new Datum(DatumType.DateRef);
+        d.dateRef = id;
+        return d;
+    }
+
+    /**
+     * Create a math reference datum.
+     */
+    public static Datum ofMathRef(int id) {
+        Datum d = new Datum(DatumType.MathRef);
+        d.mathRef = id;
         return d;
     }
 
@@ -670,6 +742,76 @@ public class Datum {
 
     public void setListType(DatumType listType) {
         this.listType = listType;
+    }
+
+    // Xtra instance getters/setters
+    public String getXtraName() {
+        return xtraName;
+    }
+
+    public void setXtraName(String xtraName) {
+        this.xtraName = xtraName;
+    }
+
+    public int getXtraInstanceId() {
+        return xtraInstanceId;
+    }
+
+    public void setXtraInstanceId(int xtraInstanceId) {
+        this.xtraInstanceId = xtraInstanceId;
+    }
+
+    /**
+     * Create an Xtra instance datum.
+     */
+    public static Datum ofXtraInstance(String xtraName, int instanceId) {
+        Datum d = new Datum(DatumType.XtraInstance);
+        d.xtraName = xtraName;
+        d.xtraInstanceId = instanceId;
+        return d;
+    }
+
+    /**
+     * Create a property list directly from key-value pairs.
+     * This is a convenience method for creating prop lists with inline Datum values.
+     * Keys are strings, values are Datums.
+     */
+    public static Datum ofPropListDirect(Object... keyValuePairs) {
+        if (keyValuePairs.length % 2 != 0) {
+            throw new IllegalArgumentException("Must provide key-value pairs");
+        }
+
+        List<DirectPropListPair> pairs = new ArrayList<>();
+        for (int i = 0; i < keyValuePairs.length; i += 2) {
+            String key = (String) keyValuePairs[i];
+            Datum value = (Datum) keyValuePairs[i + 1];
+            pairs.add(new DirectPropListPair(key, value));
+        }
+
+        Datum d = new Datum(DatumType.PropList);
+        d.directPropListValue = pairs;
+        return d;
+    }
+
+    /**
+     * Get direct proplist value (for inline prop lists).
+     */
+    public List<DirectPropListPair> getDirectPropListValue() {
+        return directPropListValue;
+    }
+
+    /**
+     * Direct property list pair with string key and Datum value.
+     * Used for inline prop lists that don't go through the allocator.
+     */
+    public static class DirectPropListPair {
+        public String key;
+        public Datum value;
+
+        public DirectPropListPair(String key, Datum value) {
+            this.key = key;
+            this.value = value;
+        }
     }
 
     /**

@@ -55,6 +55,16 @@ public class BitmapManager {
 
     public void freeBitmap(int id) {
         bitmaps.remove(id);
+        bitmapObjects.remove(id);
+    }
+
+    /**
+     * Add a Bitmap object and return its ID.
+     */
+    public int addBitmap(Bitmap bitmap) {
+        int id = nextBitmapId++;
+        bitmapObjects.put(id, bitmap);
+        return id;
     }
 
     public void addPalette(int id, PaletteData palette) {

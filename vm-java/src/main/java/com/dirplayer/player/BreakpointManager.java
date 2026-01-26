@@ -48,6 +48,19 @@ public class BreakpointManager {
         );
     }
 
+    /**
+     * Find a breakpoint at the given bytecode location.
+     */
+    public Breakpoint findBreakpointForBytecode(String scriptName, String handlerName, int bytecodeIndex) {
+        return breakpoints.stream()
+            .filter(bp ->
+                bp.scriptName.equals(scriptName) &&
+                bp.handlerName.equals(handlerName) &&
+                bp.bytecodeIndex == bytecodeIndex)
+            .findFirst()
+            .orElse(null);
+    }
+
     public void clear() {
         breakpoints.clear();
     }

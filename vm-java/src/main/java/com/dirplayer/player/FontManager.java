@@ -36,22 +36,33 @@ public class FontManager {
         public String name;
         public int size;
         public int[] charWidths;
+        public int charWidth;   // Default char width (for fixed-width fonts)
         public int charHeight;
         public int[] bitmapData;
         public int bitmapWidth;
         public int bitmapHeight;
         public int charsPerRow;
+        public int bitmapRef;   // Reference to the font bitmap in BitmapManager
+        public int firstChar;   // First character code in the font
+        public int lastChar;    // Last character code in the font
 
         public BitmapFont(String name, int size) {
             this.name = name;
             this.size = size;
             this.charWidths = new int[256];
+            this.charWidth = size;  // Default to size for fixed-width
             this.charHeight = size;
+            this.firstChar = 32;    // Space
+            this.lastChar = 127;    // DEL (end of ASCII printable range)
+            this.bitmapRef = -1;
         }
 
         public int getCharWidth(char c) {
             int index = c & 0xFF;
-            return charWidths[index];
+            if (charWidths[index] > 0) {
+                return charWidths[index];
+            }
+            return charWidth;  // Fall back to default width
         }
 
         public int measureString(String text) {

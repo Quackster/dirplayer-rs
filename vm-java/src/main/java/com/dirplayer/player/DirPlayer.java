@@ -29,7 +29,7 @@ public class DirPlayer {
 
     // Globals and scopes
     public Map<String, Integer> globals;  // String -> DatumRef ID
-    public List<Scope> scopes;
+    public List<ScriptScope> scopes;
 
     // Managers
     public NetManager netManager;
@@ -40,6 +40,7 @@ public class DirPlayer {
     public SoundManager soundManager;
     public DatumAllocator allocator;
     public BreakpointManager breakpointManager;
+    public com.dirplayer.player.xtra.XtraManager xtraManager;
 
     // Debug state
     public BreakpointContext currentBreakpoint;
@@ -131,6 +132,7 @@ public class DirPlayer {
         this.soundManager = new SoundManager(8);  // 8 sound channels
         this.allocator = new DatumAllocator();
         this.breakpointManager = new BreakpointManager();
+        this.xtraManager = new com.dirplayer.player.xtra.XtraManager();
 
         this.currentBreakpoint = null;
         this.stepMode = StepMode.None;
@@ -382,8 +384,32 @@ public class DirPlayer {
         return allocator.get(ref);
     }
 
+    /**
+     * Get a mutable reference to a datum.
+     * In Java, this is the same as getDatum since objects are already mutable.
+     */
+    public com.dirplayer.director.lingo.Datum getDatumMut(int ref) {
+        return allocator.get(ref);
+    }
+
     public int allocDatum(com.dirplayer.director.lingo.Datum datum) {
         return allocator.alloc(datum);
+    }
+
+    /**
+     * Get the current scope reference (index into scopes list).
+     */
+    public int currentScopeRef() {
+        return scopes.isEmpty() ? -1 : scopes.size() - 1;
+    }
+
+    /**
+     * Initialize default global variables.
+     */
+    public void initializeGlobals() {
+        // Initialize standard Lingo globals
+        // These would include things like TRUE, FALSE, PI, etc.
+        // For now this is a stub
     }
 
     public String formatDatum(com.dirplayer.director.lingo.Datum datum) {

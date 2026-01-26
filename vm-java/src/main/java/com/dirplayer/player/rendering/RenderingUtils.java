@@ -17,6 +17,7 @@ import com.dirplayer.player.score.SpriteKeyframe.PathKeyframe;
 import com.dirplayer.player.score.SpritePathKeyframes;
 import com.dirplayer.rendering.CopyPixelsParams;
 import com.dirplayer.rendering.IntRect;
+import com.dirplayer.rendering.ScoreRef;
 import com.dirplayer.director.MemberType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -372,5 +373,352 @@ public final class RenderingUtils {
             return 100;  // Default is fully opaque
         }
         return blendValue;
+    }
+
+    /**
+     * Check if a bitmap should use matte for transparency based on ink and bit depth.
+     * Port of should_matte_sprite logic from Rust.
+     *
+     * @param ink The ink value
+     * @param originalBitDepth The original bit depth of the bitmap
+     * @return true if matte should be used
+     */
+    public static boolean shouldUseMatte(int ink, int originalBitDepth) {
+        boolean isIndexed = originalBitDepth <= 8;
+        boolean is16bit = originalBitDepth == 16;
+
+        // Only use matte mask for inks that support it:
+        // - Ink 0 (copy): for trimWhiteSpace edge transparency (indexed and 16-bit)
+        // - Ink 8 (matte): always uses matte (indexed only)
+        // - Ink 7, 36 (color-key): do NOT use matte - they have their own
+        //   bgColor-based transparency that conflicts with matte logic
+        return (isIndexed && (ink == InkEffect.COPY || ink == InkEffect.MATTE))
+            || (is16bit && ink == InkEffect.COPY);
+    }
+
+    /**
+     * Check if the specified ink requires alpha blending.
+     *
+     * @param ink The ink value
+     * @return true if the ink uses alpha blending
+     */
+    public static boolean inkRequiresBlending(int ink) {
+        return ink >= InkEffect.BLEND;
+    }
+
+    /**
+     * Check if ink is a "NOT" variant that inverts colors.
+     *
+     * @param ink The ink value
+     * @return true if the ink inverts colors
+     */
+    public static boolean isNotInk(int ink) {
+        return ink == InkEffect.NOT_COPY ||
+               ink == InkEffect.NOT_TRANSPARENT ||
+               ink == InkEffect.NOT_REVERSE ||
+               ink == InkEffect.NOT_GHOST;
+    }
+
+    /**
+     * Get the score sprite for a given channel number.
+     *
+     * @param movie The movie
+     * @param scoreRef The score reference
+     * @param channelNum The channel number
+     * @return The sprite or null
+     */
+    public static Sprite getScoreSprite(
+            com.dirplayer.player.Movie movie,
+            ScoreRef scoreRef,
+            int channelNum) {
+        if (scoreRef.isStage()) {
+            return movie.getScore().getSprite((short) channelNum);
+        } else if (scoreRef.isFilmLoop()) {
+            // For film loops, sprites are accessed differently
+            // through channel initialization data
+            CastMemberRef memberRef = scoreRef.getMemberRef();
+            CastMember member = movie.getCastManager().findMemberByRef(memberRef);
+            if (member != null && member.getMemberType() == MemberType.FilmLoop) {
+                com.dirplayer.player.cast.FilmLoopMember filmLoop =
+                    (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                if (filmLoop != null && filmLoop.getScore() != null) {
+                    return filmLoop.getScore().getSprite((short) channelNum);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Clamp a value between min and max.
+     *
+     * @param value The value to clamp
+     * @param min The minimum value
+     * @param max The maximum value
+     * @return The clamped value
+     */
+    public static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * Clamp a float value between min and max.
+     *
+     * @param value The value to clamp
+     * @param min The minimum value
+     * @param max The maximum value
+     * @return The clamped value
+     */
+    public static float clampf(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * Interpolate between two integer values.
+     *
+     * @param a Start value
+     * @param b End value
+     * @param t Interpolation factor (0.0 to 1.0)
+     * @return The interpolated value
+     */
+    public static int lerp(int a, int b, float t) {
+        return (int)(a + (b - a) * t);
+    }
+
+    /**
+     * Calculate the luminance of an RGB color.
+     * Used for comparison in lightest/darkest ink effects.
+     *
+     * @param r Red component (0-255)
+     * @param g Green component (0-255)
+     * @param b Blue component (0-255)
+     * @return The luminance value
+     */
+    public static int luminance(int r, int g, int b) {
+        // Standard luminance calculation
+        return (int)(0.299 * r + 0.587 * g + 0.114 * b);
+    }
+
+    /**
+     * Apply ink effect to a source color given a destination color.
+     * This is the core ink blending function.
+     *
+     * @param ink The ink effect
+     * @param srcR Source red
+     * @param srcG Source green
+     * @param srcB Source blue
+     * @param srcA Source alpha
+     * @param dstR Destination red
+     * @param dstG Destination green
+     * @param dstB Destination blue
+     * @param blend Blend percentage (0-100)
+     * @param fgColor Foreground color [r, g, b]
+     * @param bgColor Background color [r, g, b]
+     * @return Result color as [r, g, b, a]
+     */
+    public static int[] applyInkEffect(
+            int ink,
+            int srcR, int srcG, int srcB, int srcA,
+            int dstR, int dstG, int dstB,
+            int blend,
+            int[] fgColor, int[] bgColor) {
+
+        float alpha = blend / 100.0f;
+
+        switch (ink) {
+            case InkEffect.COPY:
+                return new int[] { srcR, srcG, srcB, srcA };
+
+            case InkEffect.TRANSPARENT:
+                return new int[] { srcR, srcG, srcB, (int)(srcA * alpha) };
+
+            case InkEffect.REVERSE:
+                return new int[] { 255 - dstR, 255 - dstG, 255 - dstB, 255 };
+
+            case InkEffect.GHOST:
+                return blendColors(srcR, srcG, srcB, dstR, dstG, dstB, 0.5f);
+
+            case InkEffect.NOT_COPY:
+                return new int[] { 255 - srcR, 255 - srcG, 255 - srcB, srcA };
+
+            case InkEffect.NOT_TRANSPARENT:
+                return new int[] { 255 - srcR, 255 - srcG, 255 - srcB, (int)(srcA * alpha) };
+
+            case InkEffect.NOT_REVERSE:
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            case InkEffect.NOT_GHOST:
+                return blendColors(255 - srcR, 255 - srcG, 255 - srcB, dstR, dstG, dstB, 0.5f);
+
+            case InkEffect.MATTE:
+            case InkEffect.MASK:
+                return new int[] { srcR, srcG, srcB, srcA };
+
+            case InkEffect.BLEND:
+                return blendColors(srcR, srcG, srcB, dstR, dstG, dstB, alpha);
+
+            case InkEffect.ADD_PIN:
+                return new int[] {
+                    clamp(dstR + (int)(srcR * alpha), 0, 255),
+                    clamp(dstG + (int)(srcG * alpha), 0, 255),
+                    clamp(dstB + (int)(srcB * alpha), 0, 255),
+                    255
+                };
+
+            case InkEffect.ADD:
+                return new int[] {
+                    (dstR + (int)(srcR * alpha)) & 0xFF,
+                    (dstG + (int)(srcG * alpha)) & 0xFF,
+                    (dstB + (int)(srcB * alpha)) & 0xFF,
+                    255
+                };
+
+            case InkEffect.SUBTRACT_PIN:
+                return new int[] {
+                    clamp(dstR - (int)(srcR * alpha), 0, 255),
+                    clamp(dstG - (int)(srcG * alpha), 0, 255),
+                    clamp(dstB - (int)(srcB * alpha), 0, 255),
+                    255
+                };
+
+            case InkEffect.BACKGROUND_TRANSPARENT:
+                // If source color matches background, make transparent
+                if (bgColor != null &&
+                    srcR == bgColor[0] && srcG == bgColor[1] && srcB == bgColor[2]) {
+                    return new int[] { srcR, srcG, srcB, 0 };
+                }
+                return new int[] { srcR, srcG, srcB, srcA };
+
+            case InkEffect.LIGHTEST:
+                return new int[] {
+                    Math.max(srcR, dstR),
+                    Math.max(srcG, dstG),
+                    Math.max(srcB, dstB),
+                    255
+                };
+
+            case InkEffect.SUBTRACT:
+                return new int[] {
+                    (dstR - (int)(srcR * alpha)) & 0xFF,
+                    (dstG - (int)(srcG * alpha)) & 0xFF,
+                    (dstB - (int)(srcB * alpha)) & 0xFF,
+                    255
+                };
+
+            case InkEffect.DARKEST:
+                return new int[] {
+                    Math.min(srcR, dstR),
+                    Math.min(srcG, dstG),
+                    Math.min(srcB, dstB),
+                    255
+                };
+
+            case InkEffect.DARKEN:
+                // Similar to darkest but uses luminance comparison
+                if (luminance(srcR, srcG, srcB) < luminance(dstR, dstG, dstB)) {
+                    return new int[] { srcR, srcG, srcB, 255 };
+                }
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            case InkEffect.LIGHTEN:
+                // Similar to lightest but uses luminance comparison
+                if (luminance(srcR, srcG, srcB) > luminance(dstR, dstG, dstB)) {
+                    return new int[] { srcR, srcG, srcB, 255 };
+                }
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            default:
+                // Unknown ink, default to copy
+                return new int[] { srcR, srcG, srcB, srcA };
+        }
+    }
+
+    /**
+     * Blend two colors together.
+     *
+     * @param srcR Source red
+     * @param srcG Source green
+     * @param srcB Source blue
+     * @param dstR Destination red
+     * @param dstG Destination green
+     * @param dstB Destination blue
+     * @param alpha Blend factor (0.0 = all dst, 1.0 = all src)
+     * @return Blended color as [r, g, b, a]
+     */
+    private static int[] blendColors(int srcR, int srcG, int srcB,
+                                     int dstR, int dstG, int dstB, float alpha) {
+        float invAlpha = 1.0f - alpha;
+        return new int[] {
+            (int)(srcR * alpha + dstR * invAlpha),
+            (int)(srcG * alpha + dstG * invAlpha),
+            (int)(srcB * alpha + dstB * invAlpha),
+            255
+        };
+    }
+
+    /**
+     * Get the rectangle for a sprite, accounting for registration point.
+     * This is a simplified version for when we don't need the full member lookup.
+     *
+     * @param sprite The sprite
+     * @return The sprite's bounding rectangle
+     */
+    public static IntRect getSimpleSpriteRect(Sprite sprite) {
+        int locH = sprite.getLocH();
+        int locV = sprite.getLocV();
+        int width = sprite.getWidth();
+        int height = sprite.getHeight();
+
+        // Default registration point is center
+        int regX = width / 2;
+        int regY = height / 2;
+
+        return IntRect.from(
+            locH - regX,
+            locV - regY,
+            locH - regX + width,
+            locV - regY + height
+        );
+    }
+
+    /**
+     * Check if a point is within a sprite's bounds.
+     *
+     * @param sprite The sprite
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param rect The sprite's rectangle (or null to compute)
+     * @return true if the point is within the sprite
+     */
+    public static boolean pointInSprite(Sprite sprite, int x, int y, IntRect rect) {
+        IntRect r = rect != null ? rect : getSimpleSpriteRect(sprite);
+        return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+    }
+
+    /**
+     * Get the max keyframe frame number from path keyframes.
+     *
+     * @param keyframesCache The keyframes cache map
+     * @return The maximum frame number
+     */
+    public static int getMaxKeyframeFrame(
+            java.util.Map<Integer, com.dirplayer.player.score.ChannelKeyframes> keyframesCache) {
+        if (keyframesCache == null || keyframesCache.isEmpty()) {
+            return 1;
+        }
+
+        int maxFrame = 1;
+        for (com.dirplayer.player.score.ChannelKeyframes channelKf : keyframesCache.values()) {
+            if (channelKf.path != null) {
+                List<com.dirplayer.player.score.SpriteKeyframe.PathKeyframe> keyframes =
+                    channelKf.path.getKeyframes();
+                for (com.dirplayer.player.score.SpriteKeyframe.PathKeyframe kf : keyframes) {
+                    if (kf.frame > maxFrame) {
+                        maxFrame = kf.frame;
+                    }
+                }
+            }
+        }
+        return maxFrame;
     }
 }

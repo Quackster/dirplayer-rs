@@ -1,0 +1,1721 @@
+package com.dirplayer.player.handlers;
+
+import com.dirplayer.director.chunks.FrameLabelsChunk.FrameLabel;
+import com.dirplayer.director.lingo.Datum;
+import com.dirplayer.director.lingo.Datum.PropListPair;
+import com.dirplayer.director.lingo.DatumType;
+import com.dirplayer.player.DirPlayer;
+import com.dirplayer.player.ScriptError;
+import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.handlers.datum.ListHandlers;
+import com.dirplayer.player.handlers.datum.PointHandlers;
+import com.dirplayer.player.handlers.datum.PropListHandlers;
+import com.dirplayer.player.handlers.datum.ScriptInstanceHandlers;
+import com.dirplayer.player.script.ScriptInstanceRef;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+
+/**
+ * Main handler manager that coordinates built-in function calls.
+ * Port of Rust BuiltInHandlerManager from vm-rust/src/player/handlers/manager.rs.
+ *
+ * This class is the central dispatcher for all built-in Lingo functions,
+ * coordinating between various specialized handler classes.
+ */
+public class HandlerManager {
+    private static final Logger logger = LoggerFactory.getLogger(HandlerManager.class);
+
+    private static final Random random = new Random();
+
+    // Keyboard mapping tables for keyPressed function
+    private static final Map<Character, Integer> CHAR_TO_KEYCODE = new HashMap<>();
+    private static final Map<Character, Integer> DIRECTOR_SPECIAL_CHAR_TO_KEYCODE = new HashMap<>();
+
+    static {
+        // Initialize character to keycode mapping (lowercase chars)
+        CHAR_TO_KEYCODE.put('a', 65);
+        CHAR_TO_KEYCODE.put('b', 66);
+        CHAR_TO_KEYCODE.put('c', 67);
+        CHAR_TO_KEYCODE.put('d', 68);
+        CHAR_TO_KEYCODE.put('e', 69);
+        CHAR_TO_KEYCODE.put('f', 70);
+        CHAR_TO_KEYCODE.put('g', 71);
+        CHAR_TO_KEYCODE.put('h', 72);
+        CHAR_TO_KEYCODE.put('i', 73);
+        CHAR_TO_KEYCODE.put('j', 74);
+        CHAR_TO_KEYCODE.put('k', 75);
+        CHAR_TO_KEYCODE.put('l', 76);
+        CHAR_TO_KEYCODE.put('m', 77);
+        CHAR_TO_KEYCODE.put('n', 78);
+        CHAR_TO_KEYCODE.put('o', 79);
+        CHAR_TO_KEYCODE.put('p', 80);
+        CHAR_TO_KEYCODE.put('q', 81);
+        CHAR_TO_KEYCODE.put('r', 82);
+        CHAR_TO_KEYCODE.put('s', 83);
+        CHAR_TO_KEYCODE.put('t', 84);
+        CHAR_TO_KEYCODE.put('u', 85);
+        CHAR_TO_KEYCODE.put('v', 86);
+        CHAR_TO_KEYCODE.put('w', 87);
+        CHAR_TO_KEYCODE.put('x', 88);
+        CHAR_TO_KEYCODE.put('y', 89);
+        CHAR_TO_KEYCODE.put('z', 90);
+        CHAR_TO_KEYCODE.put('0', 48);
+        CHAR_TO_KEYCODE.put('1', 49);
+        CHAR_TO_KEYCODE.put('2', 50);
+        CHAR_TO_KEYCODE.put('3', 51);
+        CHAR_TO_KEYCODE.put('4', 52);
+        CHAR_TO_KEYCODE.put('5', 53);
+        CHAR_TO_KEYCODE.put('6', 54);
+        CHAR_TO_KEYCODE.put('7', 55);
+        CHAR_TO_KEYCODE.put('8', 56);
+        CHAR_TO_KEYCODE.put('9', 57);
+        CHAR_TO_KEYCODE.put(' ', 32);
+
+        // Director special characters (arrow keys use control characters)
+        DIRECTOR_SPECIAL_CHAR_TO_KEYCODE.put((char) 28, 37);  // Left arrow
+        DIRECTOR_SPECIAL_CHAR_TO_KEYCODE.put((char) 29, 39);  // Right arrow
+        DIRECTOR_SPECIAL_CHAR_TO_KEYCODE.put((char) 30, 38);  // Up arrow
+        DIRECTOR_SPECIAL_CHAR_TO_KEYCODE.put((char) 31, 40);  // Down arrow
+    }
+
+    /**
+     * Private constructor - all methods are static.
+     */
+    private HandlerManager() {
+    }
+
+    // ========================================================================
+    // Core Handler Methods
+    // ========================================================================
+
+    /**
+     * Get parameter from current handler scope.
+     */
+    public static int param(DirPlayer player, List<Integer> args) throws ScriptError {
+        int paramNumber = player.getDatum(args.get(0)).intValue();
+        int scopeRef = player.currentScopeRef();
+        ScriptScope scope = player.scopes.get(scopeRef);
+
+        if (scope.args != null && paramNumber >= 1 && paramNumber <= scope.args.size()) {
+            return scope.args.get(paramNumber - 1);
+        }
+        return 0; // Void
+    }
+
+    /**
+     * Get count of items in a list, proplist, or void.
+     */
+    public static int count(DirPlayer player, List<Integer> args) throws ScriptError {
+        Datum obj = player.getDatum(args.get(0));
+
+        if (obj.isList()) {
+            return player.allocDatum(Datum.ofInt(obj.toList().size()));
+        } else if (obj.isPropList()) {
+            return player.allocDatum(Datum.ofInt(obj.toMap().size()));
+        } else if (obj.isVoid()) {
+            // Director treats count(VOID) as 0 - this allows "repeat with i in VOID" to not iterate
+            return player.allocDatum(Datum.ofInt(0));
+        } else {
+            throw new ScriptError("Cannot get count of non-list (type: " + obj.typeStr() + ")");
+        }
+    }
+
+    /**
+     * Get item at position (1-based index).
+     */
+    public static int getAt(DirPlayer player, List<Integer> args) throws ScriptError {
+        Datum obj = player.getDatum(args.get(0));
+        int position = player.getDatum(args.get(1)).intValue();
+        int index = position - 1;
+
+        logger.debug("getAt: list={}, index={}", player.formatDatum(obj), position);
+
+        if (obj.isPoint()) {
+            int[] arr = obj.toPoint();
+            if (index < 0 || index >= 2) {
+                throw new ScriptError("point index " + position + " out of bounds");
+            }
+            return arr[index];
+        }
+
+        if (obj.isRect()) {
+            int[] arr = obj.toRect();
+            if (index < 0 || index >= 4) {
+                throw new ScriptError("rect index " + position + " out of bounds");
+            }
+            return arr[index];
+        }
+
+        if (obj.isList()) {
+            List<Integer> list = obj.toList();
+            if (index < 0 || index >= list.size()) {
+                throw new ScriptError("Index " + position + " out of bounds for list of length " + list.size());
+            }
+            int result = list.get(index);
+            logger.debug("getAt returned: {}", player.formatDatum(player.getDatum(result)));
+            return result;
+        }
+
+        if (obj.isPropList()) {
+            List<PropListPair> propList = obj.toMap();
+            if (index < 0 || index >= propList.size()) {
+                throw new ScriptError("Index " + position + " out of bounds for proplist of length " + propList.size());
+            }
+            int result = propList.get(index).value;
+            logger.debug("getAt returned (from PropList): {}", player.formatDatum(player.getDatum(result)));
+            return result;
+        }
+
+        throw new ScriptError("Cannot getAt of non-list (type: " + obj.typeStr() + ")");
+    }
+
+    /**
+     * Set item at position (1-based index).
+     */
+    public static int setAt(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        int position = player.getDatum(args.get(1)).intValue();
+        int newValue = args.get(2);
+        int index = position - 1;
+
+        Datum listDatum = player.getDatumMut(listRef);
+        logger.debug("setAt: list={}, index={}, new_value={}",
+                player.formatDatum(listDatum), position, player.formatDatum(player.getDatum(newValue)));
+
+        // Validate the new_value type BEFORE modifying
+        Datum newValueDatum = player.getDatum(newValue);
+
+        if (listDatum.isPoint()) {
+            if (index < 0 || index >= 2) {
+                throw new ScriptError("point index " + position + " out of bounds");
+            }
+            // Validate that it's an Int
+            if (!newValueDatum.isInt()) {
+                throw new ScriptError("Point component must be Int, got " + newValueDatum.typeStr());
+            }
+            listDatum.setPointAt(index, newValue);
+            return 0; // Void
+        }
+
+        if (listDatum.isRect()) {
+            if (index < 0 || index >= 4) {
+                throw new ScriptError("rect index " + position + " out of bounds");
+            }
+            if (!newValueDatum.isInt()) {
+                throw new ScriptError("Rect component must be Int, got " + newValueDatum.typeStr());
+            }
+            listDatum.setRectAt(index, newValue);
+            return 0; // Void
+        }
+
+        if (listDatum.isList()) {
+            List<Integer> list = listDatum.toListMut();
+            if (index < 0) {
+                throw new ScriptError("Index " + position + " out of bounds");
+            }
+            if (index < list.size()) {
+                list.set(index, newValue);
+                logger.debug("setAt complete: list is now {}", player.formatDatum(listDatum));
+            } else {
+                throw new ScriptError("Index " + position + " out of bounds");
+            }
+            return 0; // Void
+        }
+
+        if (listDatum.isPropList()) {
+            List<PropListPair> propList = listDatum.toMap();
+            if (index < 0 || index >= propList.size()) {
+                throw new ScriptError("Index " + position + " out of bounds");
+            }
+            propList.get(index).value = newValue;
+            return 0; // Void
+        }
+
+        throw new ScriptError("Cannot setAt of type " + listDatum.typeStr() + " (must be list, proplist, point, or rect)");
+    }
+
+    /**
+     * Print/debug output.
+     */
+    public static int put(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            dispatchDebugMessage("--");
+            return 0;
+        }
+
+        // Format the first argument to determine output
+        Datum firstArg = player.getDatum(args.get(0));
+        String output;
+
+        if (args.size() == 1) {
+            // Single argument
+            output = formatForPut(firstArg, player);
+        } else {
+            // Multiple arguments - join with spaces
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < args.size(); i++) {
+                if (i > 0) sb.append(" ");
+                Datum datum = player.getDatum(args.get(i));
+                // For multi-arg put, use string representation
+                if (datum.isString()) {
+                    try {
+                        sb.append(datum.stringValue());
+                    } catch (ScriptError e) {
+                        sb.append(player.formatDatum(datum));
+                    }
+                } else {
+                    sb.append(player.formatDatum(datum));
+                }
+            }
+            output = sb.toString();
+        }
+
+        dispatchDebugMessage("-- " + output);
+        return 0; // Void
+    }
+
+    /**
+     * Format a datum for the put command.
+     */
+    private static String formatForPut(Datum datum, DirPlayer player) {
+        try {
+            switch (datum.getType()) {
+                case String:
+                    // Strings are output with quotes
+                    return "\"" + datum.stringValue() + "\"";
+                case Int:
+                    // Numbers are output without quotes
+                    return String.valueOf(datum.intValue());
+                case Symbol:
+                    // Symbols are output with # prefix
+                    return "#" + datum.symbolValue();
+                case Void:
+                case Null:
+                    // Void outputs as <Void>
+                    return "<Void>";
+                case List:
+                    // Lists
+                    List<Integer> list = datum.toList();
+                    StringBuilder sb = new StringBuilder("[");
+                    for (int i = 0; i < list.size(); i++) {
+                        if (i > 0) sb.append(", ");
+                        sb.append(formatForPut(player.getDatum(list.get(i)), player));
+                    }
+                    sb.append("]");
+                    return sb.toString();
+                default:
+                    // Everything else uses default formatting
+                    return player.formatDatum(datum);
+            }
+        } catch (ScriptError e) {
+            return player.formatDatum(datum);
+        }
+    }
+
+    /**
+     * Clear all global variables.
+     */
+    public static int clearGlobals(DirPlayer player, List<Integer> args) throws ScriptError {
+        player.globals.clear();
+        player.initializeGlobals();
+        return 0; // Void
+    }
+
+    /**
+     * Generate random number from 1 to max (inclusive).
+     */
+    public static int randomFunc(DirPlayer player, List<Integer> args) throws ScriptError {
+        int max = player.getDatum(args.get(0)).intValue();
+        if (max <= 0) {
+            throw new ScriptError("random: argument must be greater than 0");
+        }
+
+        // Director's random(n) returns a value from 1 to n (inclusive)
+        int randomInt = random.nextInt(max) + 1;
+        return player.allocDatum(Datum.ofInt(randomInt));
+    }
+
+    /**
+     * Bitwise AND operation.
+     */
+    public static int bitAnd(DirPlayer player, List<Integer> args) throws ScriptError {
+        int a = player.getDatum(args.get(0)).intValue();
+        int b = player.getDatum(args.get(1)).intValue();
+        return player.allocDatum(Datum.ofInt(a & b));
+    }
+
+    /**
+     * Bitwise OR operation.
+     */
+    public static int bitOr(DirPlayer player, List<Integer> args) throws ScriptError {
+        int a = player.getDatum(args.get(0)).intValue();
+        int b = player.getDatum(args.get(1)).intValue();
+        return player.allocDatum(Datum.ofInt(a | b));
+    }
+
+    /**
+     * Bitwise NOT operation.
+     */
+    public static int bitNot(DirPlayer player, List<Integer> args) throws ScriptError {
+        int a = player.getDatum(args.get(0)).intValue();
+        return player.allocDatum(Datum.ofInt(~a));
+    }
+
+    // ========================================================================
+    // Async Handler Detection and Routing
+    // ========================================================================
+
+    /**
+     * Check if a handler name is an async handler.
+     * In Java we treat these as potentially requiring special handling.
+     */
+    public static boolean hasAsyncHandler(String name) {
+        switch (name.toLowerCase()) {
+            case "call":
+            case "new":
+            case "newobject":
+            case "callancestor":
+            case "sendsprite":
+            case "sendallsprites":
+            case "value":
+            case "do":
+            case "updatestage":
+            case "go":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Call an async handler by name.
+     * Note: In Java, we handle async operations synchronously or via callbacks.
+     */
+    public static int callAsyncHandler(DirPlayer player, String name, List<Integer> args) throws ScriptError {
+        switch (name.toLowerCase()) {
+            case "call":
+                return call(player, args);
+            case "new":
+                return newInstance(player, args);
+            case "newobject":
+                return TypeHandlers.newObject(player, args);
+            case "callancestor":
+                return callAncestor(player, args);
+            case "sendsprite":
+                return sendSprite(player, args);
+            case "sendallsprites":
+                return sendAllSprites(player, args);
+            case "value":
+                return TypeHandlers.value(player, args);
+            case "do":
+                return doCommand(player, args);
+            case "updatestage":
+                return updateStage(player, args);
+            case "go":
+                return go(player, args);
+            default:
+                throw new ScriptError("No built-in async handler: " + name);
+        }
+    }
+
+    /**
+     * Create a new instance of a script or object.
+     */
+    public static int newInstance(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("new requires at least one argument");
+        }
+        // TODO: Implement full new() functionality for script instances
+        // For now, delegate to newObject
+        return TypeHandlers.newObject(player, args);
+    }
+
+    /**
+     * Call ancestor handler.
+     */
+    public static int callAncestor(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement ancestor calling
+        logger.warn("callAncestor not fully implemented");
+        return 0; // Void
+    }
+
+    // ========================================================================
+    // Main Handler Dispatcher
+    // ========================================================================
+
+    /**
+     * Call a built-in handler by name.
+     */
+    public static int callHandler(DirPlayer player, String name, List<Integer> args) throws ScriptError {
+        String lowerName = name.toLowerCase();
+
+        switch (lowerName) {
+            // Cast handlers
+            case "castlib":
+                return castLib(player, args);
+
+            // Net handlers
+            case "preloadnetthing":
+                return preloadNetThing(player, args);
+            case "netdone":
+                return netDone(player, args);
+            case "getnettext":
+                return getNetText(player, args);
+            case "getstreamstatus":
+                return getStreamStatus(player, args);
+            case "neterror":
+                return netError(player, args);
+            case "nettextresult":
+                return netTextResult(player, args);
+            case "postnettext":
+                return postNetText(player, args);
+
+            // Movie handlers
+            case "movetofront":
+                return 0; // No-op
+            case "puppettempo":
+                return puppetTempo(player, args);
+            case "script":
+                return script(player, args);
+            case "member":
+                return member(player, args);
+            case "puppetsprite":
+                return puppetSprite(player, args);
+            case "sprite":
+                return sprite(player, args);
+            case "externalparamcount":
+                return externalParamCount(player, args);
+            case "externalparamname":
+                return externalParamName(player, args);
+            case "externalparamvalue":
+                return externalParamValue(player, args);
+            case "stopevent":
+                return stopEvent(player, args);
+            case "getpref":
+                return getPref(player, args);
+            case "setpref":
+                return setPref(player, args);
+            case "gotonetpage":
+                return goToNetPage(player, args);
+            case "pass":
+                return pass(player, args);
+            case "rollover":
+                return rollover(player, args);
+            case "puppetsound":
+                return puppetSound(player, args);
+            case "halt":
+                return halt(player, args);
+
+            // Type handlers
+            case "objectp":
+                return TypeHandlers.objectp(player, args);
+            case "voidp":
+                return TypeHandlers.voidp(player, args);
+            case "listp":
+                return TypeHandlers.listp(player, args);
+            case "symbolp":
+                return TypeHandlers.symbolp(player, args);
+            case "stringp":
+                return TypeHandlers.stringp(player, args);
+            case "integerp":
+                return TypeHandlers.integerp(player, args);
+            case "floatp":
+                return TypeHandlers.floatp(player, args);
+            case "void":
+                return TypeHandlers.voidFunc(player, args);
+            case "ilk":
+                return TypeHandlers.ilk(player, args);
+            case "integer":
+                return TypeHandlers.integer(player, args);
+            case "float":
+                return TypeHandlers.floatFunc(player, args);
+            case "symbol":
+                return TypeHandlers.symbol(player, args);
+            case "point":
+                return TypeHandlers.point(player, args);
+            case "cursor":
+                return cursor(player, args);
+            case "timeout":
+                return timeout(player, args);
+            case "rect":
+                return TypeHandlers.rect(player, args);
+            case "rgb":
+                return TypeHandlers.rgb(player, args);
+            case "list":
+                return TypeHandlers.list(player, args);
+            case "image":
+                return image(player, args);
+            case "paletteindex":
+                return TypeHandlers.paletteIndex(player, args);
+            case "abs":
+                return TypeHandlers.abs(player, args);
+            case "xtra":
+                return xtra(player, args);
+            case "union":
+                return union(player, args);
+            case "bitxor":
+                return TypeHandlers.bitXor(player, args);
+            case "power":
+                return TypeHandlers.power(player, args);
+            case "add":
+                return add(player, args);
+            case "nothing":
+                return TypeHandlers.nothing(player, args);
+            case "getaprop":
+                return getAProp(player, args);
+            case "min":
+                return TypeHandlers.min(player, args);
+            case "max":
+                return TypeHandlers.max(player, args);
+            case "sort":
+                return sort(player, args);
+            case "intersect":
+                return intersect(player, args);
+            case "getpropat":
+                return getPropAt(player, args);
+            case "pi":
+                return TypeHandlers.pi(player, args);
+            case "sin":
+                return TypeHandlers.sin(player, args);
+            case "cos":
+                return TypeHandlers.cos(player, args);
+            case "sqrt":
+                return TypeHandlers.sqrt(player, args);
+            case "atan":
+                return TypeHandlers.atan(player, args);
+            case "sound":
+                return TypeHandlers.sound(player, args);
+            case "vector":
+                return TypeHandlers.vector(player, args);
+            case "color":
+                return TypeHandlers.color(player, args);
+            case "soundbusy":
+                return TypeHandlers.soundBusy(player, args);
+
+            // String handlers
+            case "offset":
+                return StringHandlers.offset(player, args);
+            case "length":
+                return StringHandlers.length(player, args);
+            case "space":
+                return StringHandlers.space(player, args);
+            case "string":
+                return StringHandlers.string(player, args);
+            case "chartonum":
+                return StringHandlers.charToNum(player, args);
+            case "numtochar":
+                return StringHandlers.numToChar(player, args);
+            case "chars":
+                return StringHandlers.chars(player, args);
+
+            // Core handlers
+            case "param":
+                return param(player, args);
+            case "count":
+                return count(player, args);
+            case "getat":
+                return getAt(player, args);
+            case "setat":
+                return setAt(player, args);
+            case "put":
+                return put(player, args);
+            case "random":
+                return randomFunc(player, args);
+            case "bitand":
+                return bitAnd(player, args);
+            case "bitor":
+                return bitOr(player, args);
+            case "bitnot":
+                return bitNot(player, args);
+            case "clearglobals":
+                return clearGlobals(player, args);
+
+            // Collection handlers with special routing
+            case "inside":
+                return inside(player, args);
+            case "addprop":
+                return addProp(player, args);
+            case "deleteprop":
+                return deleteProp(player, args);
+            case "append":
+                return append(player, args);
+            case "deleteat":
+                return deleteAt(player, args);
+            case "getone":
+                return getOne(player, args);
+            case "setaprop":
+                return setAProp(player, args);
+            case "addat":
+                return addAt(player, args);
+            case "getnodes":
+                return getNodes(player, args);
+            case "duplicate":
+                return duplicate(player, args);
+            case "getprop":
+                return getProp(player, args);
+
+            // Misc handlers
+            case "keypressed":
+                return keyPressed(player, args);
+            case "showglobals":
+                return showGlobals(player);
+            case "tellstreamstatus":
+                return tellStreamStatus(player, args);
+            case "label":
+                return label(player, args);
+            case "alert":
+                return alert(player, args);
+            case "starttimer":
+                return startTimer(player, args);
+            case "externalevent":
+                return externalEvent(player, args);
+            case "dontpassevent":
+                return dontPassEvent(player, args);
+            case "frameready":
+                return frameReady(player, args);
+            case "marker":
+                return marker(player, args);
+
+            default:
+                // Format args for error message
+                StringBuilder formattedArgs = new StringBuilder();
+                for (int i = 0; i < args.size(); i++) {
+                    if (i > 0) formattedArgs.append(", ");
+                    formattedArgs.append(player.formatDatum(player.getDatum(args.get(i))));
+                }
+                String msg = "No built-in handler: " + name + "(" + formattedArgs + ")";
+                logger.warn(msg);
+                throw new ScriptError(msg);
+        }
+    }
+
+    // ========================================================================
+    // Call Handler - for calling handlers on objects
+    // ========================================================================
+
+    /**
+     * Call a handler on a datum (list of receivers).
+     */
+    public static int call(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.size() < 2) {
+            throw new ScriptError("call requires at least 2 arguments");
+        }
+
+        int receiverRef = args.get(1);
+        Datum handlerNameDatum = player.getDatum(args.get(0));
+        Datum receiverDatum = player.getDatum(receiverRef);
+
+        if (!handlerNameDatum.isSymbol()) {
+            throw new ScriptError("Handler name must be a symbol");
+        }
+        String handlerName = handlerNameDatum.symbolValue();
+
+        List<Integer> callArgs = args.size() > 2 ? args.subList(2, args.size()) : new ArrayList<>();
+
+        // Handle list/proplist of receivers
+        List<ScriptInstanceRef> instanceRefs = new ArrayList<>();
+        int listCount = 0;
+
+        if (receiverDatum.isPropList()) {
+            List<PropListPair> propList = receiverDatum.toMap();
+            listCount = propList.size();
+            for (PropListPair pair : propList) {
+                instanceRefs.addAll(getDatumScriptInstanceIds(player, pair.value));
+            }
+        } else if (receiverDatum.isList()) {
+            List<Integer> list = receiverDatum.toList();
+            listCount = list.size();
+            for (int valueRef : list) {
+                instanceRefs.addAll(getDatumScriptInstanceIds(player, valueRef));
+            }
+        } else {
+            // Single receiver - delegate to datum handler
+            return playerCallDatumHandler(player, receiverRef, handlerName, callArgs);
+        }
+
+        // Call handler on each instance
+        int result = 0; // Void
+        for (ScriptInstanceRef instanceRef : instanceRefs) {
+            int handlerResult = ScriptInstanceHandlers.callHandler(player, instanceRef.id, handlerName, callArgs);
+            result = handlerResult;
+        }
+
+        return result;
+    }
+
+    /**
+     * Get script instance IDs from a datum.
+     */
+    private static List<ScriptInstanceRef> getDatumScriptInstanceIds(DirPlayer player, int valueRef) throws ScriptError {
+        Datum value = player.getDatum(valueRef);
+        List<ScriptInstanceRef> instanceRefs = new ArrayList<>();
+
+        if (value.isScriptInstanceRef()) {
+            instanceRefs.add(new ScriptInstanceRef(value.getScriptInstanceRef()));
+        } else if (value.isSpriteRef()) {
+            // Get script instances from sprite
+            int spriteId = value.toSpriteRef();
+            // TODO: Get script instance list from sprite when score is implemented
+            // For now, return empty list
+        } else if (value.isInt()) {
+            // Integer is allowed but ignored (e.g., for empty slots)
+        } else {
+            throw new ScriptError("Cannot get script instance ids from datum of type: " + value.typeStr());
+        }
+
+        return instanceRefs;
+    }
+
+    /**
+     * Call a handler on a datum (generic dispatch).
+     */
+    private static int playerCallDatumHandler(DirPlayer player, int datumRef, String handlerName, List<Integer> args) throws ScriptError {
+        Datum datum = player.getDatum(datumRef);
+
+        if (datum.isScriptInstanceRef()) {
+            return ScriptInstanceHandlers.callHandler(player, datum.getScriptInstanceRef(), handlerName, args);
+        } else if (datum.isList()) {
+            return ListHandlers.call(player, datumRef, handlerName, args);
+        } else if (datum.isPropList()) {
+            return PropListHandlers.call(player, datumRef, handlerName, args);
+        } else if (datum.isPoint()) {
+            return PointHandlers.call(player, datumRef, handlerName, args);
+        } else {
+            throw new ScriptError("Cannot call handler " + handlerName + " on datum of type " + datum.typeStr());
+        }
+    }
+
+    // ========================================================================
+    // Do Command
+    // ========================================================================
+
+    /**
+     * Execute a string as Lingo code.
+     */
+    public static int doCommand(DirPlayer player, List<Integer> args) throws ScriptError {
+        String code = player.getDatum(args.get(0)).stringValue();
+        logger.debug("do: executing code: {}", code);
+
+        code = code.trim();
+
+        // Parse handler name and arguments from the code string
+        String handlerName;
+        List<Integer> argRefs;
+
+        int parenPos = code.indexOf('(');
+        if (parenPos >= 0) {
+            handlerName = code.substring(0, parenPos).trim();
+            String argsStr = code.substring(parenPos + 1);
+
+            int closeParenPos = argsStr.lastIndexOf(')');
+            if (closeParenPos >= 0) {
+                argsStr = argsStr.substring(0, closeParenPos);
+                if (argsStr.trim().isEmpty()) {
+                    argRefs = new ArrayList<>();
+                } else {
+                    argRefs = parseDoArguments(player, argsStr);
+                }
+            } else {
+                argRefs = new ArrayList<>();
+            }
+        } else {
+            handlerName = code;
+            argRefs = new ArrayList<>();
+        }
+
+        // Call the global handler
+        try {
+            int result = callHandler(player, handlerName, argRefs);
+            logger.debug("do completed: {}", player.formatDatum(player.getDatum(result)));
+            return result;
+        } catch (ScriptError e) {
+            logger.error("do failed: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Parse arguments from a do command string.
+     */
+    private static List<Integer> parseDoArguments(DirPlayer player, String argsStr) {
+        List<Integer> argRefs = new ArrayList<>();
+        String[] parts = argsStr.split(",");
+
+        for (String part : parts) {
+            String arg = part.trim();
+
+            // Try to parse as integer
+            try {
+                int i = Integer.parseInt(arg);
+                argRefs.add(player.allocDatum(Datum.ofInt(i)));
+                continue;
+            } catch (NumberFormatException ignored) {
+            }
+
+            // Try to parse as float
+            try {
+                double f = Double.parseDouble(arg);
+                argRefs.add(player.allocDatum(Datum.ofFloat(f)));
+                continue;
+            } catch (NumberFormatException ignored) {
+            }
+
+            // Check for quoted string
+            if (arg.startsWith("\"") && arg.endsWith("\"") && arg.length() >= 2) {
+                argRefs.add(player.allocDatum(Datum.ofString(arg.substring(1, arg.length() - 1))));
+                continue;
+            }
+
+            // Check for symbol
+            if (arg.startsWith("#")) {
+                argRefs.add(player.allocDatum(Datum.ofSymbol(arg.substring(1))));
+                continue;
+            }
+
+            // Default to string
+            argRefs.add(player.allocDatum(Datum.ofString(arg)));
+        }
+
+        return argRefs;
+    }
+
+    // ========================================================================
+    // Collection/List Handlers with Type Routing
+    // ========================================================================
+
+    /**
+     * Check if point is inside rect.
+     */
+    public static int inside(DirPlayer player, List<Integer> args) throws ScriptError {
+        int pointRef = args.get(0);
+        List<Integer> rectArgs = args.subList(1, args.size());
+        return PointHandlers.inside(player, pointRef, rectArgs);
+    }
+
+    /**
+     * Add property to proplist.
+     */
+    public static int addProp(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> propArgs = args.subList(1, args.size());
+        return PropListHandlers.addProp(player, listRef, propArgs);
+    }
+
+    /**
+     * Delete property from proplist.
+     */
+    public static int deleteProp(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> propArgs = args.subList(1, args.size());
+        return PropListHandlers.deleteProp(player, listRef, propArgs);
+    }
+
+    /**
+     * Append item to list.
+     */
+    public static int append(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> appendArgs = args.subList(1, args.size());
+        return ListHandlers.append(player, listRef, appendArgs);
+    }
+
+    /**
+     * Delete item at position from list or proplist.
+     */
+    public static int deleteAt(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> deleteArgs = args.subList(1, args.size());
+        Datum datum = player.getDatum(listRef);
+
+        if (datum.isList()) {
+            return ListHandlers.deleteAt(player, listRef, deleteArgs);
+        } else if (datum.isPropList()) {
+            return PropListHandlers.deleteAt(player, listRef, deleteArgs);
+        } else {
+            throw new ScriptError("Cannot delete at non list");
+        }
+    }
+
+    /**
+     * Get position of item in list or proplist.
+     */
+    public static int getOne(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> getArgs = args.subList(1, args.size());
+        Datum datum = player.getDatum(listRef);
+
+        if (datum.isList()) {
+            return ListHandlers.getOne(player, listRef, getArgs);
+        } else if (datum.isPropList()) {
+            return PropListHandlers.getOne(player, listRef, getArgs);
+        } else {
+            throw new ScriptError("Cannot get one at non list");
+        }
+    }
+
+    /**
+     * Set optional property (setaProp).
+     */
+    public static int setAProp(DirPlayer player, List<Integer> args) throws ScriptError {
+        int datumRef = args.get(0);
+        Datum datum = player.getDatum(datumRef);
+        List<Integer> propArgs = args.subList(1, args.size());
+
+        DatumType datumType = datum.getType();
+        if (datumType == DatumType.PropList) {
+            return PropListHandlers.setOptProp(player, datumRef, propArgs);
+        } else if (datumType == DatumType.ScriptInstanceRef) {
+            return ScriptInstanceHandlers.setAProp(player, datumRef, propArgs);
+        } else {
+            throw new ScriptError("Cannot setaProp on non-prop list or child object");
+        }
+    }
+
+    /**
+     * Add item at position in list.
+     */
+    public static int addAt(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> addArgs = args.subList(1, args.size());
+        return ListHandlers.addAt(player, listRef, addArgs);
+    }
+
+    /**
+     * Duplicate a list, proplist, point, rect, or other value.
+     */
+    public static int duplicate(DirPlayer player, List<Integer> args) throws ScriptError {
+        int itemRef = args.get(0);
+        Datum item = player.getDatum(itemRef);
+        List<Integer> dupArgs = args.size() > 1 ? args.subList(1, args.size()) : new ArrayList<>();
+
+        if (item.isList()) {
+            return ListHandlers.duplicate(player, itemRef, dupArgs);
+        } else if (item.isPropList()) {
+            return PropListHandlers.duplicate(player, itemRef, dupArgs);
+        } else if (item.isPoint()) {
+            // Duplicate point
+            int[] arr = item.toPoint();
+            Datum val0 = player.getDatum(arr[0]);
+            Datum val1 = player.getDatum(arr[1]);
+
+            int newRef0, newRef1;
+            if (val0.isInt()) {
+                newRef0 = player.allocDatum(Datum.ofInt(val0.intValue()));
+            } else if (val0.isFloat()) {
+                newRef0 = player.allocDatum(Datum.ofFloat(val0.floatValue()));
+            } else {
+                throw new ScriptError("Point component must be numeric, got " + val0.typeStr());
+            }
+            if (val1.isInt()) {
+                newRef1 = player.allocDatum(Datum.ofInt(val1.intValue()));
+            } else if (val1.isFloat()) {
+                newRef1 = player.allocDatum(Datum.ofFloat(val1.floatValue()));
+            } else {
+                throw new ScriptError("Point component must be numeric, got " + val1.typeStr());
+            }
+
+            return player.allocDatum(Datum.ofPoint(newRef0, newRef1));
+        } else if (item.isRect()) {
+            // Duplicate rect
+            int[] arr = item.toRect();
+            int[] newArr = new int[4];
+            for (int i = 0; i < 4; i++) {
+                Datum val = player.getDatum(arr[i]);
+                if (val.isInt()) {
+                    newArr[i] = player.allocDatum(Datum.ofInt(val.intValue()));
+                } else if (val.isFloat()) {
+                    newArr[i] = player.allocDatum(Datum.ofFloat(val.floatValue()));
+                } else {
+                    throw new ScriptError("Rect component must be numeric, got " + val.typeStr());
+                }
+            }
+            return player.allocDatum(Datum.ofRect(newArr[0], newArr[1], newArr[2], newArr[3]));
+        } else if (item.isString()) {
+            return player.allocDatum(Datum.ofString(item.stringValue()));
+        } else if (item.isInt()) {
+            return player.allocDatum(Datum.ofInt(item.intValue()));
+        } else if (item.isFloat()) {
+            return player.allocDatum(Datum.ofFloat(item.floatValue()));
+        } else if (item.isSymbol()) {
+            return player.allocDatum(Datum.ofSymbol(item.symbolValue()));
+        } else {
+            throw new ScriptError("duplicate() on non list not implemented");
+        }
+    }
+
+    /**
+     * Get property from proplist.
+     */
+    public static int getProp(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> propArgs = args.subList(1, args.size());
+        return PropListHandlers.getProp(player, listRef, propArgs);
+    }
+
+    /**
+     * Get optional property (getaProp).
+     */
+    public static int getAProp(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.size() < 2) {
+            throw new ScriptError("getaProp requires at least 2 arguments");
+        }
+        int listRef = args.get(0);
+        List<Integer> propArgs = args.subList(1, args.size());
+
+        Datum datum = player.getDatum(listRef);
+        if (datum.isPropList()) {
+            return PropListHandlers.getAProp(player, listRef, propArgs);
+        } else if (datum.isScriptInstanceRef()) {
+            return ScriptInstanceHandlers.getAProp(player, listRef, propArgs);
+        } else {
+            throw new ScriptError("getaProp requires a proplist or script instance");
+        }
+    }
+
+    /**
+     * Sort a list or proplist.
+     */
+    public static int sort(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        Datum datum = player.getDatum(listRef);
+
+        if (datum.isList()) {
+            return ListHandlers.sort(player, listRef, args.subList(1, args.size()));
+        } else if (datum.isPropList()) {
+            return PropListHandlers.sort(player, listRef, args.subList(1, args.size()));
+        } else {
+            throw new ScriptError("sort requires a list or proplist");
+        }
+    }
+
+    /**
+     * Get rect intersection.
+     */
+    public static int intersect(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.size() < 2) {
+            throw new ScriptError("intersect requires 2 arguments");
+        }
+
+        int[] rect1 = player.getDatum(args.get(0)).toRect();
+        int[] rect2 = player.getDatum(args.get(1)).toRect();
+
+        // Get actual values
+        int left1 = player.getDatum(rect1[0]).intValue();
+        int top1 = player.getDatum(rect1[1]).intValue();
+        int right1 = player.getDatum(rect1[2]).intValue();
+        int bottom1 = player.getDatum(rect1[3]).intValue();
+
+        int left2 = player.getDatum(rect2[0]).intValue();
+        int top2 = player.getDatum(rect2[1]).intValue();
+        int right2 = player.getDatum(rect2[2]).intValue();
+        int bottom2 = player.getDatum(rect2[3]).intValue();
+
+        // Calculate intersection
+        int left = Math.max(left1, left2);
+        int top = Math.max(top1, top2);
+        int right = Math.min(right1, right2);
+        int bottom = Math.min(bottom1, bottom2);
+
+        // If no intersection, return empty rect
+        if (left >= right || top >= bottom) {
+            left = top = right = bottom = 0;
+        }
+
+        int leftRef = player.allocDatum(Datum.ofInt(left));
+        int topRef = player.allocDatum(Datum.ofInt(top));
+        int rightRef = player.allocDatum(Datum.ofInt(right));
+        int bottomRef = player.allocDatum(Datum.ofInt(bottom));
+
+        return player.allocDatum(Datum.ofRect(leftRef, topRef, rightRef, bottomRef));
+    }
+
+    /**
+     * Get property key at index.
+     */
+    public static int getPropAt(DirPlayer player, List<Integer> args) throws ScriptError {
+        int listRef = args.get(0);
+        List<Integer> propArgs = args.subList(1, args.size());
+        return PropListHandlers.getPropAt(player, listRef, propArgs);
+    }
+
+    // ========================================================================
+    // Keyboard Handler
+    // ========================================================================
+
+    /**
+     * Check if a key is pressed.
+     */
+    public static int keyPressed(DirPlayer player, List<Integer> args) throws ScriptError {
+        Datum argDatum = player.getDatum(args.get(0));
+
+        int keyCode;
+        if (argDatum.isString()) {
+            String keyStr = argDatum.stringValue();
+
+            // STRING: First check if it's a single character
+            if (keyStr.length() == 1) {
+                char ch = keyStr.charAt(0);
+
+                // First check for special Director characters (arrow keys, etc.)
+                Integer specialCode = DIRECTOR_SPECIAL_CHAR_TO_KEYCODE.get(ch);
+                if (specialCode != null) {
+                    keyCode = specialCode;
+                } else {
+                    // Regular character - lowercase and look up
+                    char chLower = Character.toLowerCase(ch);
+                    keyCode = CHAR_TO_KEYCODE.getOrDefault(chLower, 0);
+                }
+            } else {
+                // Try to parse as number string (like "123")
+                try {
+                    int code = Integer.parseInt(keyStr);
+                    // Check if it's an ASCII letter code that needs mapping
+                    if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                        char ch = Character.toLowerCase((char) code);
+                        keyCode = CHAR_TO_KEYCODE.getOrDefault(ch, code);
+                    } else {
+                        keyCode = code;
+                    }
+                } catch (NumberFormatException e) {
+                    throw new ScriptError("keyPressed: cannot parse string '" + keyStr + "'");
+                }
+            }
+        } else if (argDatum.isInt()) {
+            int code = argDatum.intValue();
+            // Check if it's an ASCII code that needs mapping
+            if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                char ch = Character.toLowerCase((char) code);
+                keyCode = CHAR_TO_KEYCODE.getOrDefault(ch, code);
+            } else {
+                keyCode = code;
+            }
+        } else {
+            throw new ScriptError("keyPressed expects a string or integer");
+        }
+
+        // Check if any currently pressed key matches this code
+        boolean isPressed = player.keyboardManager.isKeyDown(keyCode);
+        return player.allocDatum(Datum.ofBool(isPressed));
+    }
+
+    // ========================================================================
+    // Miscellaneous Handlers
+    // ========================================================================
+
+    /**
+     * Get XML nodes by name.
+     */
+    public static int getNodes(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.size() < 2) {
+            throw new ScriptError("getNodes requires 2 arguments: xml_node, node_name");
+        }
+
+        Datum xmlNode = player.getDatum(args.get(0));
+        String nodeName = player.getDatum(args.get(1)).stringValue();
+
+        logger.debug("getNodes called for node type: {}", nodeName);
+
+        // Get the XML node ID
+        if (xmlNode.getType() != DatumType.XmlRef) {
+            throw new ScriptError("First argument must be an XML node reference");
+        }
+
+        // TODO: Implement XML node searching when XmlHelper is ported
+        // For now, return empty list
+        return player.allocDatum(Datum.ofList(DatumType.List, new ArrayList<>(), false));
+    }
+
+    /**
+     * Enable/disable stream status handler.
+     */
+    public static int tellStreamStatus(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("tellStreamStatus requires 1 argument");
+        }
+
+        boolean enabled = false;
+        try {
+            enabled = player.getDatum(args.get(0)).boolValue();
+        } catch (ScriptError ignored) {
+        }
+
+        player.enableStreamStatusHandler = enabled;
+        return player.allocDatum(Datum.ofInt(enabled ? 1 : 0));
+    }
+
+    /**
+     * Find frame number for a label.
+     */
+    public static int label(DirPlayer player, List<Integer> args) throws ScriptError {
+        String labelName = player.getDatum(args.get(0)).stringValue();
+        logger.debug("Searching for label: {}", labelName);
+
+        String labelNameLower = labelName.toLowerCase();
+
+        // Search frame labels
+        int frameNum = 0;
+        for (FrameLabel fl : player.movie.score.frameLabels) {
+            if (fl.label.toLowerCase().equals(labelNameLower)) {
+                frameNum = fl.frameNum;
+                logger.debug("Found label '{}' at frame {}", fl.label, fl.frameNum);
+                break;
+            }
+        }
+
+        if (frameNum == 0) {
+            logger.warn("Label not found: {}", labelName);
+        }
+
+        return player.allocDatum(Datum.ofInt(frameNum));
+    }
+
+    /**
+     * Show alert dialog.
+     */
+    public static int alert(DirPlayer player, List<Integer> args) throws ScriptError {
+        String message = player.getDatum(args.get(0)).stringValue();
+        dispatchDebugMessage("Alert: " + message);
+        return 0; // Void
+    }
+
+    /**
+     * Show global variables in debug output.
+     */
+    public static int showGlobals(DirPlayer player) throws ScriptError {
+        dispatchDebugMessage("--- Global Variables ---");
+        for (Map.Entry<String, Integer> entry : player.globals.entrySet()) {
+            Datum value = player.getDatum(entry.getValue());
+            dispatchDebugMessage(entry.getKey() + " = " + player.formatDatum(value));
+        }
+        return 0; // Void
+    }
+
+    /**
+     * Check if datum is void.
+     */
+    public static int voidP(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            return player.allocDatum(Datum.ofInt(1));
+        }
+
+        Datum datum = player.getDatum(args.get(0));
+        boolean isVoid = datum.isVoid() || datum.isNull();
+        return player.allocDatum(Datum.ofInt(isVoid ? 1 : 0));
+    }
+
+    /**
+     * Check if datum is an object.
+     */
+    public static int objectP(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            return player.allocDatum(Datum.ofInt(0));
+        }
+
+        Datum datum = player.getDatum(args.get(0));
+
+        // Director considers these as objects (not primitives)
+        boolean isObject = false;
+        switch (datum.getType()) {
+            case ScriptInstanceRef:
+            case SpriteRef:
+            case CastMemberRef:
+            case List:
+            case PropList:
+            case BitmapRef:
+            case ScriptRef:
+            case XmlRef:
+            case Xtra:
+            case XtraInstance:
+            case Matte:
+            case PlayerRef:
+            case MovieRef:
+            case StageRef:
+            case CastLibRef:
+            case DateRef:
+            case MathRef:
+            case SoundRef:
+            case SoundChannel:
+            case CursorRef:
+            case TimeoutRef:
+            case TimeoutInstance:
+                isObject = true;
+                break;
+            default:
+                isObject = false;
+        }
+
+        return player.allocDatum(Datum.ofInt(isObject ? 1 : 0));
+    }
+
+    /**
+     * Reset start timer.
+     */
+    public static int startTimer(DirPlayer player, List<Integer> args) throws ScriptError {
+        player.startTime = LocalDateTime.now();
+        return 0; // Void
+    }
+
+    /**
+     * Dispatch external event.
+     */
+    public static int externalEvent(DirPlayer player, List<Integer> args) throws ScriptError {
+        String eventString = player.getDatum(args.get(0)).stringValue();
+        logger.debug("externalEvent: {}", eventString);
+        dispatchExternalEvent(eventString);
+        return 0; // Void
+    }
+
+    /**
+     * Don't pass event to parent scripts.
+     */
+    public static int dontPassEvent(DirPlayer player, List<Integer> args) throws ScriptError {
+        int scopeRef = player.currentScopeRef();
+        if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
+            ScriptScope scope = player.scopes.get(scopeRef);
+            scope.passed = false;  // Set passed to false to stop propagation
+        }
+        return 0; // Void
+    }
+
+    /**
+     * Check if frame(s) are ready (all cast members loaded).
+     */
+    public static int frameReady(DirPlayer player, List<Integer> args) throws ScriptError {
+        // Get start and end frame numbers
+        int startFrame, endFrame;
+        if (args.isEmpty()) {
+            // No arguments - check current frame only
+            startFrame = player.movie.currentFrame;
+            endFrame = startFrame;
+        } else {
+            startFrame = player.getDatum(args.get(0)).intValue();
+            endFrame = args.size() > 1 ? player.getDatum(args.get(1)).intValue() : startFrame;
+        }
+
+        logger.debug("frameReady checking frames {} to {}", startFrame, endFrame);
+
+        // Check if frame range is valid
+        if (startFrame < 1 || endFrame < startFrame) {
+            return player.allocDatum(Datum.ofInt(0));
+        }
+
+        // Collect all unique cast member references used in the frame range
+        Set<String> castMembersToCheck = new HashSet<>();
+
+        for (int frameNum = startFrame; frameNum <= endFrame; frameNum++) {
+            // Check channel initialization data for this frame
+            // TODO: Implement when score channel data is fully ported
+        }
+
+        logger.debug("Found {} unique cast members to check", castMembersToCheck.size());
+
+        // For now, assume all frames are ready
+        logger.debug("All frames ready!");
+        return player.allocDatum(Datum.ofInt(1));
+    }
+
+    /**
+     * Get marker name at frame or frame number of marker.
+     */
+    public static int marker(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("marker requires 1 argument");
+        }
+
+        Datum arg = player.getDatum(args.get(0));
+
+        if (arg.isInt()) {
+            // If argument is an integer, return the marker name at that frame
+            int frameNum = arg.intValue();
+            for (FrameLabel fl : player.movie.score.frameLabels) {
+                if (fl.frameNum == frameNum) {
+                    return player.allocDatum(Datum.ofString(fl.label));
+                }
+            }
+            return player.allocDatum(Datum.ofString(""));
+        } else if (arg.isString() || arg.isSymbol()) {
+            // If argument is a string, return the frame number of that marker
+            String markerName = arg.isString() ? arg.stringValue() : arg.symbolValue();
+            String markerNameLower = markerName.toLowerCase();
+
+            for (FrameLabel fl : player.movie.score.frameLabels) {
+                if (fl.label.toLowerCase().equals(markerNameLower)) {
+                    return player.allocDatum(Datum.ofInt(fl.frameNum));
+                }
+            }
+            return player.allocDatum(Datum.ofInt(0));
+        } else {
+            throw new ScriptError("marker expects string or integer, got " + arg.typeStr());
+        }
+    }
+
+    // ========================================================================
+    // Stub Handlers (to be fully implemented)
+    // ========================================================================
+
+    public static int castLib(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement castLib handler
+        if (args.isEmpty()) {
+            throw new ScriptError("castLib requires at least 1 argument");
+        }
+        return player.allocDatum(Datum.ofInt(1)); // Default to cast lib 1
+    }
+
+    public static int preloadNetThing(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement net preloading
+        return player.allocDatum(Datum.ofInt(1)); // Return "done"
+    }
+
+    public static int netDone(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Check if net operation is complete
+        return player.allocDatum(Datum.ofInt(1)); // Return true (done)
+    }
+
+    public static int getNetText(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement net text fetching
+        return player.allocDatum(Datum.ofInt(0)); // Return network ID
+    }
+
+    public static int getStreamStatus(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement stream status
+        return player.allocDatum(Datum.ofString(""));
+    }
+
+    public static int netError(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement net error
+        return player.allocDatum(Datum.ofString("OK"));
+    }
+
+    public static int netTextResult(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement net text result
+        return player.allocDatum(Datum.ofString(""));
+    }
+
+    public static int postNetText(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement POST request
+        return player.allocDatum(Datum.ofInt(0));
+    }
+
+    public static int puppetTempo(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (!args.isEmpty()) {
+            int tempo = player.getDatum(args.get(0)).intValue();
+            player.currentFrameTempo = tempo;
+        }
+        return 0; // Void
+    }
+
+    public static int script(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Return script reference
+        return 0; // Void
+    }
+
+    public static int member(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Return member reference
+        return 0; // Void
+    }
+
+    public static int puppetSprite(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Set sprite puppet state
+        return 0; // Void
+    }
+
+    public static int sprite(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("sprite requires at least 1 argument");
+        }
+        int spriteNum = player.getDatum(args.get(0)).intValue();
+        return player.allocDatum(Datum.ofSpriteRef(spriteNum));
+    }
+
+    public static int externalParamCount(DirPlayer player, List<Integer> args) throws ScriptError {
+        return player.allocDatum(Datum.ofInt(player.externalParams.size()));
+    }
+
+    public static int externalParamName(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement external param name
+        return player.allocDatum(Datum.ofString(""));
+    }
+
+    public static int externalParamValue(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement external param value
+        return player.allocDatum(Datum.ofString(""));
+    }
+
+    public static int stopEvent(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement stop event
+        return 0; // Void
+    }
+
+    public static int getPref(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement preferences
+        return 0; // Void
+    }
+
+    public static int setPref(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement preferences
+        return 0; // Void
+    }
+
+    public static int goToNetPage(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement navigation
+        return 0; // Void
+    }
+
+    public static int pass(DirPlayer player, List<Integer> args) throws ScriptError {
+        int scopeRef = player.currentScopeRef();
+        if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
+            ScriptScope scope = player.scopes.get(scopeRef);
+            scope.passed = true;
+        }
+        return 0; // Void
+    }
+
+    public static int rollover(DirPlayer player, List<Integer> args) throws ScriptError {
+        return player.allocDatum(Datum.ofInt(player.hoveredSprite));
+    }
+
+    public static int puppetSound(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement puppet sound
+        return 0; // Void
+    }
+
+    public static int halt(DirPlayer player, List<Integer> args) throws ScriptError {
+        player.isPlaying = false;
+        return 0; // Void
+    }
+
+    public static int cursor(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement cursor handler
+        return 0; // Void
+    }
+
+    public static int timeout(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement timeout handler
+        return 0; // Void
+    }
+
+    public static int image(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement image handler
+        return 0; // Void
+    }
+
+    public static int xtra(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement xtra handler
+        return 0; // Void
+    }
+
+    public static int union(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.size() < 2) {
+            throw new ScriptError("union requires 2 arguments");
+        }
+
+        int[] rect1 = player.getDatum(args.get(0)).toRect();
+        int[] rect2 = player.getDatum(args.get(1)).toRect();
+
+        // Get actual values
+        int left1 = player.getDatum(rect1[0]).intValue();
+        int top1 = player.getDatum(rect1[1]).intValue();
+        int right1 = player.getDatum(rect1[2]).intValue();
+        int bottom1 = player.getDatum(rect1[3]).intValue();
+
+        int left2 = player.getDatum(rect2[0]).intValue();
+        int top2 = player.getDatum(rect2[1]).intValue();
+        int right2 = player.getDatum(rect2[2]).intValue();
+        int bottom2 = player.getDatum(rect2[3]).intValue();
+
+        // Calculate union
+        int left = Math.min(left1, left2);
+        int top = Math.min(top1, top2);
+        int right = Math.max(right1, right2);
+        int bottom = Math.max(bottom1, bottom2);
+
+        int leftRef = player.allocDatum(Datum.ofInt(left));
+        int topRef = player.allocDatum(Datum.ofInt(top));
+        int rightRef = player.allocDatum(Datum.ofInt(right));
+        int bottomRef = player.allocDatum(Datum.ofInt(bottom));
+
+        return player.allocDatum(Datum.ofRect(leftRef, topRef, rightRef, bottomRef));
+    }
+
+    public static int add(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("add requires at least 1 argument");
+        }
+        int listRef = args.get(0);
+        List<Integer> addArgs = args.subList(1, args.size());
+        return ListHandlers.add(player, listRef, addArgs);
+    }
+
+    public static int sendSprite(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement send sprite
+        return 0; // Void
+    }
+
+    public static int sendAllSprites(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement send all sprites
+        return 0; // Void
+    }
+
+    public static int updateStage(DirPlayer player, List<Integer> args) throws ScriptError {
+        // TODO: Implement stage update
+        return 0; // Void
+    }
+
+    public static int go(DirPlayer player, List<Integer> args) throws ScriptError {
+        if (args.isEmpty()) {
+            throw new ScriptError("go requires at least 1 argument");
+        }
+
+        Datum arg = player.getDatum(args.get(0));
+
+        if (arg.isInt()) {
+            player.nextFrame = arg.intValue();
+        } else if (arg.isString() || arg.isSymbol()) {
+            String labelName = arg.isString() ? arg.stringValue() : arg.symbolValue();
+            String labelNameLower = labelName.toLowerCase();
+
+            for (FrameLabel fl : player.movie.score.frameLabels) {
+                if (fl.label.toLowerCase().equals(labelNameLower)) {
+                    player.nextFrame = fl.frameNum;
+                    break;
+                }
+            }
+        }
+
+        player.hasFrameChangedInGo = true;
+        return 0; // Void
+    }
+
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
+
+    /**
+     * Dispatch a debug message (to console and any registered listeners).
+     */
+    private static void dispatchDebugMessage(String message) {
+        // Log to SLF4J
+        logger.info(message);
+        // Also print to console for immediate visibility
+        System.out.println(message);
+    }
+
+    /**
+     * Dispatch an external event to JavaScript/host environment.
+     */
+    private static void dispatchExternalEvent(String eventString) {
+        // Log the event
+        logger.info("External Event: {}", eventString);
+        // TODO: Implement callback to JavaScript when running in browser
+    }
+}

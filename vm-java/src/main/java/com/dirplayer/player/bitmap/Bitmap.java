@@ -301,6 +301,382 @@ public class Bitmap {
     }
 
     /**
+     * Fill a rectangle relative to sprite position.
+     * Used for shape rendering where coordinates are relative to width/height.
+     */
+    public void fillRelativeRect(int relLeft, int relTop, int relRight, int relBottom,
+                                  int r, int g, int b, PaletteMap palettes, float alpha) {
+        int left = relLeft;
+        int top = relTop;
+        int right = relRight != 0 ? relRight : width;
+        int bottom = relBottom != 0 ? relBottom : height;
+
+        fillRect(left, top, right, bottom, r, g, b, palettes, alpha);
+    }
+
+    /**
+     * Fill a shape rectangle using sprite properties (ink, color, bgColor).
+     * Port of fill_shape_rect_with_sprite from Rust.
+     *
+     * @param sprite The sprite with rendering properties
+     * @param rect The rectangle to fill
+     * @param palettes The palette map for color resolution
+     */
+    public void fillShapeRectWithSprite(com.dirplayer.player.Sprite sprite,
+                                         com.dirplayer.rendering.IntRect rect,
+                                         PaletteMap palettes) {
+        // Get foreground and background colors from sprite
+        com.dirplayer.player.ColorRef fgColor = sprite.getColor();
+        com.dirplayer.player.ColorRef bgColor = sprite.getBgColor();
+        int ink = sprite.getInk();
+        int blend = sprite.getBlend();
+
+        // Resolve foreground color
+        int[] fg = resolveColorRefInternal(palettes, fgColor, paletteRef, originalBitDepth);
+        // Resolve background color
+        int[] bg = resolveColorRefInternal(palettes, bgColor, paletteRef, originalBitDepth);
+
+        // Calculate alpha from blend (blend 0 = 100%, blend 100 = fully transparent for some inks)
+        float alpha = blend == 0 ? 1.0f : blend / 100.0f;
+
+        // Apply ink effect
+        switch (ink) {
+            case 0: // Copy
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+
+            case 1: // Transparent
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+
+            case 2: // Reverse - invert colors in the destination
+                fillRectReverse(rect.left, rect.top, rect.right, rect.bottom, palettes);
+                break;
+
+            case 3: // Ghost
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, 0.5f);
+                break;
+
+            case 4: // Not Copy
+                fillRect(rect.left, rect.top, rect.right, rect.bottom,
+                    255 - fg[0], 255 - fg[1], 255 - fg[2], palettes, alpha);
+                break;
+
+            case 5: // Not Transparent
+                fillRect(rect.left, rect.top, rect.right, rect.bottom,
+                    255 - fg[0], 255 - fg[1], 255 - fg[2], palettes, alpha);
+                break;
+
+            case 6: // Not Reverse
+                fillRectReverse(rect.left, rect.top, rect.right, rect.bottom, palettes);
+                break;
+
+            case 7: // Not Ghost
+                fillRect(rect.left, rect.top, rect.right, rect.bottom,
+                    255 - fg[0], 255 - fg[1], 255 - fg[2], palettes, 0.5f);
+                break;
+
+            case 8: // Matte
+            case 9: // Mask
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+
+            case 32: // Blend
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+
+            case 33: // Add Pin
+                fillRectAdditive(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], alpha, true);
+                break;
+
+            case 34: // Add
+                fillRectAdditive(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], alpha, false);
+                break;
+
+            case 35: // Subtract Pin
+                fillRectSubtractive(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], alpha, true);
+                break;
+
+            case 36: // Background Transparent
+                // Fill with foreground but background color is transparent
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+
+            case 37: // Lightest
+                fillRectLightest(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2]);
+                break;
+
+            case 38: // Subtract
+                fillRectSubtractive(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], alpha, false);
+                break;
+
+            case 39: // Darkest
+                fillRectDarkest(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2]);
+                break;
+
+            default:
+                // Default to copy behavior
+                fillRect(rect.left, rect.top, rect.right, rect.bottom, fg[0], fg[1], fg[2], palettes, alpha);
+                break;
+        }
+    }
+
+    /**
+     * Helper to resolve color reference.
+     */
+    private int[] resolveColorRefInternal(PaletteMap palettes, com.dirplayer.player.ColorRef colorRef,
+                                          PaletteRef paletteRef, int bitDepth) {
+        if (colorRef == null) {
+            return new int[] { 0, 0, 0 };
+        }
+
+        if (colorRef.isRgb()) {
+            return new int[] { colorRef.getR(), colorRef.getG(), colorRef.getB() };
+        }
+
+        int index = colorRef.getPaletteIndex();
+        int[][] palette = palettes.getPalette(paletteRef, bitDepth);
+        if (palette != null && index >= 0 && index < palette.length) {
+            return palette[index];
+        }
+
+        return new int[] { 0, 0, 0 };
+    }
+
+    /**
+     * Fill rectangle with reverse ink (invert colors).
+     */
+    private void fillRectReverse(int left, int top, int right, int bottom, PaletteMap palettes) {
+        if (bitDepth != 32) return;
+
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                int index = (y * this.width + x) * 4;
+                data[index] = (byte)(255 - (data[index] & 0xFF));
+                data[index + 1] = (byte)(255 - (data[index + 1] & 0xFF));
+                data[index + 2] = (byte)(255 - (data[index + 2] & 0xFF));
+            }
+        }
+    }
+
+    /**
+     * Fill rectangle with additive blending.
+     */
+    private void fillRectAdditive(int left, int top, int right, int bottom,
+                                   int r, int g, int b, float alpha, boolean clamp) {
+        if (bitDepth != 32) return;
+
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                int index = (y * this.width + x) * 4;
+                int srcR = data[index] & 0xFF;
+                int srcG = data[index + 1] & 0xFF;
+                int srcB = data[index + 2] & 0xFF;
+
+                int newR = srcR + (int)(r * alpha);
+                int newG = srcG + (int)(g * alpha);
+                int newB = srcB + (int)(b * alpha);
+
+                if (clamp) {
+                    newR = Math.min(255, newR);
+                    newG = Math.min(255, newG);
+                    newB = Math.min(255, newB);
+                } else {
+                    newR = newR & 0xFF;
+                    newG = newG & 0xFF;
+                    newB = newB & 0xFF;
+                }
+
+                data[index] = (byte) newR;
+                data[index + 1] = (byte) newG;
+                data[index + 2] = (byte) newB;
+            }
+        }
+    }
+
+    /**
+     * Fill rectangle with subtractive blending.
+     */
+    private void fillRectSubtractive(int left, int top, int right, int bottom,
+                                      int r, int g, int b, float alpha, boolean clamp) {
+        if (bitDepth != 32) return;
+
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                int index = (y * this.width + x) * 4;
+                int srcR = data[index] & 0xFF;
+                int srcG = data[index + 1] & 0xFF;
+                int srcB = data[index + 2] & 0xFF;
+
+                int newR = srcR - (int)(r * alpha);
+                int newG = srcG - (int)(g * alpha);
+                int newB = srcB - (int)(b * alpha);
+
+                if (clamp) {
+                    newR = Math.max(0, newR);
+                    newG = Math.max(0, newG);
+                    newB = Math.max(0, newB);
+                } else {
+                    newR = newR & 0xFF;
+                    newG = newG & 0xFF;
+                    newB = newB & 0xFF;
+                }
+
+                data[index] = (byte) newR;
+                data[index + 1] = (byte) newG;
+                data[index + 2] = (byte) newB;
+            }
+        }
+    }
+
+    /**
+     * Fill rectangle keeping the lightest pixel.
+     */
+    private void fillRectLightest(int left, int top, int right, int bottom, int r, int g, int b) {
+        if (bitDepth != 32) return;
+
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                int index = (y * this.width + x) * 4;
+                int srcR = data[index] & 0xFF;
+                int srcG = data[index + 1] & 0xFF;
+                int srcB = data[index + 2] & 0xFF;
+
+                data[index] = (byte) Math.max(srcR, r);
+                data[index + 1] = (byte) Math.max(srcG, g);
+                data[index + 2] = (byte) Math.max(srcB, b);
+            }
+        }
+    }
+
+    /**
+     * Fill rectangle keeping the darkest pixel.
+     */
+    private void fillRectDarkest(int left, int top, int right, int bottom, int r, int g, int b) {
+        if (bitDepth != 32) return;
+
+        for (int y = Math.max(0, top); y < Math.min(height, bottom); y++) {
+            for (int x = Math.max(0, left); x < Math.min(width, right); x++) {
+                int index = (y * this.width + x) * 4;
+                int srcR = data[index] & 0xFF;
+                int srcG = data[index + 1] & 0xFF;
+                int srcB = data[index + 2] & 0xFF;
+
+                data[index] = (byte) Math.min(srcR, r);
+                data[index + 1] = (byte) Math.min(srcG, g);
+                data[index + 2] = (byte) Math.min(srcB, b);
+            }
+        }
+    }
+
+    /**
+     * Create matte for text rendering (uses white as transparent).
+     * Port of create_matte_text from Rust.
+     */
+    public void createMatteText(PaletteMap palettes) {
+        matte = new BitmapMask(width, height, false);
+
+        if (bitDepth == 32) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = (y * width + x) * 4;
+                    int r = data[index] & 0xFF;
+                    int g = data[index + 1] & 0xFF;
+                    int b = data[index + 2] & 0xFF;
+                    // White (255,255,255) is transparent in text
+                    boolean isWhite = r >= 250 && g >= 250 && b >= 250;
+                    matte.setAlpha(x, y, isWhite ? 0 : 255);
+                }
+            }
+        } else if (bitDepth == 8) {
+            // Index 0 (typically white) is transparent
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int index = y * width + x;
+                    int paletteIdx = data[index] & 0xFF;
+                    matte.setAlpha(x, y, paletteIdx == 0 ? 0 : 255);
+                }
+            }
+        }
+    }
+
+    /**
+     * Draw text to the bitmap using a bitmap font.
+     * Port of draw_text from Rust.
+     *
+     * @param text The text to render
+     * @param font The bitmap font
+     * @param fontBitmap The font's bitmap data
+     * @param x Starting X position
+     * @param y Starting Y position
+     * @param params Copy pixels parameters (ink, color, etc.)
+     * @param palettes Palette map for color resolution
+     * @param fixedLineSpace Fixed line spacing (0 for auto)
+     * @param topSpacing Top spacing offset
+     */
+    public void drawText(String text, com.dirplayer.player.FontManager.BitmapFont font,
+                         Bitmap fontBitmap, int x, int y,
+                         com.dirplayer.rendering.CopyPixelsParams params,
+                         PaletteMap palettes, int fixedLineSpace, int topSpacing) {
+        if (font == null || text == null || text.isEmpty()) {
+            return;
+        }
+
+        int lineHeight = fixedLineSpace > 0 ? fixedLineSpace : font.charHeight;
+        int cursorX = x;
+        int cursorY = y + topSpacing;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+
+            // Handle newlines
+            if (c == '\n') {
+                cursorX = x;
+                cursorY += lineHeight;
+                continue;
+            }
+
+            // Handle carriage return
+            if (c == '\r') {
+                continue;
+            }
+
+            // Get character glyph info
+            int charCode = c;
+            if (charCode < font.firstChar || charCode > font.lastChar) {
+                // Character not in font, use space width
+                cursorX += font.charWidth;
+                continue;
+            }
+
+            int charIndex = charCode - font.firstChar;
+            int charWidth = font.charWidth;
+            int charHeight = font.charHeight;
+
+            // Calculate source position in font bitmap
+            // Fonts are typically arranged in a grid
+            int charsPerRow = fontBitmap.getWidth() / charWidth;
+            if (charsPerRow <= 0) charsPerRow = 1;
+
+            int srcRow = charIndex / charsPerRow;
+            int srcCol = charIndex % charsPerRow;
+            int srcX = srcCol * charWidth;
+            int srcY = srcRow * charHeight;
+
+            // Copy the character glyph
+            com.dirplayer.rendering.IntRect srcRect = com.dirplayer.rendering.IntRect.from(
+                srcX, srcY, srcX + charWidth, srcY + charHeight);
+            com.dirplayer.rendering.IntRect dstRect = com.dirplayer.rendering.IntRect.from(
+                cursorX, cursorY, cursorX + charWidth, cursorY + charHeight);
+
+            // Use copy pixels with the text rendering params
+            copyPixelsWithParams(palettes, fontBitmap, dstRect, srcRect, params);
+
+            cursorX += charWidth;
+        }
+    }
+
+    /**
      * Copy pixels from source bitmap (simple version without ink effects).
      */
     public void copyPixels(PaletteMap palettes, Bitmap src,
@@ -315,73 +691,272 @@ public class Bitmap {
 
     /**
      * Copy pixels from source bitmap with parameters.
+     * Supports ink effects, masks, and color transformations.
      */
     public void copyPixelsWithParams(PaletteMap palettes, Bitmap src,
                                      com.dirplayer.rendering.IntRect dstRect,
                                      com.dirplayer.rendering.IntRect srcRect,
                                      com.dirplayer.rendering.CopyPixelsParams params) {
-        // Basic implementation - no ink effects yet
         int srcW = srcRect.width();
         int srcH = srcRect.height();
         int dstW = dstRect.width();
         int dstH = dstRect.height();
 
-        float scaleX = (float)srcW / dstW;
-        float scaleY = (float)srcH / dstH;
+        if (srcW == 0 || srcH == 0 || dstW == 0 || dstH == 0) {
+            return;
+        }
 
-        float blendFactor = params.blend / 100.0f;
+        float scaleX = (float)Math.abs(srcW) / Math.abs(dstW);
+        float scaleY = (float)Math.abs(srcH) / Math.abs(dstH);
 
-        for (int dy = 0; dy < Math.abs(dstH); dy++) {
-            for (int dx = 0; dx < Math.abs(dstW); dx++) {
-                int destX = dstRect.left + (dstW > 0 ? dx : -dx);
-                int destY = dstRect.top + (dstH > 0 ? dy : -dy);
+        int blend = params.blend;
+        int ink = params.ink;
 
+        // Resolve foreground and background colors for ink effects
+        int[] fgColor = resolveColorRefInternal(palettes, params.color, src.paletteRef, src.originalBitDepth);
+        int[] bgColor = resolveColorRefInternal(palettes, params.bgColor, src.paletteRef, src.originalBitDepth);
+
+        // Handle flipping via negative dimensions
+        boolean flipH = dstW < 0;
+        boolean flipV = dstH < 0;
+        int absDstW = Math.abs(dstW);
+        int absDstH = Math.abs(dstH);
+
+        for (int dy = 0; dy < absDstH; dy++) {
+            for (int dx = 0; dx < absDstW; dx++) {
+                // Calculate destination position
+                int destX = flipH ? dstRect.left - dx - 1 : dstRect.left + dx;
+                int destY = flipV ? dstRect.top - dy - 1 : dstRect.top + dy;
+
+                // Bounds check on destination
+                if (destX < 0 || destX >= width || destY < 0 || destY >= height) {
+                    continue;
+                }
+
+                // Calculate source position
                 int srcX = srcRect.left + (int)(dx * scaleX);
                 int srcY = srcRect.top + (int)(dy * scaleY);
 
+                // Bounds check on source
+                if (srcX < 0 || srcX >= src.width || srcY < 0 || srcY >= src.height) {
+                    continue;
+                }
+
                 // Check mask if present
                 if (params.maskImage != null) {
-                    if (params.maskImage.isTransparent(srcX - srcRect.left, srcY - srcRect.top)) {
+                    int maskX = (int)(dx * scaleX);
+                    int maskY = (int)(dy * scaleY);
+                    if (params.maskImage.isTransparent(maskX, maskY)) {
                         continue;
                     }
                 }
 
-                // Get source pixel
+                // Get source pixel and convert to RGBA
                 int srcColor = src.getPixel(srcX, srcY);
+                int srcR, srcG, srcB, srcA;
 
-                // Convert to RGBA if needed
-                int r, g, b, a;
                 if (src.bitDepth == 32) {
-                    r = (srcColor >> 24) & 0xFF;
-                    g = (srcColor >> 16) & 0xFF;
-                    b = (srcColor >> 8) & 0xFF;
-                    a = srcColor & 0xFF;
+                    srcR = (srcColor >> 24) & 0xFF;
+                    srcG = (srcColor >> 16) & 0xFF;
+                    srcB = (srcColor >> 8) & 0xFF;
+                    srcA = srcColor & 0xFF;
                 } else if (src.bitDepth == 8) {
-                    // Lookup in palette
                     int[][] palette = palettes.getPalette(src.paletteRef, src.originalBitDepth);
-                    int[] rgb = palette != null && srcColor < palette.length ?
+                    int[] rgb = palette != null && srcColor >= 0 && srcColor < palette.length ?
                         palette[srcColor] : new int[]{0, 0, 0};
-                    r = rgb[0];
-                    g = rgb[1];
-                    b = rgb[2];
-                    a = 255;
+                    srcR = rgb[0];
+                    srcG = rgb[1];
+                    srcB = rgb[2];
+                    srcA = 255;
+                } else if (src.bitDepth == 16) {
+                    // RGB555 format
+                    srcR = ((srcColor >> 10) & 0x1F) * 255 / 31;
+                    srcG = ((srcColor >> 5) & 0x1F) * 255 / 31;
+                    srcB = (srcColor & 0x1F) * 255 / 31;
+                    srcA = 255;
                 } else {
-                    r = g = b = 0;
-                    a = 255;
+                    srcR = srcG = srcB = 0;
+                    srcA = 255;
                 }
 
-                // Apply blend
-                if (blendFactor < 1.0f) {
-                    a = (int)(a * blendFactor);
+                // Handle alpha from source bitmap (if 32-bit with alpha)
+                if (src.useAlpha && src.bitDepth == 32 && srcA == 0) {
+                    continue;  // Skip fully transparent pixels
                 }
 
-                // Set destination pixel
+                // Get destination pixel for ink effects that need it
+                int dstR = 0, dstG = 0, dstB = 0;
                 if (bitDepth == 32) {
-                    blendPixelRGBA(destX, destY, r, g, b, a);
+                    int dstIndex = (destY * width + destX) * 4;
+                    if (dstIndex >= 0 && dstIndex + 2 < data.length) {
+                        dstR = data[dstIndex] & 0xFF;
+                        dstG = data[dstIndex + 1] & 0xFF;
+                        dstB = data[dstIndex + 2] & 0xFF;
+                    }
+                }
+
+                // Apply ink effect
+                int[] result = applyInkEffect(ink, srcR, srcG, srcB, srcA,
+                    dstR, dstG, dstB, blend, fgColor, bgColor);
+
+                int finalR = result[0];
+                int finalG = result[1];
+                int finalB = result[2];
+                int finalA = result[3];
+
+                // Skip if fully transparent
+                if (finalA == 0) {
+                    continue;
+                }
+
+                // Write to destination
+                if (bitDepth == 32) {
+                    if (finalA >= 255) {
+                        setPixelRGBA(destX, destY, finalR, finalG, finalB, 255);
+                    } else {
+                        blendPixelRGBA(destX, destY, finalR, finalG, finalB, finalA);
+                    }
                 } else {
-                    setPixel(destX, destY, (r << 16) | (g << 8) | b);
+                    setPixel(destX, destY, (finalR << 16) | (finalG << 8) | finalB);
                 }
             }
         }
+    }
+
+    /**
+     * Apply ink effect to colors.
+     * Port of ink effect logic from Rust rendering.
+     */
+    private int[] applyInkEffect(int ink, int srcR, int srcG, int srcB, int srcA,
+                                  int dstR, int dstG, int dstB, int blend,
+                                  int[] fgColor, int[] bgColor) {
+        float alpha = blend / 100.0f;
+
+        switch (ink) {
+            case 0: // Copy
+                return new int[] { srcR, srcG, srcB, (int)(srcA * alpha) };
+
+            case 1: // Transparent
+                return new int[] { srcR, srcG, srcB, (int)(srcA * alpha) };
+
+            case 2: // Reverse
+                return new int[] { 255 - dstR, 255 - dstG, 255 - dstB, 255 };
+
+            case 3: // Ghost
+                return blendColorsArr(srcR, srcG, srcB, dstR, dstG, dstB, 0.5f);
+
+            case 4: // Not Copy
+                return new int[] { 255 - srcR, 255 - srcG, 255 - srcB, (int)(srcA * alpha) };
+
+            case 5: // Not Transparent
+                return new int[] { 255 - srcR, 255 - srcG, 255 - srcB, (int)(srcA * alpha) };
+
+            case 6: // Not Reverse
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            case 7: // Not Ghost
+                return blendColorsArr(255 - srcR, 255 - srcG, 255 - srcB, dstR, dstG, dstB, 0.5f);
+
+            case 8: // Matte
+            case 9: // Mask
+                return new int[] { srcR, srcG, srcB, srcA };
+
+            case 32: // Blend
+                return blendColorsArr(srcR, srcG, srcB, dstR, dstG, dstB, alpha);
+
+            case 33: // Add Pin
+                return new int[] {
+                    Math.min(255, dstR + (int)(srcR * alpha)),
+                    Math.min(255, dstG + (int)(srcG * alpha)),
+                    Math.min(255, dstB + (int)(srcB * alpha)),
+                    255
+                };
+
+            case 34: // Add
+                return new int[] {
+                    (dstR + (int)(srcR * alpha)) & 0xFF,
+                    (dstG + (int)(srcG * alpha)) & 0xFF,
+                    (dstB + (int)(srcB * alpha)) & 0xFF,
+                    255
+                };
+
+            case 35: // Subtract Pin
+                return new int[] {
+                    Math.max(0, dstR - (int)(srcR * alpha)),
+                    Math.max(0, dstG - (int)(srcG * alpha)),
+                    Math.max(0, dstB - (int)(srcB * alpha)),
+                    255
+                };
+
+            case 36: // Background Transparent
+                // If source matches background color, make transparent
+                if (bgColor != null &&
+                    Math.abs(srcR - bgColor[0]) < 8 &&
+                    Math.abs(srcG - bgColor[1]) < 8 &&
+                    Math.abs(srcB - bgColor[2]) < 8) {
+                    return new int[] { srcR, srcG, srcB, 0 };
+                }
+                return new int[] { srcR, srcG, srcB, (int)(srcA * alpha) };
+
+            case 37: // Lightest
+                return new int[] {
+                    Math.max(srcR, dstR),
+                    Math.max(srcG, dstG),
+                    Math.max(srcB, dstB),
+                    255
+                };
+
+            case 38: // Subtract
+                return new int[] {
+                    (dstR - (int)(srcR * alpha)) & 0xFF,
+                    (dstG - (int)(srcG * alpha)) & 0xFF,
+                    (dstB - (int)(srcB * alpha)) & 0xFF,
+                    255
+                };
+
+            case 39: // Darkest
+                return new int[] {
+                    Math.min(srcR, dstR),
+                    Math.min(srcG, dstG),
+                    Math.min(srcB, dstB),
+                    255
+                };
+
+            case 40: // Darken
+                // Use luminance comparison
+                int srcLum = (int)(0.299 * srcR + 0.587 * srcG + 0.114 * srcB);
+                int dstLum = (int)(0.299 * dstR + 0.587 * dstG + 0.114 * dstB);
+                if (srcLum < dstLum) {
+                    return new int[] { srcR, srcG, srcB, 255 };
+                }
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            case 41: // Lighten
+                // Use luminance comparison
+                int srcLum2 = (int)(0.299 * srcR + 0.587 * srcG + 0.114 * srcB);
+                int dstLum2 = (int)(0.299 * dstR + 0.587 * dstG + 0.114 * dstB);
+                if (srcLum2 > dstLum2) {
+                    return new int[] { srcR, srcG, srcB, 255 };
+                }
+                return new int[] { dstR, dstG, dstB, 255 };
+
+            default:
+                // Unknown ink - default to copy
+                return new int[] { srcR, srcG, srcB, (int)(srcA * alpha) };
+        }
+    }
+
+    /**
+     * Blend two colors and return as array.
+     */
+    private int[] blendColorsArr(int srcR, int srcG, int srcB,
+                                  int dstR, int dstG, int dstB, float alpha) {
+        float invAlpha = 1.0f - alpha;
+        return new int[] {
+            (int)(srcR * alpha + dstR * invAlpha),
+            (int)(srcG * alpha + dstG * invAlpha),
+            (int)(srcB * alpha + dstB * invAlpha),
+            255
+        };
     }
 }

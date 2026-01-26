@@ -87,6 +87,11 @@ public class Chunk {
     public ScriptNamesChunk asScriptNames() { return type == Type.SCRIPT_NAMES ? (ScriptNamesChunk) data : null; }
     public FrameLabelsChunk asFrameLabels() { return type == Type.FRAME_LABELS ? (FrameLabelsChunk) data : null; }
     public MediaChunk asMedia() { return type == Type.MEDIA ? (MediaChunk) data : null; }
+    public XMediaChunk asXMedia() { return type == Type.XMEDIA ? (XMediaChunk) data : null; }
+    public SordChunk asScoreOrder() { return type == Type.SCORE_ORDER ? (SordChunk) data : null; }
+    public CastInfoChunk asCastInfo() { return type == Type.CST_INFO ? (CastInfoChunk) data : null; }
+    public EffectChunk asEffect() { return type == Type.EFFECT ? (EffectChunk) data : null; }
+    public ThumChunk asThum() { return type == Type.THUM ? (ThumChunk) data : null; }
     public byte[] asBytes() { return type == Type.RAW ? (byte[]) data : null; }
 
     /**

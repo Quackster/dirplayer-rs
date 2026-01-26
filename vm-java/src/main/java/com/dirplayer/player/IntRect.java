@@ -1,5 +1,7 @@
 package com.dirplayer.player;
 
+import com.dirplayer.director.lingo.Datum;
+
 /**
  * Integer rectangle for stage/sprite bounds.
  * Port of Rust IntRect struct.
@@ -99,5 +101,31 @@ public class IntRect {
     @Override
     public String toString() {
         return "rect(" + left + ", " + top + ", " + right + ", " + bottom + ")";
+    }
+
+    /**
+     * Convert this rect to a Datum.
+     */
+    public Datum toDatum(DirPlayer player) {
+        int leftRef = player.allocDatum(Datum.ofInt(left));
+        int topRef = player.allocDatum(Datum.ofInt(top));
+        int rightRef = player.allocDatum(Datum.ofInt(right));
+        int bottomRef = player.allocDatum(Datum.ofInt(bottom));
+        return Datum.ofRect(leftRef, topRef, rightRef, bottomRef);
+    }
+
+    /**
+     * Alias for intersection that returns an empty rect for no intersection.
+     */
+    public IntRect intersect(IntRect other) {
+        int l = Math.max(left, other.left);
+        int t = Math.max(top, other.top);
+        int r = Math.min(right, other.right);
+        int b = Math.min(bottom, other.bottom);
+
+        if (r < l || b < t) {
+            return new IntRect(0, 0, 0, 0);
+        }
+        return new IntRect(l, t, r, b);
     }
 }

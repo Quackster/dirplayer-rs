@@ -66,6 +66,8 @@ public class TextMember {
     public String getFont() { return font; }
     public Integer getFontSize() { return fontSize; }
     public String getText() { return text; }
+    public int getFixedLineSpace() { return fixedLineSpace; }
+    public int getTopSpacing() { return topSpacing; }
 
     /**
      * Styled text span for HTML-style text formatting.

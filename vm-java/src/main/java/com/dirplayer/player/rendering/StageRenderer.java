@@ -416,9 +416,54 @@ public class StageRenderer {
             return;
         }
 
-        // Get font bitmap and render text
-        // TODO: Implement full text rendering with font bitmaps
-        logger.debug("Field text rendering: '{}'", fieldMember.getText());
+        // Get font bitmap
+        Bitmap fontBitmap = player.getBitmapManager().getBitmap(font.bitmapRef);
+        if (fontBitmap == null) {
+            logger.debug("Font bitmap not found for field rendering");
+            return;
+        }
+
+        CopyPixelsParams params = new CopyPixelsParams(
+            sprite.getBlend(),
+            sprite.getInk(),
+            sprite.getColor(),
+            sprite.getBgColor(),
+            null,  // mask
+            true,  // isTextRendering
+            0.0f,
+            null,
+            null
+        );
+
+        bitmap.drawText(
+            fieldMember.getText(),
+            font,
+            fontBitmap,
+            sprite.getLocH(),
+            sprite.getLocV(),
+            params,
+            palettes,
+            fieldMember.getFixedLineSpace(),
+            fieldMember.getTopSpacing()
+        );
+
+        // Draw cursor if this field has keyboard focus
+        if (player.keyboardFocusSprite == sprite.getNumber()) {
+            int cursorX = sprite.getLocH() + (sprite.getWidth() / 2);
+            int cursorY = sprite.getLocV();
+            int cursorWidth = 1;
+            int cursorHeight = font.charHeight;
+
+            bitmap.fillRect(
+                cursorX,
+                cursorY,
+                cursorX + cursorWidth,
+                cursorY + cursorHeight,
+                0, 0, 0,  // black cursor
+                palettes,
+                1.0f
+            );
+        }
     }
 
     /**
@@ -448,8 +493,36 @@ public class StageRenderer {
             return;
         }
 
-        // TODO: Implement full text rendering
-        logger.debug("Text rendering: '{}'", textMember.getText());
+        // Get font bitmap
+        Bitmap fontBitmap = player.getBitmapManager().getBitmap(font.bitmapRef);
+        if (fontBitmap == null) {
+            logger.debug("Font bitmap not found for text rendering");
+            return;
+        }
+
+        CopyPixelsParams params = new CopyPixelsParams(
+            sprite.getBlend(),
+            sprite.getInk(),
+            sprite.getColor(),
+            sprite.getBgColor(),
+            null,  // mask
+            true,  // isTextRendering
+            0.0f,
+            null,
+            null
+        );
+
+        bitmap.drawText(
+            textMember.getText(),
+            font,
+            fontBitmap,
+            sprite.getLocH(),
+            sprite.getLocV(),
+            params,
+            palettes,
+            textMember.getFixedLineSpace(),
+            textMember.getTopSpacing()
+        );
     }
 
     /**

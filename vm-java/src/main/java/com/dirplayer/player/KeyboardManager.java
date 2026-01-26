@@ -1,161 +1,249 @@
 package com.dirplayer.player;
 
-import java.util.HashSet;
-import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manager for keyboard input state.
- * Port of Rust KeyboardManager struct.
+ * Tracks currently pressed keys and provides modifier key state.
+ * Port of Rust KeyboardManager struct from keyboard.rs.
  */
 public class KeyboardManager {
-    public Set<Integer> pressedKeys;
-    public String lastKey;
-    public int lastKeyCode;
-    public boolean shiftDown;
-    public boolean controlDown;
-    public boolean altDown;
-    public boolean commandDown;
+    private static final Logger logger = LoggerFactory.getLogger(KeyboardManager.class);
+
+    /**
+     * Represents a pressed keyboard key.
+     */
+    public static class KeyboardKey {
+        public final String key;
+        public final int code;
+
+        public KeyboardKey(String key, int code) {
+            this.key = key;
+            this.code = code;
+        }
+    }
+
+    /** List of currently pressed keys */
+    private final List<KeyboardKey> downKeys;
 
     public KeyboardManager() {
-        this.pressedKeys = new HashSet<>();
-        this.lastKey = "";
-        this.lastKeyCode = 0;
-        this.shiftDown = false;
-        this.controlDown = false;
-        this.altDown = false;
-        this.commandDown = false;
+        this.downKeys = new ArrayList<>();
     }
 
+    /**
+     * Handle a key down event.
+     * Maps the code to Shockwave format and tracks the key if not already pressed.
+     * @param key The key string (e.g., "a", "Shift", "Enter")
+     * @param code The JavaScript key code
+     */
     public void keyDown(String key, int code) {
-        pressedKeys.add(code);
-        lastKey = key;
-        lastKeyCode = code;
+        Integer codeMapped = KeyboardMap.getKeyboardKeyMapJsToSw().get(code);
+        logger.debug("Key down: {} {} (mapped to: {})", key, code, codeMapped);
+        int mappedCode = codeMapped != null ? codeMapped : code;
 
-        // Update modifier states
-        updateModifiers(code, true);
+        // Check if this code is already in the downKeys list
+        boolean alreadyDown = downKeys.stream().anyMatch(k -> k.code == mappedCode);
+        if (!alreadyDown) {
+            downKeys.add(new KeyboardKey(key, mappedCode));
+        }
     }
 
+    /**
+     * Handle a key up event.
+     * Removes the key from the pressed keys list.
+     * @param key The key string (unused but kept for API consistency)
+     * @param code The JavaScript key code
+     */
     public void keyUp(String key, int code) {
-        pressedKeys.remove(code);
-        updateModifiers(code, false);
+        // Map the code the same way as keyDown does
+        Integer codeMapped = KeyboardMap.getKeyboardKeyMapJsToSw().get(code);
+        int codeToRemove = codeMapped != null ? codeMapped : code;
+
+        downKeys.removeIf(k -> k.code == codeToRemove);
     }
 
-    private void updateModifiers(int code, boolean pressed) {
-        switch (code) {
-            case 16:  // Shift
-                shiftDown = pressed;
-                break;
-            case 17:  // Control
-                controlDown = pressed;
-                break;
-            case 18:  // Alt
-                altDown = pressed;
-                break;
-            case 91:  // Meta/Command (left)
-            case 93:  // Meta/Command (right)
-                commandDown = pressed;
-                break;
-        }
-    }
-
-    public boolean isKeyDown(int code) {
-        return pressedKeys.contains(code);
-    }
-
+    /**
+     * Check if a key with the given name is currently pressed.
+     * @param key The key name to check (e.g., "Shift", "Control", "a")
+     * @return true if the key is currently pressed
+     */
     public boolean isKeyDown(String key) {
-        // Convert key string to code and check
-        int code = keyStringToCode(key);
-        return isKeyDown(code);
+        return downKeys.stream().anyMatch(k -> k.key.equals(key));
     }
 
-    public String getLastKey() {
-        return lastKey;
+    /**
+     * Check if the Command/Meta key is currently pressed.
+     * @return true if Command/Meta is pressed
+     */
+    public boolean isCommandDown() {
+        return isKeyDown("Meta");
     }
 
-    public int getLastKeyCode() {
-        return lastKeyCode;
+    /**
+     * Check if the Control key is currently pressed.
+     * @return true if Control is pressed
+     */
+    public boolean isControlDown() {
+        return isKeyDown("Control");
     }
 
+    /**
+     * Check if the Shift key is currently pressed.
+     * @return true if Shift is pressed
+     */
+    public boolean isShiftDown() {
+        return isKeyDown("Shift");
+    }
+
+    /**
+     * Check if the Alt key is currently pressed.
+     * @return true if Alt is pressed
+     */
+    public boolean isAltDown() {
+        return isKeyDown("Alt");
+    }
+
+    /**
+     * Get the key code of the most recently pressed key.
+     * @return The Shockwave key code of the last pressed key, or 0 if no keys are pressed
+     */
+    public int keyCode() {
+        if (downKeys.isEmpty()) {
+            return 0;
+        }
+        return downKeys.get(downKeys.size() - 1).code;
+    }
+
+    /**
+     * Get the key string of the most recently pressed key.
+     * @return The key string of the last pressed key, or empty string if no keys are pressed
+     */
+    public String key() {
+        if (downKeys.isEmpty()) {
+            return "";
+        }
+        return downKeys.get(downKeys.size() - 1).key;
+    }
+
+    /**
+     * Get the list of currently pressed keys.
+     * @return List of currently pressed KeyboardKey objects
+     */
+    public List<KeyboardKey> getDownKeys() {
+        return new ArrayList<>(downKeys);
+    }
+
+    /**
+     * Reset the keyboard state, clearing all pressed keys.
+     */
     public void reset() {
-        pressedKeys.clear();
-        lastKey = "";
-        lastKeyCode = 0;
-        shiftDown = false;
-        controlDown = false;
-        altDown = false;
-        commandDown = false;
+        downKeys.clear();
     }
 
-    private int keyStringToCode(String key) {
-        if (key == null || key.isEmpty()) return 0;
+    // Legacy compatibility methods
 
-        // Handle special keys
-        switch (key.toLowerCase()) {
-            case "enter": return 13;
-            case "return": return 13;
-            case "tab": return 9;
-            case "backspace": return 8;
-            case "delete": return 46;
-            case "escape": return 27;
-            case "space": return 32;
-            case "up": return 38;
-            case "down": return 40;
-            case "left": return 37;
-            case "right": return 39;
-            case "shift": return 16;
-            case "control": return 17;
-            case "alt": return 18;
-            default:
-                // Single character - return its char code
-                if (key.length() == 1) {
-                    return key.toUpperCase().charAt(0);
-                }
-                return 0;
+    /**
+     * @deprecated Use isCommandDown() instead
+     */
+    @Deprecated
+    public boolean is_command_down() {
+        return isCommandDown();
+    }
+
+    /**
+     * @deprecated Use isControlDown() instead
+     */
+    @Deprecated
+    public boolean is_control_down() {
+        return isControlDown();
+    }
+
+    /**
+     * @deprecated Use isAltDown() instead
+     */
+    @Deprecated
+    public boolean is_alt_down() {
+        return isAltDown();
+    }
+
+    /**
+     * Get the last key code (legacy getter).
+     * @return The Shockwave key code of the last pressed key
+     */
+    public int getLastKeyCode() {
+        return keyCode();
+    }
+
+    /**
+     * Get the last key string (legacy getter).
+     * @return The key string of the last pressed key
+     */
+    public String getLastKey() {
+        return key();
+    }
+
+    /**
+     * Set the shift modifier state directly.
+     * Note: This is for external input handling; prefer using keyDown/keyUp.
+     * @param shiftDown true if shift should be considered pressed
+     */
+    public void setShiftDown(boolean shiftDown) {
+        if (shiftDown && !isKeyDown("Shift")) {
+            downKeys.add(new KeyboardKey("Shift", KeyboardMap.mapJsToSw(16)));
+        } else if (!shiftDown) {
+            downKeys.removeIf(k -> k.key.equals("Shift"));
         }
     }
 
-    // Getters for modifier state
-    public boolean isShiftDown() {
-        return shiftDown;
-    }
-
-    public void setShiftDown(boolean shiftDown) {
-        this.shiftDown = shiftDown;
-    }
-
-    public boolean isControlDown() {
-        return controlDown;
-    }
-
+    /**
+     * Set the control modifier state directly.
+     * Note: This is for external input handling; prefer using keyDown/keyUp.
+     * @param controlDown true if control should be considered pressed
+     */
     public void setControlDown(boolean controlDown) {
-        this.controlDown = controlDown;
+        if (controlDown && !isKeyDown("Control")) {
+            downKeys.add(new KeyboardKey("Control", KeyboardMap.mapJsToSw(17)));
+        } else if (!controlDown) {
+            downKeys.removeIf(k -> k.key.equals("Control"));
+        }
     }
 
-    public boolean isAltDown() {
-        return altDown;
-    }
-
+    /**
+     * Set the alt modifier state directly.
+     * Note: This is for external input handling; prefer using keyDown/keyUp.
+     * @param altDown true if alt should be considered pressed
+     */
     public void setAltDown(boolean altDown) {
-        this.altDown = altDown;
+        if (altDown && !isKeyDown("Alt")) {
+            downKeys.add(new KeyboardKey("Alt", KeyboardMap.mapJsToSw(18)));
+        } else if (!altDown) {
+            downKeys.removeIf(k -> k.key.equals("Alt"));
+        }
     }
 
-    public boolean isCommandDown() {
-        return commandDown;
-    }
-
+    /**
+     * Set the command modifier state directly.
+     * Note: This is for external input handling; prefer using keyDown/keyUp.
+     * @param commandDown true if command should be considered pressed
+     */
     public void setCommandDown(boolean commandDown) {
-        this.commandDown = commandDown;
+        if (commandDown && !isKeyDown("Meta")) {
+            downKeys.add(new KeyboardKey("Meta", KeyboardMap.mapJsToSw(91)));
+        } else if (!commandDown) {
+            downKeys.removeIf(k -> k.key.equals("Meta"));
+        }
     }
 
-    public boolean is_alt_down() {
-        return altDown;
-    }
-
-    public boolean is_control_down() {
-        return controlDown;
-    }
-
-    public boolean is_command_down() {
-        return commandDown;
+    /**
+     * Check if a key with the given code is currently pressed.
+     * @param code The Shockwave key code to check
+     * @return true if a key with that code is currently pressed
+     */
+    public boolean isKeyCodeDown(int code) {
+        return downKeys.stream().anyMatch(k -> k.code == code);
     }
 }

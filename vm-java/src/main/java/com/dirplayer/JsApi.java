@@ -571,4 +571,469 @@ public class JsApi {
         }
         return sb.toString();
     }
+
+    // =====================================================
+    // External Parameters and Configuration
+    // =====================================================
+
+    /**
+     * Set external parameters (e.g., from HTML embed).
+     */
+    @JSExport
+    public static void setExternalParams(JSObject params) {
+        if (player != null) {
+            player.setExternalParams(params);
+        }
+    }
+
+    /**
+     * Set the base path for loading assets.
+     */
+    @JSExport
+    public static void setBasePath(String path) {
+        if (player != null) {
+            player.setBasePath(path);
+        }
+    }
+
+    /**
+     * Set the system font path.
+     */
+    @JSExport
+    public static void setSystemFontPath(String path) {
+        if (player != null) {
+            player.setSystemFontPath(path);
+        }
+    }
+
+    /**
+     * Load movie from file path.
+     */
+    @JSExport
+    public static void loadMovieFile(String path, boolean autoplay) {
+        if (player != null) {
+            player.loadMovieFromFile(path, autoplay);
+        }
+    }
+
+    /**
+     * Set stage size.
+     */
+    @JSExport
+    public static void setStageSize(int width, int height) {
+        if (player != null) {
+            player.setStageSize(width, height);
+        }
+    }
+
+    // =====================================================
+    // Player Control - Direct access (bypasses command queue)
+    // =====================================================
+
+    /**
+     * Reset the player.
+     */
+    @JSExport
+    public static void playerReset() {
+        if (player != null) {
+            player.reset();
+        }
+    }
+
+    // =====================================================
+    // Breakpoint Management
+    // =====================================================
+
+    /**
+     * Add a breakpoint at the specified location.
+     */
+    @JSExport
+    public static void addBreakpoint(String scriptName, String handlerName, int bytecodeIndex) {
+        if (player != null) {
+            player.getBreakpointManager().addBreakpoint(scriptName, handlerName, bytecodeIndex);
+        }
+    }
+
+    /**
+     * Remove a breakpoint at the specified location.
+     */
+    @JSExport
+    public static void removeBreakpoint(String scriptName, String handlerName, int bytecodeIndex) {
+        if (player != null) {
+            player.getBreakpointManager().removeBreakpoint(scriptName, handlerName, bytecodeIndex);
+        }
+    }
+
+    /**
+     * Toggle a breakpoint at the specified location.
+     */
+    @JSExport
+    public static void toggleBreakpoint(String scriptName, String handlerName, int bytecodeIndex) {
+        if (player != null) {
+            player.getBreakpointManager().toggleBreakpoint(scriptName, handlerName, bytecodeIndex);
+        }
+    }
+
+    /**
+     * Resume execution from a breakpoint.
+     */
+    @JSExport
+    public static void resumeBreakpoint() {
+        if (player != null) {
+            player.resumeBreakpoint();
+        }
+    }
+
+    // =====================================================
+    // Step Debugging
+    // =====================================================
+
+    /**
+     * Step into the next instruction.
+     */
+    @JSExport
+    public static void stepInto() {
+        if (player != null) {
+            player.stepInto();
+        }
+    }
+
+    /**
+     * Step over the current instruction.
+     */
+    @JSExport
+    public static void stepOver() {
+        if (player != null) {
+            player.stepOver();
+        }
+    }
+
+    /**
+     * Step out of the current handler.
+     */
+    @JSExport
+    public static void stepOut() {
+        if (player != null) {
+            player.stepOut();
+        }
+    }
+
+    /**
+     * Step over to next line, skipping specified bytecode indices.
+     */
+    @JSExport
+    public static void stepOverLine(int[] skipBytecodeIndices) {
+        if (player != null) {
+            player.stepOverLine(skipBytecodeIndices);
+        }
+    }
+
+    /**
+     * Step into line, skipping specified bytecode indices.
+     */
+    @JSExport
+    public static void stepIntoLine(int[] skipBytecodeIndices) {
+        if (player != null) {
+            player.stepIntoLine(skipBytecodeIndices);
+        }
+    }
+
+    /**
+     * Set whether to break on script errors.
+     */
+    @JSExport
+    public static void setBreakOnError(boolean enabled) {
+        if (player != null) {
+            player.setBreakOnError(enabled);
+        }
+    }
+
+    /**
+     * Get whether break on error is enabled.
+     */
+    @JSExport
+    public static boolean getBreakOnError() {
+        return player != null && player.getBreakOnError();
+    }
+
+    // =====================================================
+    // Timeout Management
+    // =====================================================
+
+    /**
+     * Trigger a named timeout.
+     */
+    @JSExport
+    public static void triggerTimeout(String name) {
+        if (player != null) {
+            player.triggerTimeout(name);
+        }
+    }
+
+    /**
+     * Dispatch clear all timeouts event.
+     */
+    public static void dispatchClearTimeouts() {
+        onClearTimeouts();
+    }
+
+    @JSBody(params = {},
+            script = "if (window.onDirPlayerClearTimeouts) window.onDirPlayerClearTimeouts();")
+    private static native void onClearTimeouts();
+
+    // =====================================================
+    // Datum and Script Instance Inspection
+    // =====================================================
+
+    /**
+     * Request a datum snapshot by ID.
+     */
+    @JSExport
+    public static void requestDatum(int datumId) {
+        if (player != null) {
+            player.requestDatumSnapshot(datumId);
+        }
+    }
+
+    /**
+     * Request a script instance snapshot by ID.
+     */
+    @JSExport
+    public static void requestScriptInstanceSnapshot(int scriptInstanceId) {
+        if (player != null) {
+            player.requestScriptInstanceSnapshot(scriptInstanceId);
+        }
+    }
+
+    /**
+     * Dispatch datum snapshot event.
+     */
+    public static void dispatchDatumSnapshot(int datumId, JSObject data) {
+        onDatumSnapshot(datumId, data);
+    }
+
+    @JSBody(params = {"datumId", "data"},
+            script = "if (window.onDirPlayerDatumSnapshot) window.onDirPlayerDatumSnapshot(datumId, data);")
+    private static native void onDatumSnapshot(int datumId, JSObject data);
+
+    /**
+     * Dispatch script instance snapshot event.
+     */
+    public static void dispatchScriptInstanceSnapshot(int scriptInstanceId, JSObject data) {
+        onScriptInstanceSnapshot(scriptInstanceId, data);
+    }
+
+    @JSBody(params = {"scriptInstanceId", "data"},
+            script = "if (window.onDirPlayerScriptInstanceSnapshot) window.onDirPlayerScriptInstanceSnapshot(scriptInstanceId, data);")
+    private static native void onScriptInstanceSnapshot(int scriptInstanceId, JSObject data);
+
+    // =====================================================
+    // Cast Member Subscription
+    // =====================================================
+
+    /**
+     * Subscribe to changes on a cast member.
+     */
+    @JSExport
+    public static void subscribeToMember(int castLib, int castMember) {
+        if (player != null) {
+            player.subscribeToMember(castLib, castMember);
+            dispatchCastMemberChanged(castLib, castMember);
+        }
+    }
+
+    /**
+     * Unsubscribe from changes on a cast member.
+     */
+    @JSExport
+    public static void unsubscribeFromMember(int castLib, int castMember) {
+        if (player != null) {
+            player.unsubscribeFromMember(castLib, castMember);
+        }
+    }
+
+    // =====================================================
+    // Channel Name Subscription
+    // =====================================================
+
+    /**
+     * Subscribe to channel name changes.
+     */
+    @JSExport
+    public static void subscribeToChannelNames() {
+        if (player != null) {
+            player.setSubscribedToChannelNames(true);
+            // Dispatch initial channel names
+            int channelCount = player.getMovie().getScore().getChannelCount();
+            for (int i = 0; i < channelCount; i++) {
+                dispatchChannelDisplayNameChanged(i, getChannelDisplayName(i));
+            }
+        }
+    }
+
+    /**
+     * Unsubscribe from channel name changes.
+     */
+    @JSExport
+    public static void unsubscribeFromChannelNames() {
+        if (player != null) {
+            player.setSubscribedToChannelNames(false);
+        }
+    }
+
+    /**
+     * Get display name for a channel.
+     */
+    private static String getChannelDisplayName(int channelNum) {
+        if (player == null) return "";
+        return player.getChannelDisplayName(channelNum);
+    }
+
+    /**
+     * Dispatch channel display name changed event.
+     */
+    public static void dispatchChannelDisplayNameChanged(int channelNum, String displayName) {
+        onChannelDisplayNameChanged(channelNum, displayName != null ? displayName : "");
+    }
+
+    @JSBody(params = {"channelNum", "displayName"},
+            script = "if (window.onDirPlayerChannelDisplayNameChanged) window.onDirPlayerChannelDisplayNameChanged(channelNum, displayName);")
+    private static native void onChannelDisplayNameChanged(int channelNum, String displayName);
+
+    // =====================================================
+    // Net Task Support
+    // =====================================================
+
+    /**
+     * Provide data for a pending network task.
+     */
+    @JSExport
+    public static void provideNetTaskData(int taskId, byte[] data) {
+        if (player != null) {
+            player.provideNetTaskData(taskId, data);
+        }
+    }
+
+    // =====================================================
+    // Lingo Evaluation
+    // =====================================================
+
+    /**
+     * Evaluate a Lingo command.
+     */
+    @JSExport
+    public static void evalCommand(String command) {
+        if (player != null) {
+            dispatchDebugMessage(command);
+            player.evalLingoCommand(command);
+        }
+    }
+
+    // =====================================================
+    // Alert Hook
+    // =====================================================
+
+    /**
+     * Trigger the alert hook.
+     */
+    @JSExport
+    public static void triggerAlertHook() {
+        if (player != null) {
+            player.triggerAlertHook();
+        }
+    }
+
+    // =====================================================
+    // Scope and Debug State
+    // =====================================================
+
+    /**
+     * Dispatch scope list changed event.
+     */
+    public static void dispatchScopeListChanged(JSObject[] scopes) {
+        onScopeListChanged(scopes);
+    }
+
+    @JSBody(params = {"scopes"},
+            script = "if (window.onDirPlayerScopeListChanged) window.onDirPlayerScopeListChanged(scopes);")
+    private static native void onScopeListChanged(JSObject[] scopes);
+
+    /**
+     * Dispatch breakpoint list changed event.
+     */
+    public static void dispatchBreakpointListChanged(JSObject[] breakpoints) {
+        onBreakpointListChanged(breakpoints);
+    }
+
+    @JSBody(params = {"breakpoints"},
+            script = "if (window.onDirPlayerBreakpointListChanged) window.onDirPlayerBreakpointListChanged(breakpoints);")
+    private static native void onBreakpointListChanged(JSObject[] breakpoints);
+
+    /**
+     * Dispatch debug update - scope list and global list.
+     */
+    public static void dispatchDebugUpdate() {
+        if (player != null) {
+            // This should be called by player when debug state changes
+            dispatchGlobalListChanged();
+        }
+    }
+
+    // =====================================================
+    // Cast Library Name Changed
+    // =====================================================
+
+    /**
+     * Dispatch cast library name changed event.
+     */
+    public static void dispatchCastLibNameChanged(int castNumber, String name) {
+        onCastLibNameChanged(castNumber, name != null ? name : "");
+    }
+
+    @JSBody(params = {"castNumber", "name"},
+            script = "if (window.onDirPlayerCastLibNameChanged) window.onDirPlayerCastLibNameChanged(castNumber, name);")
+    private static native void onCastLibNameChanged(int castNumber, String name);
+
+    // =====================================================
+    // Movie Chunk List
+    // =====================================================
+
+    /**
+     * Dispatch movie chunk list changed event.
+     */
+    public static void dispatchMovieChunkListChanged(JSObject chunks) {
+        onMovieChunkListChanged(chunks);
+    }
+
+    @JSBody(params = {"chunks"},
+            script = "if (window.onDirPlayerMovieChunkListChanged) window.onDirPlayerMovieChunkListChanged(chunks);")
+    private static native void onMovieChunkListChanged(JSObject chunks);
+
+    // =====================================================
+    // Print Member Bitmap (Debug)
+    // =====================================================
+
+    /**
+     * Print member bitmap as hex (for debugging).
+     */
+    @JSExport
+    public static void playerPrintMemberBitmapHex(int castLib, int castMember) {
+        if (player != null) {
+            player.printMemberBitmapHex(castLib, castMember);
+        }
+    }
+
+    // =====================================================
+    // Safe String Utility
+    // =====================================================
+
+    /**
+     * Convert string to safe representation (UTF-8 lossy).
+     */
+    public static String safeString(String s) {
+        if (s == null) return "";
+        // Java strings are already UTF-16, convert to UTF-8 bytes and back
+        byte[] bytes = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+    }
 }

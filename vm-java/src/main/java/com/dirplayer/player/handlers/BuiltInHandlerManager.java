@@ -151,6 +151,108 @@ public class BuiltInHandlerManager {
             case "soundbusy":
                 return TypeHandlers.soundBusy(player, args);
 
+            // Object creation functions
+            case "timeout":
+                return TypeHandlers.timeout(player, args);
+            case "image":
+                return TypeHandlers.image(player, args);
+            case "xtra":
+                return TypeHandlers.xtra(player, args);
+            case "newobject":
+                return TypeHandlers.newObject(player, args);
+            case "cursor":
+                return TypeHandlers.cursor(player, args);
+            case "value":
+                return TypeHandlers.value(player, args);
+
+            // Geometry functions
+            case "union":
+                return TypeHandlers.union(player, args);
+            case "intersect":
+                return TypeHandlers.intersect(player, args);
+            case "inside":
+                return TypeHandlers.inside(player, args);
+            case "map":
+                return TypeHandlers.map(player, args);
+            case "inflate":
+                return TypeHandlers.inflate(player, args);
+
+            // List/PropList functions
+            case "add":
+                return TypeHandlers.add(player, args);
+            case "getaprop":
+                return TypeHandlers.getAProp(player, args);
+            case "setaprop":
+                return TypeHandlers.setAProp(player, args);
+            case "getpropat":
+                return TypeHandlers.getPropAt(player, args);
+            case "sort":
+                return TypeHandlers.sort(player, args);
+            case "duplicate":
+                return TypeHandlers.duplicate(player, args);
+            case "deleteat":
+                return TypeHandlers.deleteAt(player, args);
+            case "addat":
+                return TypeHandlers.addAt(player, args);
+            case "addprop":
+                return TypeHandlers.addProp(player, args);
+            case "deleteprop":
+                return TypeHandlers.deleteProp(player, args);
+            case "deleteone":
+                return TypeHandlers.deleteOne(player, args);
+            case "findpos":
+                return TypeHandlers.findPos(player, args);
+            case "findposnear":
+                return TypeHandlers.findPosNear(player, args);
+            case "getone":
+                return TypeHandlers.getOne(player, args);
+            case "getlast":
+                return TypeHandlers.getLast(player, args);
+
+            // Additional math functions
+            case "tan":
+                return TypeHandlers.tan(player, args);
+            case "exp":
+                return TypeHandlers.exp(player, args);
+            case "log":
+                return TypeHandlers.log(player, args);
+
+            // Network functions
+            case "netdone":
+                return NetHandlers.netDone(player, args);
+            case "preloadnetthing":
+                return NetHandlers.preloadNetThing(player, args);
+            case "getnettext":
+                return NetHandlers.getNetText(player, args);
+            case "getstreamstatus":
+                return NetHandlers.getStreamStatus(player, args);
+            case "neterror":
+                return NetHandlers.netError(player, args);
+            case "nettextresult":
+                return NetHandlers.netTextResult(player, args);
+            case "postnettext":
+                return NetHandlers.postNetText(player, args);
+            case "downloadnetthing":
+                return NetHandlers.downloadNetThing(player, args);
+            case "netabort":
+                return NetHandlers.netAbort(player, args);
+            case "netmime":
+                return NetHandlers.netMIME(player, args);
+            case "netlastmoddate":
+                return NetHandlers.netLastModDate(player, args);
+            case "cachesize":
+                return NetHandlers.cacheSize(player, args);
+            case "cachedocverify":
+                return NetHandlers.cacheDocVerify(player, args);
+            case "clearcache":
+                return NetHandlers.clearCache(player, args);
+            case "externalevent":
+                return NetHandlers.externalEvent(player, args);
+            case "gotonetpage":
+                return NetHandlers.gotoNetPage(player, args);
+            case "gotonetmovie":
+                return NetHandlers.gotoNetMovie(player, args);
+
             // Collection functions
             case "count":
                 return count(player, args);
@@ -164,6 +266,46 @@ public class BuiltInHandlerManager {
                 return put(player, args);
             case "clearglobals":
                 return clearGlobals(player, args);
+
+            // Movie functions
+            case "puppettempo":
+                return MovieHandlers.puppetTempo(player, args);
+            case "script":
+                return MovieHandlers.script(player, args);
+            case "member":
+                return MovieHandlers.member(player, args);
+            case "go":
+                return MovieHandlers.go(player, args);
+            case "puppetsprite":
+                return MovieHandlers.puppetSprite(player, args);
+            case "sprite":
+                return MovieHandlers.sprite(player, args);
+            case "sendsprite":
+                return MovieHandlers.sendSprite(player, args);
+            case "sendallsprites":
+                return MovieHandlers.sendAllSprites(player, args);
+            case "externalparamcount":
+                return MovieHandlers.externalParamCount(player, args);
+            case "externalparamname":
+                return MovieHandlers.externalParamName(player, args);
+            case "externalparamvalue":
+                return MovieHandlers.externalParamValue(player, args);
+            case "stopevent":
+                return MovieHandlers.stopEvent(player, args);
+            case "getpref":
+                return MovieHandlers.getPref(player, args);
+            case "setpref":
+                return MovieHandlers.setPref(player, args);
+            case "pass":
+                return MovieHandlers.pass(player, args);
+            case "updatestage":
+                return MovieHandlers.updateStage(player, args);
+            case "rollover":
+                return MovieHandlers.rollover(player, args);
+            case "puppetsound":
+                return MovieHandlers.puppetSound(player, args);
+            case "halt":
+                return MovieHandlers.halt(player, args);
 
             // Misc
             case "nothing":

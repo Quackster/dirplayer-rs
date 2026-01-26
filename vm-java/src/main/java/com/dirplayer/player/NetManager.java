@@ -1,87 +1,483 @@
 package com.dirplayer.player;
 
-import java.util.HashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Network manager for handling HTTP requests.
  * Port of Rust NetManager struct.
  */
 public class NetManager {
+    private static final Logger logger = LoggerFactory.getLogger(NetManager.class);
+
     public String basePath;
+    private URI basePathUri;
     public Map<Integer, NetTask> tasks;
-    public Map<Integer, NetTaskState> taskStates;
+    public Map<Integer, NetTask.NetTaskState> taskStates;
     private int nextTaskId;
+
+    // Cache settings
+    private boolean cacheDocVerify;
+    private Map<String, byte[]> cache;
+    private long cacheSize;
+
+    // Task metadata
+    private Map<Integer, String> taskMimeTypes;
+    private Map<Integer, String> taskLastModDates;
+    private Map<Integer, String> taskLocalPaths;
+
+    // Executor for async tasks
+    private final ExecutorService executor;
+
+    // Listeners for task completion
+    private final Map<Integer, CompletableFuture<Void>> taskFutures;
 
     public NetManager() {
         this.basePath = null;
-        this.tasks = new HashMap<>();
-        this.taskStates = new HashMap<>();
+        this.basePathUri = null;
+        this.tasks = new ConcurrentHashMap<>();
+        this.taskStates = new ConcurrentHashMap<>();
         this.nextTaskId = 1;
+        this.cacheDocVerify = true;
+        this.cache = new ConcurrentHashMap<>();
+        this.cacheSize = 0;
+        this.taskMimeTypes = new ConcurrentHashMap<>();
+        this.taskLastModDates = new ConcurrentHashMap<>();
+        this.taskLocalPaths = new ConcurrentHashMap<>();
+        this.executor = Executors.newCachedThreadPool();
+        this.taskFutures = new ConcurrentHashMap<>();
     }
 
-    public int createTask(String url, NetTaskType type) {
-        int taskId = nextTaskId++;
-        NetTask task = new NetTask(taskId, url, type);
-        tasks.put(taskId, task);
-        taskStates.put(taskId, NetTaskState.Pending);
-        return taskId;
+    /**
+     * Set the base path for resolving relative URLs.
+     */
+    public void setBasePath(String basePath) {
+        this.basePath = basePath;
+        try {
+            // Ensure the base path ends with a slash
+            String sanitizedPath = basePath;
+            if (!sanitizedPath.endsWith("/")) {
+                sanitizedPath = sanitizedPath + "/";
+            }
+            this.basePathUri = new URI(sanitizedPath);
+        } catch (Exception e) {
+            logger.error("Failed to parse base path: {}", basePath, e);
+        }
     }
 
+    /**
+     * Find a task by its URL.
+     */
+    public Integer findTaskByUrl(String url) {
+        for (Map.Entry<Integer, NetTask> entry : tasks.entrySet()) {
+            if (entry.getValue().url.equals(url)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get the state of a task.
+     * If taskId is null, returns the state of the most recent task.
+     */
+    public NetTask.NetTaskState getTaskState(Integer taskId) {
+        if (taskId == null) {
+            // Return state of most recent task
+            taskId = taskStates.size();
+        }
+        return taskStates.get(taskId);
+    }
+
+    /**
+     * Check if a task is done.
+     */
+    public boolean isTaskDone(Integer taskId) {
+        NetTask.NetTaskState state = getTaskState(taskId);
+        return state != null && state.isDone();
+    }
+
+    /**
+     * Get the result of a task.
+     */
+    public NetTask.NetResult getTaskResult(Integer taskId) {
+        NetTask.NetTaskState state = getTaskState(taskId);
+        if (state != null) {
+            return state.getResult();
+        }
+        return null;
+    }
+
+    /**
+     * Get a task by ID.
+     */
     public NetTask getTask(int taskId) {
         return tasks.get(taskId);
     }
 
-    public NetTaskState getTaskState(int taskId) {
-        return taskStates.getOrDefault(taskId, NetTaskState.Unknown);
+    /**
+     * Create a future that completes when the task is done.
+     */
+    public CompletableFuture<Void> createTaskFuture(int taskId) {
+        NetTask.NetTaskState state = getTaskState(taskId);
+        if (state != null && state.isDone()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        taskFutures.put(taskId, future);
+        return future;
     }
 
-    public void fulfillTask(int taskId, byte[] data) {
-        NetTask task = tasks.get(taskId);
-        if (task != null) {
-            task.data = data;
-            taskStates.put(taskId, NetTaskState.Complete);
+    /**
+     * Preload a network resource (GET request).
+     * Returns the task ID.
+     */
+    public int preloadNetThing(String url) {
+        // Check if the task already exists
+        Integer existingTaskId = findTaskByUrl(url);
+        if (existingTaskId != null) {
+            return existingTaskId;
+        }
+
+        int taskId = nextTaskId++;
+        URI resolvedUrl = normalizeTaskUrl(url);
+
+        NetTask task = new NetTask(taskId, url, resolvedUrl);
+        tasks.put(taskId, task);
+        taskStates.put(taskId, new NetTask.NetTaskState());
+
+        String resolvedUrlStr = resolvedUrl.toString();
+        boolean isFileUrl = resolvedUrlStr.startsWith("file://");
+
+        if (isFileUrl) {
+            // Handle file:// URLs synchronously or via external handler
+            handleFileUrl(taskId, resolvedUrl);
+        } else {
+            // Execute normal HTTP fetch asynchronously
+            executeTask(taskId, task);
+        }
+
+        return taskId;
+    }
+
+    /**
+     * POST data to a URL.
+     * Returns the task ID.
+     */
+    public int postNetText(String url, String postData) {
+        // For POST, always create a new task
+        int taskId = nextTaskId++;
+        URI resolvedUrl = normalizeTaskUrl(url);
+
+        NetTask task = NetTask.newPost(taskId, url, resolvedUrl, postData);
+        tasks.put(taskId, task);
+        taskStates.put(taskId, new NetTask.NetTaskState());
+
+        // Execute the POST request asynchronously
+        executeTask(taskId, task);
+
+        return taskId;
+    }
+
+    /**
+     * Download a file to a local path.
+     * Returns the task ID.
+     */
+    public int downloadNetThing(String url, String localPath) {
+        int taskId = preloadNetThing(url);
+        taskLocalPaths.put(taskId, localPath);
+        return taskId;
+    }
+
+    /**
+     * Execute a network task asynchronously.
+     */
+    private void executeTask(int taskId, NetTask task) {
+        executor.submit(() -> {
+            try {
+                NetTask.NetResult result = fetchNetTask(task);
+                fulfillTask(taskId, result);
+
+                // If this was a download task, save to local path
+                String localPath = taskLocalPaths.get(taskId);
+                if (localPath != null && result.isOk()) {
+                    try {
+                        Path path = Paths.get(localPath);
+                        Files.createDirectories(path.getParent());
+                        Files.write(path, result.getData());
+                    } catch (Exception e) {
+                        logger.error("Failed to save downloaded file: {}", localPath, e);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error executing network task {}: {}", taskId, e.getMessage(), e);
+                fulfillTask(taskId, NetTask.NetResult.error(4));
+            }
+        });
+    }
+
+    /**
+     * Handle file:// URLs.
+     */
+    private void handleFileUrl(int taskId, URI resolvedUrl) {
+        executor.submit(() -> {
+            try {
+                String path = resolvedUrl.getPath();
+                // On Windows, remove leading slash from paths like /C:/...
+                if (path.length() > 2 && path.charAt(0) == '/' && path.charAt(2) == ':') {
+                    path = path.substring(1);
+                }
+
+                Path filePath = Paths.get(path);
+                if (Files.exists(filePath)) {
+                    byte[] data = Files.readAllBytes(filePath);
+                    fulfillTask(taskId, NetTask.NetResult.ok(data));
+                } else {
+                    logger.warn("File not found: {}", path);
+                    fulfillTask(taskId, NetTask.NetResult.error(4));
+                }
+            } catch (Exception e) {
+                logger.error("Error reading file for task {}: {}", taskId, e.getMessage(), e);
+                fulfillTask(taskId, NetTask.NetResult.error(4));
+            }
+        });
+    }
+
+    /**
+     * Perform the actual HTTP fetch.
+     */
+    private NetTask.NetResult fetchNetTask(NetTask task) {
+        String resolvedUrlStr = task.resolvedUrl.toString();
+        logger.debug("execute_task #{} url: {} resolved: {}", task.id, task.url, resolvedUrlStr);
+
+        try {
+            URL url = task.resolvedUrl.toURL();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+            if (task.method == NetTask.HttpMethod.POST) {
+                connection.setRequestMethod("POST");
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+                if (task.postData != null) {
+                    try (OutputStream os = connection.getOutputStream()) {
+                        os.write(task.postData.getBytes("UTF-8"));
+                    }
+                }
+            } else {
+                connection.setRequestMethod("GET");
+            }
+
+            int responseCode = connection.getResponseCode();
+
+            // Store metadata
+            String contentType = connection.getContentType();
+            if (contentType != null) {
+                taskMimeTypes.put(task.id, contentType);
+            }
+
+            long lastModified = connection.getLastModified();
+            if (lastModified > 0) {
+                taskLastModDates.put(task.id, String.valueOf(lastModified));
+            }
+
+            if (responseCode == 200) {
+                try (InputStream is = connection.getInputStream();
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = is.read(buffer)) != -1) {
+                        baos.write(buffer, 0, bytesRead);
+                    }
+                    return NetTask.NetResult.ok(baos.toByteArray());
+                }
+            } else {
+                logger.warn("HTTP error {} for URL: {}", responseCode, resolvedUrlStr);
+                return NetTask.NetResult.error(4);
+            }
+        } catch (Exception e) {
+            logger.error("Network error for URL {}: {}", resolvedUrlStr, e.getMessage());
+            return NetTask.NetResult.error(4);
         }
     }
 
-    public void failTask(int taskId, String error) {
-        NetTask task = tasks.get(taskId);
-        if (task != null) {
-            task.error = error;
-            taskStates.put(taskId, NetTaskState.Error);
+    /**
+     * Complete a task with its result.
+     */
+    public void fulfillTask(int taskId, NetTask.NetResult result) {
+        NetTask.NetTaskState state = taskStates.get(taskId);
+        if (state != null) {
+            state.setResult(result);
+        } else {
+            NetTask.NetTaskState newState = new NetTask.NetTaskState(result);
+            taskStates.put(taskId, newState);
+        }
+
+        // Notify any waiting futures
+        CompletableFuture<Void> future = taskFutures.remove(taskId);
+        if (future != null) {
+            future.complete(null);
+        }
+
+        // Cache successful results
+        if (result.isOk()) {
+            NetTask task = tasks.get(taskId);
+            if (task != null) {
+                cache.put(task.url, result.getData());
+                cacheSize += result.getData().length;
+            }
         }
     }
 
-    public static class NetTask {
-        public int id;
-        public String url;
-        public NetTaskType type;
-        public byte[] data;
-        public String error;
-        public CompletableFuture<byte[]> future;
+    /**
+     * Fail a task with an error message.
+     */
+    public void failTask(int taskId, String errorMessage) {
+        logger.warn("Task {} failed: {}", taskId, errorMessage);
+        fulfillTask(taskId, NetTask.NetResult.error(4));
+    }
 
-        public NetTask(int id, String url, NetTaskType type) {
-            this.id = id;
-            this.url = url;
-            this.type = type;
-            this.data = null;
-            this.error = null;
-            this.future = new CompletableFuture<>();
+    /**
+     * Abort a specific task.
+     */
+    public void abortTask(int taskId) {
+        NetTask.NetTaskState state = taskStates.get(taskId);
+        if (state != null && !state.isDone()) {
+            state.setResult(NetTask.NetResult.error(-1)); // Aborted
+        }
+
+        CompletableFuture<Void> future = taskFutures.remove(taskId);
+        if (future != null) {
+            future.complete(null);
         }
     }
 
-    public enum NetTaskType {
-        GetNetText,
-        PreloadNetThing,
-        DownloadNetThing
+    /**
+     * Abort all pending tasks.
+     */
+    public void abortAllTasks() {
+        for (Map.Entry<Integer, NetTask.NetTaskState> entry : taskStates.entrySet()) {
+            if (!entry.getValue().isDone()) {
+                entry.getValue().setResult(NetTask.NetResult.error(-1)); // Aborted
+            }
+        }
+        taskFutures.values().forEach(f -> f.complete(null));
+        taskFutures.clear();
     }
 
-    public enum NetTaskState {
-        Unknown,
-        Pending,
-        InProgress,
-        Complete,
-        Error
+    /**
+     * Get the MIME type of a completed task.
+     */
+    public String getTaskMimeType(int taskId) {
+        return taskMimeTypes.get(taskId);
+    }
+
+    /**
+     * Get the last modified date of a completed task.
+     */
+    public String getTaskLastModDate(int taskId) {
+        return taskLastModDates.get(taskId);
+    }
+
+    /**
+     * Get the current cache size.
+     */
+    public long getCacheSize() {
+        return cacheSize;
+    }
+
+    /**
+     * Get cache document verification mode.
+     */
+    public boolean getCacheDocVerify() {
+        return cacheDocVerify;
+    }
+
+    /**
+     * Set cache document verification mode.
+     */
+    public void setCacheDocVerify(boolean verify) {
+        this.cacheDocVerify = verify;
+    }
+
+    /**
+     * Clear the network cache.
+     */
+    public void clearCache() {
+        cache.clear();
+        cacheSize = 0;
+    }
+
+    /**
+     * Normalize a URL, resolving it against the base path if necessary.
+     */
+    private URI normalizeTaskUrl(String url) {
+        // Normalize slashes
+        String slashNorm = url.replace("\\", "/");
+
+        try {
+            URI parsedUri = new URI(slashNorm);
+
+            // If it has a host, use it as-is
+            if (parsedUri.getHost() != null) {
+                return parsedUri;
+            }
+
+            // Check if it's an absolute path
+            Path parsedPath = Paths.get(slashNorm);
+            if (parsedPath.isAbsolute()) {
+                return new URI("file:///" + slashNorm);
+            }
+
+            // Resolve against base path
+            if (basePathUri != null) {
+                return basePathUri.resolve(url);
+            }
+
+            return parsedUri;
+        } catch (Exception e) {
+            logger.error("Failed to normalize URL: {}", url, e);
+            try {
+                return new URI(slashNorm);
+            } catch (Exception e2) {
+                return URI.create("about:blank");
+            }
+        }
+    }
+
+    /**
+     * Shutdown the executor service.
+     */
+    public void shutdown() {
+        executor.shutdown();
+    }
+
+    /**
+     * Reset the manager to initial state.
+     */
+    public void reset() {
+        abortAllTasks();
+        tasks.clear();
+        taskStates.clear();
+        taskMimeTypes.clear();
+        taskLastModDates.clear();
+        taskLocalPaths.clear();
+        nextTaskId = 1;
     }
 }

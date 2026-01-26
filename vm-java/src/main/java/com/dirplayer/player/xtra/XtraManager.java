@@ -1,6 +1,7 @@
 package com.dirplayer.player.xtra;
 
 import com.dirplayer.director.lingo.Datum;
+import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.ScriptError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,24 +16,39 @@ import java.util.Map;
 public class XtraManager {
     private static final Logger logger = LoggerFactory.getLogger(XtraManager.class);
 
-    private Map<String, Xtra> xtras;
+    private final Map<String, Xtra> xtras;
+    private final MultiUserXtra multiUserXtra;
 
     public XtraManager() {
         this.xtras = new HashMap<>();
+        this.multiUserXtra = new MultiUserXtra();
         registerBuiltInXtras();
     }
 
     private void registerBuiltInXtras() {
         // Register built-in xtras
-        xtras.put("multiuser", new MultiUserXtra());
+        xtras.put("multiuser", multiUserXtra);
         xtras.put("fileio", new FileIOXtra());
         xtras.put("netlingo", new NetLingoXtra());
     }
 
+    /**
+     * Get an Xtra by name.
+     */
     public Xtra getXtra(String name) {
         return xtras.get(name.toLowerCase());
     }
 
+    /**
+     * Get the MultiUser Xtra instance.
+     */
+    public MultiUserXtra getMultiUserXtra() {
+        return multiUserXtra;
+    }
+
+    /**
+     * Create a new instance of an Xtra.
+     */
     public Datum createXtraInstance(String xtraName) throws ScriptError {
         Xtra xtra = getXtra(xtraName);
         if (xtra == null) {
@@ -43,62 +59,106 @@ public class XtraManager {
     }
 
     /**
-     * Base interface for Xtras.
+     * Call a method on an Xtra instance.
      */
-    public interface Xtra {
-        String getName();
-        Datum createInstance() throws ScriptError;
-        Datum callMethod(Object instance, String method, Datum[] args) throws ScriptError;
-        Datum getProperty(Object instance, String property) throws ScriptError;
-        void setProperty(Object instance, String property, Datum value) throws ScriptError;
+    public Datum callXtraMethod(Datum instanceDatum, String method, Datum[] args) throws ScriptError {
+        if (instanceDatum.getType() != DatumType.XtraInstance) {
+            throw new ScriptError("Expected XtraInstance, got " + instanceDatum.getType());
+        }
+
+        String xtraName = instanceDatum.getXtraName();
+        Xtra xtra = getXtra(xtraName);
+        if (xtra == null) {
+            throw new ScriptError("Xtra not found: " + xtraName);
+        }
+
+        return xtra.callMethod(instanceDatum, method, args);
     }
 
     /**
-     * MultiUser Xtra implementation stub.
+     * Get a property from an Xtra instance.
      */
-    public static class MultiUserXtra implements Xtra {
-        @Override
-        public String getName() {
-            return "multiuser";
+    public Datum getXtraProperty(Datum instanceDatum, String property) throws ScriptError {
+        if (instanceDatum.getType() != DatumType.XtraInstance) {
+            throw new ScriptError("Expected XtraInstance, got " + instanceDatum.getType());
         }
 
-        @Override
-        public Datum createInstance() {
-            return Datum.ofVoid(); // TODO: Create actual instance
+        String xtraName = instanceDatum.getXtraName();
+        Xtra xtra = getXtra(xtraName);
+        if (xtra == null) {
+            throw new ScriptError("Xtra not found: " + xtraName);
         }
 
-        @Override
-        public Datum callMethod(Object instance, String method, Datum[] args) throws ScriptError {
-            switch (method.toLowerCase()) {
-                case "connecttonetserver":
-                    return Datum.ofInt(0); // Connection ID
-                case "getneterrorstring":
-                    return Datum.ofString("");
-                case "getnumusers":
-                    return Datum.ofInt(0);
-                case "getmessage":
-                    return Datum.ofVoid();
-                default:
-                    logger.warn("MultiUser method not implemented: {}", method);
-                    return Datum.ofVoid();
-            }
+        return xtra.getProperty(instanceDatum, property);
+    }
+
+    /**
+     * Set a property on an Xtra instance.
+     */
+    public void setXtraProperty(Datum instanceDatum, String property, Datum value) throws ScriptError {
+        if (instanceDatum.getType() != DatumType.XtraInstance) {
+            throw new ScriptError("Expected XtraInstance, got " + instanceDatum.getType());
         }
 
-        @Override
-        public Datum getProperty(Object instance, String property) {
-            return Datum.ofVoid();
+        String xtraName = instanceDatum.getXtraName();
+        Xtra xtra = getXtra(xtraName);
+        if (xtra == null) {
+            throw new ScriptError("Xtra not found: " + xtraName);
         }
 
-        @Override
-        public void setProperty(Object instance, String property, Datum value) {
-            // No-op
-        }
+        xtra.setProperty(instanceDatum, property, value);
+    }
+
+    /**
+     * Check if an Xtra exists by name.
+     */
+    public boolean hasXtra(String name) {
+        return xtras.containsKey(name.toLowerCase());
+    }
+
+    /**
+     * Register a custom Xtra.
+     */
+    public void registerXtra(Xtra xtra) {
+        xtras.put(xtra.getName().toLowerCase(), xtra);
+    }
+
+    /**
+     * Base interface for Xtras.
+     */
+    public interface Xtra {
+        /**
+         * Get the name of this Xtra.
+         */
+        String getName();
+
+        /**
+         * Create a new instance of this Xtra.
+         */
+        Datum createInstance() throws ScriptError;
+
+        /**
+         * Call a method on an instance.
+         */
+        Datum callMethod(Object instance, String method, Datum[] args) throws ScriptError;
+
+        /**
+         * Get a property from an instance.
+         */
+        Datum getProperty(Object instance, String property) throws ScriptError;
+
+        /**
+         * Set a property on an instance.
+         */
+        void setProperty(Object instance, String property, Datum value) throws ScriptError;
     }
 
     /**
      * FileIO Xtra implementation stub.
      */
     public static class FileIOXtra implements Xtra {
+        private static final Logger logger = LoggerFactory.getLogger(FileIOXtra.class);
+
         @Override
         public String getName() {
             return "fileio";
@@ -106,7 +166,7 @@ public class XtraManager {
 
         @Override
         public Datum createInstance() {
-            return Datum.ofVoid();
+            return Datum.ofXtraInstance("fileio", 1);
         }
 
         @Override
@@ -122,6 +182,34 @@ public class XtraManager {
                     return Datum.ofString("");
                 case "setfinderinfo":
                     return Datum.ofVoid();
+                case "displayopen":
+                    return Datum.ofString("");
+                case "displaysave":
+                    return Datum.ofString("");
+                case "createfile":
+                    return Datum.ofInt(0);
+                case "delete":
+                    return Datum.ofInt(0);
+                case "getlength":
+                    return Datum.ofInt(0);
+                case "getposition":
+                    return Datum.ofInt(0);
+                case "setposition":
+                    return Datum.ofVoid();
+                case "readchar":
+                    return Datum.ofString("");
+                case "readword":
+                    return Datum.ofString("");
+                case "readline":
+                    return Datum.ofString("");
+                case "writestring":
+                    return Datum.ofVoid();
+                case "writechar":
+                    return Datum.ofVoid();
+                case "status":
+                    return Datum.ofInt(0);
+                case "error":
+                    return Datum.ofString("");
                 default:
                     logger.warn("FileIO method not implemented: {}", method);
                     return Datum.ofVoid();
@@ -130,12 +218,19 @@ public class XtraManager {
 
         @Override
         public Datum getProperty(Object instance, String property) {
-            return Datum.ofVoid();
+            switch (property.toLowerCase()) {
+                case "filename":
+                    return Datum.ofString("");
+                case "status":
+                    return Datum.ofInt(0);
+                default:
+                    return Datum.ofVoid();
+            }
         }
 
         @Override
         public void setProperty(Object instance, String property, Datum value) {
-            // No-op
+            // No-op for now
         }
     }
 
@@ -143,6 +238,8 @@ public class XtraManager {
      * NetLingo Xtra implementation stub.
      */
     public static class NetLingoXtra implements Xtra {
+        private static final Logger logger = LoggerFactory.getLogger(NetLingoXtra.class);
+
         @Override
         public String getName() {
             return "netlingo";
@@ -150,7 +247,7 @@ public class XtraManager {
 
         @Override
         public Datum createInstance() {
-            return Datum.ofVoid();
+            return Datum.ofXtraInstance("netlingo", 1);
         }
 
         @Override
@@ -166,6 +263,18 @@ public class XtraManager {
                     return Datum.ofString("");
                 case "gotonetpage":
                     return Datum.ofVoid();
+                case "gotonetmovie":
+                    return Datum.ofVoid();
+                case "preloadnetthing":
+                    return Datum.ofInt(0);
+                case "downloadnetthing":
+                    return Datum.ofInt(0);
+                case "netlastmoddate":
+                    return Datum.ofString("");
+                case "netmime":
+                    return Datum.ofString("");
+                case "nettextresult":
+                    return Datum.ofString("");
                 default:
                     logger.warn("NetLingo method not implemented: {}", method);
                     return Datum.ofVoid();
