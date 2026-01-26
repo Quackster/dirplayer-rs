@@ -13,8 +13,8 @@ import com.dirplayer.player.cast.BitmapMember;
 import com.dirplayer.player.cast.FilmLoopMember;
 import com.dirplayer.rendering.IntRect;
 import com.dirplayer.rendering.ScoreRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.HashMap;
 
@@ -24,7 +24,7 @@ import java.util.HashMap;
  * Port of draw_preview_frame from Rust.
  */
 public class PreviewRenderer {
-    private static final Logger logger = LoggerFactory.getLogger(PreviewRenderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(PreviewRenderer.class);
 
     private PreviewRenderer() {
         // Prevent instantiation

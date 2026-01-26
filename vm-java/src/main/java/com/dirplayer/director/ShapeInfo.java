@@ -2,15 +2,15 @@ package com.dirplayer.director;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Information about a shape cast member.
  * Port of Rust ShapeInfo struct.
  */
 public class ShapeInfo {
-    private static final Logger logger = LoggerFactory.getLogger(ShapeInfo.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ShapeInfo.class);
 
     public ShapeType shapeType;
     public short regPointX;

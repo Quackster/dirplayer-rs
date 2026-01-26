@@ -4,8 +4,8 @@ import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.script.ScriptInstanceRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,7 +22,7 @@ import java.util.function.Supplier;
  * Port of Rust events.rs functions.
  */
 public class EventDispatcher {
-    private static final Logger logger = LoggerFactory.getLogger(EventDispatcher.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(EventDispatcher.class);
 
     private final BlockingQueue<PlayerVMEvent> eventQueue;
     private volatile boolean running;
@@ -530,7 +530,7 @@ public class EventDispatcher {
     // ========== Helper Methods ==========
 
     private List<ScriptInstanceRef> getSpriteScriptInstances(DirPlayer player, int spriteNum) {
-        var sprite = player.movie.score.getSprite(spriteNum);
+        var sprite = player.movie.score.getSprite((short) spriteNum);
         if (sprite == null) {
             return null;
         }

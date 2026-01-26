@@ -8,15 +8,15 @@ import com.dirplayer.director.ScriptType;
 import com.dirplayer.director.ShapeInfo;
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Cast member chunk - contains cast member type and specific data.
  * Port of Rust CastMemberChunk struct.
  */
 public class CastMemberChunk {
-    private static final Logger logger = LoggerFactory.getLogger(CastMemberChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CastMemberChunk.class);
 
     public MemberType memberType;
     public CastMemberSpecificData specificData;

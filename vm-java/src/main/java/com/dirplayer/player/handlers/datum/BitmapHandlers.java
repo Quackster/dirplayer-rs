@@ -5,10 +5,11 @@ import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.bitmap.Bitmap;
+import com.dirplayer.player.bitmap.BitmapDrawing;
 import com.dirplayer.player.bitmap.BitmapRef;
+import com.dirplayer.player.bitmap.BuiltInPalette;
 import com.dirplayer.player.bitmap.PaletteRef;
 import com.dirplayer.player.ColorRef;
-import com.dirplayer.player.IntRect;
 
 import java.util.HashMap;
 import java.util.List;
@@ -53,7 +54,7 @@ public class BitmapHandlers {
      */
     public static int getProp(DirPlayer player, int datumRef, String prop) throws ScriptError {
         BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
 
         if (bitmap == null) {
             throw new ScriptError("Invalid bitmap reference");
@@ -82,11 +83,11 @@ public class BitmapHandlers {
                 result = Datum.ofInt(bitmap.getBitDepth());
                 break;
             case "paletteref": {
-                PaletteRef paletteRef = bitmap.getPaletteRef();
+                PaletteRef paletteRef = bitmap.paletteRef;
                 if (paletteRef != null && paletteRef.isBuiltIn()) {
-                    result = Datum.ofSymbol(paletteRef.getSymbolString());
+                    result = Datum.ofSymbol(paletteRef.getBuiltIn().toSymbol());
                 } else if (paletteRef != null) {
-                    result = Datum.ofPaletteRef(paletteRef);
+                    result = Datum.ofCastMember(paletteRef.getMemberRef());
                 } else {
                     result = Datum.ofSymbol("systemDefault");
                 }
@@ -112,18 +113,19 @@ public class BitmapHandlers {
             case "paletteref":
                 if (value.isSymbol()) {
                     String symbol = value.symbolValue();
-                    PaletteRef paletteRef = PaletteRef.fromSymbolString(symbol);
-                    if (paletteRef == null) {
+                    BuiltInPalette builtInPalette = BuiltInPalette.fromSymbol(symbol);
+                    if (builtInPalette == null) {
                         throw new ScriptError("Invalid built-in palette symbol");
                     }
-                    Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+                    PaletteRef paletteRef = PaletteRef.ofBuiltIn(builtInPalette);
+                    Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
                     if (bitmap != null) {
-                        bitmap.setPaletteRef(paletteRef);
+                        bitmap.paletteRef = paletteRef;
                     }
                 } else if (value.isCastMemberRef()) {
-                    Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+                    Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
                     if (bitmap != null) {
-                        bitmap.setPaletteRef(PaletteRef.fromMember(value.toMemberRef()));
+                        bitmap.paletteRef = PaletteRef.ofMember(value.toMemberRef());
                     }
                 } else {
                     throw new ScriptError("Cannot set paletteRef to datum of type " + value.typeStr());
@@ -139,12 +141,12 @@ public class BitmapHandlers {
      */
     private static int getPixel(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
 
         int x = player.getDatum(args.get(0)).intValue();
         int y = player.getDatum(args.get(1)).intValue();
 
-        ColorRef color = bitmap.getPixelColorRef(x, y);
+        ColorRef color = BitmapDrawing.getPixelColorRef(bitmap, x, y);
         return player.allocDatum(Datum.ofColorRef(color));
     }
 
@@ -153,10 +155,10 @@ public class BitmapHandlers {
      */
     private static int trimWhitespace(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
 
         if (bitmap != null) {
-            bitmap.trimWhitespace(player.movie.castManager.getPalettes());
+            BitmapDrawing.trimWhitespace(bitmap, player.movie.castManager.palettes());
         }
         return datumRef;
     }
@@ -170,14 +172,11 @@ public class BitmapHandlers {
         }
 
         BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
 
         if (bitmap != null) {
-            bitmap.createMatte(player.movie.castManager.getPalettes());
-            Object matte = bitmap.getMatte();
-            if (matte != null) {
-                return player.allocDatum(Datum.ofMatte(matte));
-            }
+            bitmap.createMatte(player.movie.castManager.palettes());
+            // createMatte modifies the bitmap in place, returns void
         }
         return 0; // Void
     }
@@ -186,7 +185,24 @@ public class BitmapHandlers {
      * Duplicate the bitmap.
      */
     private static int duplicate(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
-        return player.duplicateDatum(datumRef);
+        BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
+
+        if (bitmap == null) {
+            throw new ScriptError("Invalid bitmap reference");
+        }
+
+        // Create a copy of the bitmap
+        Bitmap copiedBitmap = bitmap.copy();
+
+        // Store the new bitmap in the bitmap manager
+        int newBitmapId = player.bitmapManager.addBitmap(copiedBitmap);
+
+        // Create a new BitmapRef for the duplicated bitmap
+        BitmapRef newBitmapRef = new BitmapRef(newBitmapId, copiedBitmap.width, copiedBitmap.height, copiedBitmap.bitDepth);
+
+        // Return the new bitmap datum
+        return player.allocDatum(Datum.ofBitmapRef(newBitmapRef));
     }
 
     /**
@@ -231,11 +247,11 @@ public class BitmapHandlers {
             throw new ScriptError("Missing shapeType property for draw");
         }
 
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
-        int[] resolvedColor = bitmap.resolveColorRef(colorRef, player.movie.castManager.getPalettes());
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
+        int[] resolvedColor = BitmapDrawing.resolveColorRef(player.movie.castManager.palettes(), colorRef, bitmap.paletteRef, bitmap.getBitDepth());
 
         if (shapeType.equalsIgnoreCase("rect")) {
-            bitmap.strokeRect(x1, y1, x2, y2, resolvedColor, player.movie.castManager.getPalettes(), blend / 100.0f);
+            bitmap.strokeRect(x1, y1, x2, y2, resolvedColor[0], resolvedColor[1], resolvedColor[2], player.movie.castManager.palettes(), blend / 100.0f);
         } else {
             throw new ScriptError("Invalid shapeType for draw");
         }
@@ -248,7 +264,7 @@ public class BitmapHandlers {
      */
     private static int setPixel(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         BitmapRef bitmapRef = player.getDatum(datumRef).toBitmapRef();
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
 
         int x = player.getDatum(args.get(0)).intValue();
         int y = player.getDatum(args.get(1)).intValue();
@@ -263,11 +279,11 @@ public class BitmapHandlers {
                 throw new ScriptError("Cannot set pixel with int color on non-8-bit bitmap");
             }
             int intValue = colorDatum.intValue();
-            bitmap.setPixel(x, y, new int[]{intValue, intValue, intValue}, player.movie.castManager.getPalettes());
+            BitmapDrawing.setPixelColor(bitmap, x, y, new int[]{intValue, intValue, intValue}, player.movie.castManager.palettes());
         } else {
             ColorRef colorRef = colorDatum.toColorRef();
-            int[] color = bitmap.resolveColorRef(colorRef, player.movie.castManager.getPalettes());
-            bitmap.setPixel(x, y, color, player.movie.castManager.getPalettes());
+            int[] color = BitmapDrawing.resolveColorRef(player.movie.castManager.palettes(), colorRef, bitmap.paletteRef, bitmap.getBitDepth());
+            BitmapDrawing.setPixelColor(bitmap, x, y, color, player.movie.castManager.palettes());
         }
 
         return player.allocDatum(Datum.ofInt(1)); // true
@@ -299,9 +315,9 @@ public class BitmapHandlers {
             throw new ScriptError("Invalid number of arguments for fill");
         }
 
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
-        int[] color = bitmap.resolveColorRef(colorRef, player.movie.castManager.getPalettes());
-        bitmap.fillRect(x1, y1, x2, y2, color, player.movie.castManager.getPalettes(), 1.0f);
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
+        int[] color = BitmapDrawing.resolveColorRef(player.movie.castManager.palettes(), colorRef, bitmap.paletteRef, bitmap.getBitDepth());
+        bitmap.fillRect(x1, y1, x2, y2, color[0], color[1], color[2], player.movie.castManager.palettes(), 1.0f);
 
         return datumRef;
     }
@@ -328,59 +344,74 @@ public class BitmapHandlers {
         int sy2 = player.getDatum(srcRectRefs[3]).intValue();
 
         // Parse optional parameter list
-        Map<String, Datum> paramListConcrete = new HashMap<>();
+        Map<String, Object> paramListConcrete = new HashMap<>();
         if (args.size() > 3) {
             Datum paramList = player.getDatum(args.get(3));
             if (paramList.isPropList()) {
                 for (int[] pair : paramList.toPropList()) {
                     String key = player.getDatum(pair[0]).stringValue();
                     Datum value = player.getDatum(pair[1]);
-                    paramListConcrete.put(key, value);
+                    // Convert Datum to appropriate Java type
+                    if (value.isInt()) {
+                        paramListConcrete.put(key, value.intValue());
+                    } else if (value.isFloat()) {
+                        paramListConcrete.put(key, value.floatValue());
+                    } else if (value.isColorRef()) {
+                        paramListConcrete.put(key, value.toColorRef());
+                    } else {
+                        paramListConcrete.put(key, value);
+                    }
                 }
             }
         }
 
         // Parse destination rect or quad
-        IntRect destRect;
+        com.dirplayer.rendering.IntRect destRect;
         if (destRectOrQuad.isRect()) {
             int[] rectRefs = destRectOrQuad.toRect();
             int dx1 = player.getDatum(rectRefs[0]).intValue();
             int dy1 = player.getDatum(rectRefs[1]).intValue();
             int dx2 = player.getDatum(rectRefs[2]).intValue();
             int dy2 = player.getDatum(rectRefs[3]).intValue();
-            destRect = new IntRect(dx1, dy1, dx2, dy2);
+            destRect = com.dirplayer.rendering.IntRect.from(dx1, dy1, dx2, dy2);
         } else if (destRectOrQuad.isList()) {
-            // Quad: list of 4 points
+            // Quad: list of 4 points - for now just get bounding rect
             List<Integer> list = destRectOrQuad.toList();
-            int[] p1 = player.getDatum(list.get(0)).toPoint();
-            int[] p2 = player.getDatum(list.get(1)).toPoint();
-            int[] p3 = player.getDatum(list.get(2)).toPoint();
-            int[] p4 = player.getDatum(list.get(3)).toPoint();
+            int[] p1Refs = player.getDatum(list.get(0)).toPoint();
+            int[] p2Refs = player.getDatum(list.get(1)).toPoint();
+            int[] p3Refs = player.getDatum(list.get(2)).toPoint();
+            int[] p4Refs = player.getDatum(list.get(3)).toPoint();
 
-            int x1 = player.getDatum(p1[0]).intValue();
-            int y1 = player.getDatum(p1[1]).intValue();
-            int x2 = player.getDatum(p2[0]).intValue();
-            int y2 = player.getDatum(p2[1]).intValue();
-            int x3 = player.getDatum(p3[0]).intValue();
-            int y3 = player.getDatum(p3[1]).intValue();
-            int x4 = player.getDatum(p4[0]).intValue();
-            int y4 = player.getDatum(p4[1]).intValue();
+            int x1 = player.getDatum(p1Refs[0]).intValue();
+            int y1 = player.getDatum(p1Refs[1]).intValue();
+            int x2 = player.getDatum(p2Refs[0]).intValue();
+            int y2 = player.getDatum(p2Refs[1]).intValue();
+            int x3 = player.getDatum(p3Refs[0]).intValue();
+            int y3 = player.getDatum(p3Refs[1]).intValue();
+            int x4 = player.getDatum(p4Refs[0]).intValue();
+            int y4 = player.getDatum(p4Refs[1]).intValue();
 
-            destRect = IntRect.fromQuad(x1, y1, x2, y2, x3, y3, x4, y4);
+            // Get bounding box of the quad
+            int minX = Math.min(Math.min(x1, x2), Math.min(x3, x4));
+            int minY = Math.min(Math.min(y1, y2), Math.min(y3, y4));
+            int maxX = Math.max(Math.max(x1, x2), Math.max(x3, x4));
+            int maxY = Math.max(Math.max(y1, y2), Math.max(y3, y4));
+
+            destRect = com.dirplayer.rendering.IntRect.from(minX, minY, maxX, maxY);
         } else {
             throw new ScriptError("Invalid destRect for copyPixels");
         }
 
-        Bitmap srcBitmap = player.bitmapManager.getBitmap(srcBitmapRef);
-        Bitmap dstBitmap = player.bitmapManager.getBitmap(dstBitmapRef);
+        Bitmap srcBitmap = player.bitmapManager.getBitmap(srcBitmapRef.bitmapId);
+        Bitmap dstBitmap = player.bitmapManager.getBitmap(dstBitmapRef.bitmapId);
 
-        dstBitmap.copyPixels(
-            player.movie.castManager.getPalettes(),
+        BitmapDrawing.copyPixels(
+            dstBitmap,
+            player.movie.castManager.palettes(),
             srcBitmap,
             destRect,
-            new IntRect(sx1, sy1, sx2, sy2),
-            paramListConcrete,
-            player.movie.score
+            com.dirplayer.rendering.IntRect.from(sx1, sy1, sx2, sy2),
+            paramListConcrete
         );
 
         return datumRef;
@@ -402,10 +433,10 @@ public class BitmapHandlers {
 
         ColorRef colorRef = player.getDatum(args.get(1)).toColorRef();
 
-        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef);
-        int[] targetRgb = bitmap.resolveColorRef(colorRef, player.movie.castManager.getPalettes());
+        Bitmap bitmap = player.bitmapManager.getBitmap(bitmapRef.bitmapId);
+        int[] targetRgb = BitmapDrawing.resolveColorRef(player.movie.castManager.palettes(), colorRef, bitmap.paletteRef, bitmap.getBitDepth());
 
-        bitmap.floodFill(x, y, targetRgb, player.movie.castManager.getPalettes());
+        BitmapDrawing.floodFill(bitmap, x, y, targetRgb, player.movie.castManager.palettes());
 
         return 0; // Void
     }

@@ -8,15 +8,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Score chunk - contains timeline/score data with sprite positions and behaviors.
  * Port of Rust ScoreChunk struct.
  */
 public class ScoreChunk {
-    private static final Logger logger = LoggerFactory.getLogger(ScoreChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ScoreChunk.class);
 
     public ScoreChunkHeader header;
     public List<byte[]> entries;

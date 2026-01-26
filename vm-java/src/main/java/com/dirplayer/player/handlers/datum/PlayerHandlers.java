@@ -3,7 +3,6 @@ package com.dirplayer.player.handlers.datum;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import com.dirplayer.player.ScriptErrorCode;
 
 import java.util.List;
 
@@ -21,10 +20,7 @@ public class PlayerHandlers {
             case "count":
                 return count(player, args);
             default:
-                throw new ScriptError(
-                    ScriptErrorCode.HANDLER_NOT_FOUND,
-                    "No handler " + handlerName + " for player datum"
-                );
+                throw new ScriptError("No handler " + handlerName + " for player datum");
         }
     }
 

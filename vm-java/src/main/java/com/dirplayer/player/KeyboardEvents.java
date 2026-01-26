@@ -2,8 +2,8 @@ package com.dirplayer.player;
 
 import com.dirplayer.player.events.EventDispatcher;
 import com.dirplayer.player.script.ScriptInstanceRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,7 +15,7 @@ import java.util.List;
  * Port of Rust keyboard_events.rs.
  */
 public class KeyboardEvents {
-    private static final Logger logger = LoggerFactory.getLogger(KeyboardEvents.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(KeyboardEvents.class);
 
     private KeyboardEvents() {
         // Utility class - prevent instantiation

@@ -30,11 +30,11 @@ public class PaletteMap {
         }
 
         if (ref.isBuiltIn()) {
-            return Palettes.getPalette(ref.getBuiltInType(), bitDepth);
+            return Palettes.getPalette(ref.getBuiltIn(), bitDepth);
         }
 
         // Cast member palette
-        int[][] castPalette = castPalettes.get(ref.getCastMemberNum());
+        int[][] castPalette = castPalettes.get(ref.getMemberRef().castMember);
         if (castPalette != null) {
             return castPalette;
         }

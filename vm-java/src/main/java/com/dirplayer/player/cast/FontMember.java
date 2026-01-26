@@ -47,7 +47,7 @@ public class FontMember {
     }
 
     public String getFontName() {
-        return fontInfo != null ? fontInfo.fontName : "Arial";
+        return fontInfo != null ? fontInfo.name : "Arial";
     }
 
     public FontMember copy() {

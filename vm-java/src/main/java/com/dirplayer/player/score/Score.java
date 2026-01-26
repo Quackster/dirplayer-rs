@@ -20,8 +20,8 @@ import com.dirplayer.player.ColorRef;
 import com.dirplayer.player.Sprite;
 import com.dirplayer.player.score.SpriteKeyframe.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
  * Port of Rust Score struct from score.rs.
  */
 public class Score {
-    private static final Logger logger = LoggerFactory.getLogger(Score.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(Score.class);
 
     /** Sprite channels in the score */
     public List<SpriteChannel> channels;

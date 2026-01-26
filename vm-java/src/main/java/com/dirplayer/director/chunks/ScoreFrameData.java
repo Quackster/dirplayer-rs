@@ -6,15 +6,15 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Score frame data - contains per-frame sprite channel data.
  * Port of Rust ScoreFrameData struct.
  */
 public class ScoreFrameData {
-    private static final Logger logger = LoggerFactory.getLogger(ScoreFrameData.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ScoreFrameData.class);
 
     public ScoreFrameDataHeader header;
     public byte[] decompressedData;

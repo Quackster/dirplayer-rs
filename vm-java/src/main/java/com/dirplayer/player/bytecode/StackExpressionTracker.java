@@ -5,6 +5,7 @@ import com.dirplayer.director.lingo.OpCode;
 import com.dirplayer.director.lingo.ScriptContext;
 import com.dirplayer.director.chunks.Bytecode;
 import com.dirplayer.director.chunks.HandlerDef;
+import com.dirplayer.player.ScriptError;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +36,7 @@ public class StackExpressionTracker {
         HandlerDef handler,
         int multiplier,
         List<Datum> literals
-    ) {
+    ) throws ScriptError {
         OpCode opcode = bytecode.opcode;
 
         switch (opcode) {
@@ -580,7 +581,7 @@ public class StackExpressionTracker {
         return "";
     }
 
-    private static String formatLiteral(Datum literal) {
+    private static String formatLiteral(Datum literal) throws ScriptError {
         if (literal.isString()) {
             return "\"" + literal.stringValue().replace("\"", "\\\"") + "\"";
         } else if (literal.isSymbol()) {

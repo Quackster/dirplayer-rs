@@ -41,6 +41,14 @@ public class BitmapRef {
         return ref;
     }
 
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
     @Override
     public String toString() {
         return "bitmap(" + bitmapId + ", " + width + "x" + height + ", " + bitDepth + "bpp)";

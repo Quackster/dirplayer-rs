@@ -1,7 +1,7 @@
 package com.dirplayer.player;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
  * Port of Rust KeyboardManager struct from keyboard.rs.
  */
 public class KeyboardManager {
-    private static final Logger logger = LoggerFactory.getLogger(KeyboardManager.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(KeyboardManager.class);
 
     /**
      * Represents a pressed keyboard key.
@@ -73,6 +73,15 @@ public class KeyboardManager {
      */
     public boolean isKeyDown(String key) {
         return downKeys.stream().anyMatch(k -> k.key.equals(key));
+    }
+
+    /**
+     * Check if a key with the given code is currently pressed.
+     * @param keyCode The key code to check
+     * @return true if the key is currently pressed
+     */
+    public boolean isKeyDown(int keyCode) {
+        return downKeys.stream().anyMatch(k -> k.code == keyCode);
     }
 
     /**

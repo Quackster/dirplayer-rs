@@ -208,8 +208,9 @@ public class Sprite {
     // Color properties for rendering
     private ColorRef color;
     private ColorRef bgColor;
-    private float rotationFloat;
-    private float skew;
+    public float rotationFloat;
+    public float skew;
+    public float rotation;  // Alias for rotationFloat
 
     public CastMemberRef getMember() {
         return memberRef;

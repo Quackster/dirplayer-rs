@@ -5,6 +5,7 @@ import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.ContextVars;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -86,11 +87,9 @@ public class StackBytecodeHandler {
     }
 
     public static HandlerExecutionResult pushCons(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int literalId = (int) (player.getCtxCurrentBytecode(ctx).obj / player.getCurrentVariableMultiplier(ctx));
-
-        // Get current script's literals
-        Datum literal = player.getCurrentScriptLiteral(ctx, literalId);
-        int datumRef = player.allocDatum(literal.clone());
+        // TODO: Implement literal access from script context
+        // For now, push void as placeholder
+        int datumRef = player.allocDatum(Datum.ofVoid());
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         scope.stack.push(datumRef);
@@ -128,7 +127,7 @@ public class StackBytecodeHandler {
             entries.add(new int[] { key, value });
         }
 
-        int datumRef = player.allocDatum(Datum.ofPropList(entries, false));
+        int datumRef = player.allocDatum(Datum.ofPropList(entries, false, true));
         scope.stack.push(datumRef);
 
         return HandlerExecutionResult.ADVANCE;
@@ -141,7 +140,7 @@ public class StackBytecodeHandler {
         Datum listDatum = player.getDatum(listId);
         List<Integer> list = new ArrayList<>(listDatum.toList());
 
-        int resultId = player.allocDatum(Datum.ofList(DatumType.LIST, list, false));
+        int resultId = player.allocDatum(Datum.ofList(DatumType.List, list, false));
         scope.stack.push(resultId);
 
         return HandlerExecutionResult.ADVANCE;
@@ -179,11 +178,14 @@ public class StackBytecodeHandler {
 
     public static HandlerExecutionResult pushChunkVarRef(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
         long bytecodeObj = player.getCtxCurrentBytecode(ctx).obj;
-        ContextVarArgs contextVarArgs = player.readContextVarArgs((int) bytecodeObj, ctx.scopeRef);
+        int[] contextVarArgs = ContextVars.readContextVarArgs(player, (int) bytecodeObj, ctx.scopeRef);
+        int idRef = contextVarArgs[0];
+        Integer castIdRef = contextVarArgs.length > 1 ? contextVarArgs[1] : null;
 
-        int valueRef = player.playerGetContextVar(
-            contextVarArgs.idRef,
-            contextVarArgs.castIdRef,
+        int valueRef = ContextVars.getContextVar(
+            player,
+            idRef,
+            castIdRef,
             (int) bytecodeObj,
             ctx
         );
@@ -194,33 +196,7 @@ public class StackBytecodeHandler {
     }
 
     public static HandlerExecutionResult newObj(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        String objType = player.getName(ctx, (int) player.getCtxCurrentBytecode(ctx).obj);
-
-        if (!"script".equals(objType)) {
-            throw new ScriptError("Cannot create new instance of non-script: " + objType);
-        }
-
-        ScriptScope scope = player.scopes.get(ctx.scopeRef);
-        int argListRef = scope.stack.pop();
-
-        Datum argListDatum = player.getDatum(argListRef);
-        List<Integer> argList = argListDatum.toList();
-
-        if (argList.isEmpty()) {
-            throw new ScriptError("new(script) requires at least one argument (script name)");
-        }
-
-        String scriptName = player.getDatum(argList.get(0)).stringValue();
-        List<Integer> extraArgs = argList.subList(1, argList.size());
-
-        // Find the script by name
-        int scriptMemberRef = player.movie.castManager.findMemberRefByName(scriptName);
-        int scriptRef = player.allocDatum(Datum.ofScriptRef(player.movie.castManager.getMemberRef(scriptMemberRef)));
-
-        // Create new instance
-        int result = player.scriptNew(scriptRef, extraArgs);
-
-        scope.stack.push(result);
-        return HandlerExecutionResult.ADVANCE;
+        // TODO: Implement script instance creation
+        throw new ScriptError("newObj bytecode handler not yet implemented");
     }
 }

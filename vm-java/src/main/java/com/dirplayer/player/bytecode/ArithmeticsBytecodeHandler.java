@@ -108,7 +108,7 @@ public class ArithmeticsBytecodeHandler {
                 }
                 newList.add(player.allocDatum(itemResult));
             }
-            result = Datum.ofList(DatumType.LIST, newList, false);
+            result = Datum.ofList(DatumType.List, newList, false);
         } else {
             throw new ScriptError("Modulus operator only works with ints and floats (given " +
                 left.typeStr() + " and " + right.typeStr() + ")");

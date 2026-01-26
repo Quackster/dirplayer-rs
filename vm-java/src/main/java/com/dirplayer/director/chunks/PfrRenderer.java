@@ -3,8 +3,8 @@ package com.dirplayer.director.chunks;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * PFR Vector Renderer - Complete Implementation
@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  * Port of Rust pfr_renderer.rs.
  */
 public class PfrRenderer {
-    private static final Logger logger = LoggerFactory.getLogger(PfrRenderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(PfrRenderer.class);
 
     private int width;
     private int height;

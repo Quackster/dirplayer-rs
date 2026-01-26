@@ -4,7 +4,7 @@ import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import com.dirplayer.player.timeout.Timeout;
+import com.dirplayer.player.TimeoutManager;
 
 import java.util.List;
 
@@ -55,7 +55,7 @@ public class TimeoutHandlers {
     private static int forget(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         String timeoutName = getTimeoutName(player, datumRef);
         if (timeoutName != null) {
-            player.timeoutManager.forgetTimeout(timeoutName);
+            player.timeoutManager.remove(timeoutName);
         }
         return 0; // Void
     }
@@ -137,9 +137,10 @@ public class TimeoutHandlers {
 
         int targetRef = args.get(targetArgIdx);
 
-        Timeout timeout = new Timeout(timeoutName, timeoutPeriod, timeoutHandler, targetRef);
-        timeout.schedule();
-        player.timeoutManager.addTimeout(timeout);
+        TimeoutManager.Timeout timeout = new TimeoutManager.Timeout(timeoutName, timeoutPeriod);
+        timeout.callback = args.get(handlerArgIdx);
+        timeout.target = targetRef;
+        player.timeoutManager.add(timeoutName, timeout);
 
         // Return a TimeoutInstance
         return player.allocDatum(Datum.ofTimeoutInstance(
@@ -168,9 +169,9 @@ public class TimeoutHandlers {
 
             case "target":
                 if (datum.getType() == DatumType.TimeoutRef) {
-                    Timeout timeout = player.timeoutManager.getTimeout(timeoutName);
+                    TimeoutManager.Timeout timeout = player.timeoutManager.get(timeoutName);
                     if (timeout != null) {
-                        return timeout.getTargetRef();
+                        return timeout.target;
                     }
                     return 0; // Void
                 } else if (datum.getType() == DatumType.TimeoutInstance) {
@@ -194,9 +195,9 @@ public class TimeoutHandlers {
 
         switch (prop.toLowerCase()) {
             case "target":
-                Timeout timeout = player.timeoutManager.getTimeout(timeoutName);
+                TimeoutManager.Timeout timeout = player.timeoutManager.get(timeoutName);
                 if (timeout != null) {
-                    timeout.setTargetRef(valueRef);
+                    timeout.target = valueRef;
                 } else {
                     throw new ScriptError("Cannot set target of unscheduled timeout");
                 }
@@ -216,7 +217,7 @@ public class TimeoutHandlers {
             case TimeoutRef:
                 return datum.getTimeoutName();
             case TimeoutInstance:
-                return datum.getTimeoutInstanceName();
+                return datum.getTimeoutName();
             default:
                 return null;
         }

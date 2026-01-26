@@ -2,15 +2,15 @@ package com.dirplayer.director.chunks;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Score order chunk (Sord) - contains channel ordering information.
  * Port of Rust SordChunk struct.
  */
 public class SordChunk {
-    private static final Logger logger = LoggerFactory.getLogger(SordChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(SordChunk.class);
 
     public byte[] rawData;
 

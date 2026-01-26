@@ -3,8 +3,8 @@ package com.dirplayer.player.xtra;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.ScriptError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +14,7 @@ import java.util.Map;
  * Port of Rust XtraManager.
  */
 public class XtraManager {
-    private static final Logger logger = LoggerFactory.getLogger(XtraManager.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(XtraManager.class);
 
     private final Map<String, Xtra> xtras;
     private final MultiUserXtra multiUserXtra;
@@ -157,7 +157,7 @@ public class XtraManager {
      * FileIO Xtra implementation stub.
      */
     public static class FileIOXtra implements Xtra {
-        private static final Logger logger = LoggerFactory.getLogger(FileIOXtra.class);
+        private static final SimpleLogger logger = SimpleLogger.getLogger(FileIOXtra.class);
 
         @Override
         public String getName() {
@@ -238,7 +238,7 @@ public class XtraManager {
      * NetLingo Xtra implementation stub.
      */
     public static class NetLingoXtra implements Xtra {
-        private static final Logger logger = LoggerFactory.getLogger(NetLingoXtra.class);
+        private static final SimpleLogger logger = SimpleLogger.getLogger(NetLingoXtra.class);
 
         @Override
         public String getName() {

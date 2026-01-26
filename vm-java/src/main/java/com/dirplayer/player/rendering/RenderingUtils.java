@@ -19,8 +19,8 @@ import com.dirplayer.rendering.CopyPixelsParams;
 import com.dirplayer.rendering.IntRect;
 import com.dirplayer.rendering.ScoreRef;
 import com.dirplayer.director.MemberType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.List;
 
@@ -29,7 +29,7 @@ import java.util.List;
  * Port of helper functions from Rust rendering.rs.
  */
 public final class RenderingUtils {
-    private static final Logger logger = LoggerFactory.getLogger(RenderingUtils.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(RenderingUtils.class);
 
     private RenderingUtils() {
         // Prevent instantiation

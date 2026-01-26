@@ -3,8 +3,7 @@ package com.dirplayer.player.xtra;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.ScriptError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,14 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.LinkedList;
 
 /**
  * MultiUser Xtra implementation for Director network multiplayer functionality.
  * Port of Rust MultiuserXtraManager.
  */
 public class MultiUserXtra implements XtraManager.Xtra {
-    private static final Logger logger = LoggerFactory.getLogger(MultiUserXtra.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(MultiUserXtra.class);
 
     private final Map<Integer, MultiUserInstance> instances;
     private int instanceCounter;
@@ -299,7 +298,7 @@ public class MultiUserXtra implements XtraManager.Xtra {
         private final int id;
         private int handlerObjRef;
         private String handlerSymbol;
-        private final ConcurrentLinkedQueue<MultiUserMessage> messageQueue;
+        private final LinkedList<MultiUserMessage> messageQueue;
         private WebSocket webSocket;
         private volatile boolean connected;
 
@@ -310,7 +309,7 @@ public class MultiUserXtra implements XtraManager.Xtra {
             this.id = id;
             this.handlerObjRef = -1;
             this.handlerSymbol = null;
-            this.messageQueue = new ConcurrentLinkedQueue<>();
+            this.messageQueue = new LinkedList<>();
             this.webSocket = null;
             this.connected = false;
         }

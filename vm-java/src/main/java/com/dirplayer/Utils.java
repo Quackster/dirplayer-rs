@@ -1,7 +1,7 @@
 package com.dirplayer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -13,7 +13,7 @@ import java.time.temporal.ChronoUnit;
  * Port of Rust utils.rs
  */
 public class Utils {
-    private static final Logger logger = LoggerFactory.getLogger(Utils.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(Utils.class);
 
     public static final String PATH_SEPARATOR = "/";
 

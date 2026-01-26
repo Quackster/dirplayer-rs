@@ -37,3 +37,4 @@ public/dcr*
 /vm-java/target
 /vm-java/.gradle
 /vm-java/gradle
+/vm-java/build

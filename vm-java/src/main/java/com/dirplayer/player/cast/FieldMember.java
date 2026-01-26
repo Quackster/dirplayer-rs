@@ -43,17 +43,17 @@ public class FieldMember {
 
     public static FieldMember fromFieldInfo(FieldInfo info) {
         FieldMember member = new FieldMember();
-        member.alignment = info.alignmentStr();
-        member.wordWrap = info.wordwrap();
-        member.font = info.fontName();
+        member.alignment = info.getAlignmentStr();
+        member.wordWrap = info.isWordwrap();
+        member.font = info.getFontName();
         member.fixedLineSpace = info.height;
         member.topSpacing = info.scrollTop;
-        member.boxType = info.boxTypeStr();
+        member.boxType = info.getBoxTypeStr();
         member.width = info.width;
-        member.autoTab = info.autoTab();
-        member.editable = info.editable();
+        member.autoTab = info.isAutoTab();
+        member.editable = info.isEditable();
         member.border = info.border;
-        member.backColor = info.bgColor();
+        member.backColor = info.getBgColor();
         return member;
     }
 

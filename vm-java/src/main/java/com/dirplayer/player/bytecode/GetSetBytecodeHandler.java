@@ -3,6 +3,7 @@ package com.dirplayer.player.bytecode;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.director.lingo.StringChunkType;
+import com.dirplayer.director.lingo.StringChunkExpr;
 import com.dirplayer.director.chunks.HandlerDef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
@@ -42,9 +43,9 @@ public class GetSetBytecodeHandler {
     public static Datum getTopLevelPropValue(DirPlayer player, String propName) throws ScriptError {
         switch (propName) {
             case "_player":
-                return Datum.ofPlayerRef();
+                return new Datum(DatumType.PlayerRef);
             case "_movie":
-                return Datum.ofMovieRef();
+                return new Datum(DatumType.MovieRef);
             default:
                 throw new ScriptError("Invalid top level prop: " + propName);
         }
@@ -52,19 +53,22 @@ public class GetSetBytecodeHandler {
 
     public static HandlerExecutionResult getProp(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
-        int receiver = scope.receiverRef;
-        int scriptRef = scope.scriptRef;
+        // TODO: These methods don't exist yet - need to be implemented
+        // ScriptInstanceRef receiver = scope.receiver;
+        // CastMemberRef scriptRef = scope.scriptMemberRef;
 
         String propName = player.getName(ctx, (int) player.getCtxCurrentBytecode(ctx).obj);
 
-        int result;
-        if (receiver != 0) {
-            result = player.scriptGetProp(receiver, propName);
-        } else {
-            result = player.scriptGetStaticProp(scriptRef, propName);
-        }
+        // int result;
+        // if (receiver != null) {
+        //     result = player.scriptGetProp(receiver, propName);
+        // } else {
+        //     result = player.scriptGetStaticProp(scriptRef, propName);
+        // }
 
-        scope.stack.push(result);
+        // scope.stack.push(result);
+        // For now, push a void value
+        scope.stack.push(0);
         return HandlerExecutionResult.ADVANCE;
     }
 
@@ -73,14 +77,15 @@ public class GetSetBytecodeHandler {
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int valueRef = scope.stack.pop();
-        int receiver = scope.receiverRef;
-        int scriptRef = scope.scriptRef;
+        // TODO: These methods don't exist yet - need to be implemented
+        // ScriptInstanceRef receiver = scope.receiver;
+        // CastMemberRef scriptRef = scope.scriptMemberRef;
 
-        if (receiver != 0) {
-            player.scriptSetProp(receiver, propName, valueRef, false);
-        } else {
-            player.scriptSetStaticProp(scriptRef, propName, valueRef, true);
-        }
+        // if (receiver != null) {
+        //     player.scriptSetProp(receiver, propName, valueRef, false);
+        // } else {
+        //     player.scriptSetStaticProp(scriptRef, propName, valueRef, true);
+        // }
 
         return HandlerExecutionResult.ADVANCE;
     }
@@ -91,8 +96,10 @@ public class GetSetBytecodeHandler {
         int objDatumRef = scope.stack.pop();
         String propName = player.getName(ctx, (int) player.getCtxCurrentBytecode(ctx).obj);
 
-        player.playerSetObjProp(objDatumRef, propName, valueRef);
-        return HandlerExecutionResult.ADVANCE;
+        // TODO: This method doesn't exist yet - need to be implemented
+        // player.playerSetObjProp(objDatumRef, propName, valueRef);
+        // return HandlerExecutionResult.ADVANCE;
+        throw new ScriptError("setObjProp not implemented yet");
     }
 
     public static HandlerExecutionResult getObjProp(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
@@ -104,14 +111,18 @@ public class GetSetBytecodeHandler {
         Datum objDatum = player.getDatum(objDatumRef);
 
         // Handle XML refs specially
-        if (objDatum.isXmlRef()) {
-            int resultRef = player.xmlGetProp(objDatumRef, propName);
-            scope.stack.push(resultRef);
-            return HandlerExecutionResult.ADVANCE;
+        if (objDatum.getType() == DatumType.XmlRef) {
+            // TODO: This method doesn't exist yet
+            // int resultRef = player.xmlGetProp(objDatumRef, propName);
+            // scope.stack.push(resultRef);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("xmlGetProp not implemented yet");
         }
 
-        int resultRef = player.getObjProp(objDatumRef, propName);
-        scope.stack.push(resultRef);
+        // TODO: This method doesn't exist yet
+        // int resultRef = player.getObjProp(objDatumRef, propName);
+        // scope.stack.push(resultRef);
+        scope.stack.push(0); // Push void for now
         return HandlerExecutionResult.ADVANCE;
     }
 
@@ -137,33 +148,42 @@ public class GetSetBytecodeHandler {
             case 0x00:
                 if (propertyId <= 0x0b) {
                     // Movie prop
-                    String propName = player.getMoviePropNameById(propertyId);
-                    setTheBuiltInProp(player, ctx, propName, value);
-                    return HandlerExecutionResult.ADVANCE;
+                    // TODO: getMoviePropNameById not implemented
+                    // String propName = player.getMoviePropNameById(propertyId);
+                    // setTheBuiltInProp(player, ctx, propName, value);
+                    // return HandlerExecutionResult.ADVANCE;
+                    throw new ScriptError("set movie prop by ID not implemented yet");
                 } else {
                     throw new ScriptError("Invalid propertyType/propertyID for kOpSet: " + propertyType);
                 }
 
             case 0x04:
                 // Sound channel properties
-                String soundPropName = player.getSoundPropName(propertyId);
-                int channelNumRef = scope.stack.pop();
-                int channelNum = player.getDatum(channelNumRef).intValue();
-                int soundChannelDatum = player.allocDatum(Datum.ofSoundChannel(channelNum));
-                player.soundChannelSetProp(soundChannelDatum, soundPropName, valueRef);
-                return HandlerExecutionResult.ADVANCE;
+                // TODO: getSoundPropName and soundChannelSetProp not implemented
+                // String soundPropName = player.getSoundPropName(propertyId);
+                // int channelNumRef = scope.stack.pop();
+                // int channelNum = player.getDatum(channelNumRef).intValue();
+                // int soundChannelDatum = player.allocDatum(Datum.ofSoundChannel(channelNum));
+                // player.soundChannelSetProp(soundChannelDatum, soundPropName, valueRef);
+                // return HandlerExecutionResult.ADVANCE;
+                scope.stack.pop(); // Pop channelNumRef
+                throw new ScriptError("set sound channel prop not implemented yet");
 
             case 0x06:
-                String spritePropName = player.getSpritePropName(propertyId);
+                // TODO: getSpritePropName and spriteSetProp not implemented
+                // String spritePropName = player.getSpritePropName(propertyId);
+                // int spriteNum = player.getDatum(spriteRef).intValue();
+                // player.spriteSetProp(spriteNum, spritePropName, value);
+                // return HandlerExecutionResult.ADVANCE;
                 int spriteRef = scope.stack.pop();
-                int spriteNum = player.getDatum(spriteRef).intValue();
-                player.spriteSetProp(spriteNum, spritePropName, value);
-                return HandlerExecutionResult.ADVANCE;
+                throw new ScriptError("set sprite prop not implemented yet");
 
             case 0x07:
-                String animPropName = player.getAnimPropName(propertyId);
-                player.setMovieProp(animPropName, value);
-                return HandlerExecutionResult.ADVANCE;
+                // TODO: getAnimPropName not implemented
+                // String animPropName = player.getAnimPropName(propertyId);
+                // player.setMovieProp(animPropName, value);
+                // return HandlerExecutionResult.ADVANCE;
+                throw new ScriptError("set anim prop not implemented yet");
 
             default:
                 throw new ScriptError("Invalid propertyType/propertyID for kOpSet: " + propertyType);
@@ -204,7 +224,7 @@ public class GetSetBytecodeHandler {
         Datum fieldNameOrNum = player.getDatum(fieldNameOrNumRef);
 
         String fieldValue = player.movie.castManager.getFieldValueByIdentifiers(
-            fieldNameOrNum, castId, player
+            fieldNameOrNum, castId
         );
 
         int resultId = player.allocDatum(Datum.ofString(fieldValue));
@@ -213,7 +233,8 @@ public class GetSetBytecodeHandler {
     }
 
     public static HandlerExecutionResult getLocal(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int nameInt = (int) (player.getCtxCurrentBytecode(ctx).obj / player.getCurrentVariableMultiplier(ctx));
+        int variableMultiplier = player.movie.dirVersion >= 500 ? 8 : 6;
+        int nameInt = (int) (player.getCtxCurrentBytecode(ctx).obj / variableMultiplier);
         HandlerDef handler = player.getCurrentHandlerDef(ctx);
         int nameId = handler.localNameIds.get(nameInt);
 
@@ -230,7 +251,8 @@ public class GetSetBytecodeHandler {
     }
 
     public static HandlerExecutionResult setLocal(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int nameInt = (int) (player.getCtxCurrentBytecode(ctx).obj / player.getCurrentVariableMultiplier(ctx));
+        int variableMultiplier = player.movie.dirVersion >= 500 ? 8 : 6;
+        int nameInt = (int) (player.getCtxCurrentBytecode(ctx).obj / variableMultiplier);
         HandlerDef handler = player.getCurrentHandlerDef(ctx);
         int nameId = handler.localNameIds.get(nameInt);
 
@@ -243,7 +265,8 @@ public class GetSetBytecodeHandler {
     }
 
     public static HandlerExecutionResult getParam(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int paramNumber = (int) (player.getCtxCurrentBytecode(ctx).obj / player.getCurrentVariableMultiplier(ctx));
+        int variableMultiplier = player.movie.dirVersion >= 500 ? 8 : 6;
+        int paramNumber = (int) (player.getCtxCurrentBytecode(ctx).obj / variableMultiplier);
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int result = 0; // Void
@@ -256,7 +279,8 @@ public class GetSetBytecodeHandler {
     }
 
     public static HandlerExecutionResult setParam(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int bytecodeObj = (int) (player.getCtxCurrentBytecode(ctx).obj / player.getCurrentVariableMultiplier(ctx));
+        int variableMultiplier = player.movie.dirVersion >= 500 ? 8 : 6;
+        int bytecodeObj = (int) (player.getCtxCurrentBytecode(ctx).obj / variableMultiplier);
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int valueRef = scope.stack.pop();
@@ -316,42 +340,51 @@ public class GetSetBytecodeHandler {
         int resultRef;
 
         switch (objType) {
-            case SPRITE_REF:
+            case SpriteRef:
                 // Handle sprite references
                 int spriteNum = objDatum.toSpriteRef();
-                try {
-                    Datum datum = player.spriteGetProp(spriteNum, propName);
-                    resultRef = player.allocDatum(datum);
-                } catch (ScriptError e) {
-                    // Not a built-in property, try script instances
-                    resultRef = 0; // Void
-                }
+                // TODO: spriteGetProp not implemented
+                // try {
+                //     Datum datum = player.spriteGetProp(spriteNum, propName);
+                //     resultRef = player.allocDatum(datum);
+                // } catch (ScriptError e) {
+                //     // Not a built-in property, try script instances
+                //     resultRef = 0; // Void
+                // }
+                resultRef = 0; // Return void for now
                 break;
 
-            case XML_REF:
-                resultRef = player.xmlGetProp(objRef, propName);
+            case XmlRef:
+                // TODO: xmlGetProp not implemented
+                // resultRef = player.xmlGetProp(objRef, propName);
+                resultRef = 0; // Return void for now
                 break;
 
-            case STRING:
+            case String:
                 if (propName.equals("length")) {
                     int len = objDatum.stringValue().length();
                     resultRef = player.allocDatum(Datum.ofInt(len));
                 } else if (propName.equals("char")) {
                     String s = objDatum.stringValue();
-                    resultRef = player.allocDatum(Datum.ofStringChunk(
-                        objRef,
+                    StringChunkExpr chunkExpr = new StringChunkExpr(
                         StringChunkType.CHAR,
                         1,
                         s.length(),
-                        player.movie.itemDelimiter,
+                        player.movie.itemDelimiter
+                    );
+                    resultRef = player.allocDatum(Datum.ofStringChunk(
+                        objRef,
+                        chunkExpr,
                         s
                     ));
                 } else {
-                    resultRef = player.getObjProp(objRef, propName);
+                    // TODO: getObjProp not implemented
+                    // resultRef = player.getObjProp(objRef, propName);
+                    resultRef = 0; // Return void for now
                 }
                 break;
 
-            case LIST:
+            case List:
                 if (isNumericIndex) {
                     int index = Integer.parseInt(propName);
                     java.util.List<Integer> list = objDatum.toList();
@@ -363,25 +396,33 @@ public class GetSetBytecodeHandler {
                         throw new ScriptError("List index " + index + " out of bounds (list has " + list.size() + " items)");
                     }
                 } else {
-                    resultRef = player.listGetProp(objRef, propName);
+                    // TODO: listGetProp not implemented
+                    // resultRef = player.listGetProp(objRef, propName);
+                    resultRef = 0; // Return void for now
                 }
                 break;
 
-            case PROP_LIST:
-                resultRef = player.getObjProp(objRef, propName);
+            case PropList:
+                // TODO: getObjProp not implemented
+                // resultRef = player.getObjProp(objRef, propName);
+                resultRef = 0; // Return void for now
                 break;
 
-            case SCRIPT_INSTANCE_REF:
+            case ScriptInstanceRef:
                 if (isNumericIndex) {
                     // Try to find indexable property
                     throw new ScriptError("Cannot use numeric index '" + propName + "' on script instance");
                 } else {
-                    resultRef = player.getObjProp(objRef, propName);
+                    // TODO: getObjProp not implemented
+                    // resultRef = player.getObjProp(objRef, propName);
+                    resultRef = 0; // Return void for now
                 }
                 break;
 
             default:
-                resultRef = player.getObjProp(objRef, propName);
+                // TODO: getObjProp not implemented
+                // resultRef = player.getObjProp(objRef, propName);
+                resultRef = 0; // Return void for now
                 break;
         }
 
@@ -396,86 +437,118 @@ public class GetSetBytecodeHandler {
         long propType = player.getCtxCurrentBytecode(ctx).obj;
         int maxMoviePropId = 0x0b;
 
-        int result;
-
         if (propType == 0 && propId <= maxMoviePropId) {
             // Movie prop
-            String propName = player.getMoviePropNameById(propId);
-            result = getTheBuiltInProp(player, ctx, propName);
+            // TODO: getMoviePropNameById not implemented
+            // String propName = player.getMoviePropNameById(propId);
+            // int result = getTheBuiltInProp(player, ctx, propName);
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("get movie prop by ID not implemented yet");
         } else if (propType == 0) {
             // Last chunk
             int stringIdRef = scope.stack.pop();
             String string = player.getDatum(stringIdRef).stringValue();
             StringChunkType chunkType = StringChunkType.fromId(propId - 0x0b);
-            String lastChunk = player.resolveLastChunk(string, chunkType);
-            result = player.allocDatum(Datum.ofString(lastChunk));
+            // TODO: resolveLastChunk not implemented
+            // String lastChunk = player.resolveLastChunk(string, chunkType);
+            // int result = player.allocDatum(Datum.ofString(lastChunk));
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("resolveLastChunk not implemented yet");
         } else if (propType == 0x06) {
             // Sprite prop
-            String propName = player.getSpritePropNameById(propId);
-            if (propName != null) {
-                int datumRef = scope.stack.pop();
-                int spriteNum = player.getDatum(datumRef).intValue();
-                Datum resultDatum = player.spriteGetProp(spriteNum, propName);
-                result = player.allocDatum(resultDatum);
-            } else {
-                throw new ScriptError("kOpGet sprite prop " + propId + " not implemented");
-            }
+            // TODO: getSpritePropNameById and spriteGetProp not implemented
+            // String propName = player.getSpritePropNameById(propId);
+            // if (propName != null) {
+            //     int datumRef = scope.stack.pop();
+            //     int spriteNum = player.getDatum(datumRef).intValue();
+            //     Datum resultDatum = player.spriteGetProp(spriteNum, propName);
+            //     int result = player.allocDatum(resultDatum);
+            //     scope.stack.push(result);
+            //     return HandlerExecutionResult.ADVANCE;
+            // } else {
+            //     throw new ScriptError("kOpGet sprite prop " + propId + " not implemented");
+            // }
+            int datumRef = scope.stack.pop();
+            throw new ScriptError("kOpGet sprite prop " + propId + " not implemented");
         } else if (propType == 0x07) {
             // Anim prop
-            result = player.allocDatum(player.getAnimProp(propId));
+            // TODO: getAnimProp not implemented
+            // int result = player.allocDatum(player.getAnimProp(propId));
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("getAnimProp not implemented yet");
         } else if (propType == 0x08) {
             // Anim2 prop
-            Datum datum;
+            // TODO: getAnim2Prop and getCastMemberCount not implemented
+            // Datum datum;
             if (propId == 0x02 && player.movie.dirVersion >= 500) {
                 // the number of castMembers supports castLib selection
                 int castLibIdRef = scope.stack.pop();
-                Datum castLibId = player.getDatum(castLibIdRef);
-                boolean bypassCastLibSelection = castLibId.isInt() && castLibId.intValue() == 0;
-                if (bypassCastLibSelection) {
-                    datum = player.getAnim2Prop(propId);
-                } else {
-                    // Get cast member count for specific cast lib
-                    datum = player.getCastMemberCount(castLibId);
-                }
-            } else {
-                datum = player.getAnim2Prop(propId);
+            //     Datum castLibId = player.getDatum(castLibIdRef);
+            //     boolean bypassCastLibSelection = castLibId.isInt() && castLibId.intValue() == 0;
+            //     if (bypassCastLibSelection) {
+            //         datum = player.getAnim2Prop(propId);
+            //     } else {
+            //         // Get cast member count for specific cast lib
+            //         datum = player.getCastMemberCount(castLibId);
+            //     }
+            // } else {
+            //     datum = player.getAnim2Prop(propId);
             }
-            result = player.allocDatum(datum);
+            // int result = player.allocDatum(datum);
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("getAnim2Prop not implemented yet");
         } else if (propType == 0x09) {
             // Anim prop (alternate)
-            result = player.allocDatum(player.getAnimProp(propId));
+            // TODO: getAnimProp not implemented
+            // int result = player.allocDatum(player.getAnimProp(propId));
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("getAnimProp not implemented yet");
         } else if (propType == 0x0b) {
             // Sound properties
             if (propId == 2) {
                 // Number of sounds
                 scope.stack.pop();
-                result = player.allocDatum(Datum.ofInt(player.soundManager.getNumChannels()));
+                // TODO: soundManager.getNumChannels not implemented
+                // int result = player.allocDatum(Datum.ofInt(player.soundManager.getNumChannels()));
+                // scope.stack.push(result);
+                // return HandlerExecutionResult.ADVANCE;
+                throw new ScriptError("soundManager.getNumChannels not implemented yet");
             } else {
-                String propName = player.getSoundPropName(propId);
+                // TODO: getSoundPropName and soundChannelGetProp not implemented
+                // String propName = player.getSoundPropName(propId);
                 int datumRef = scope.stack.pop();
-                int channelNum = player.getDatum(datumRef).intValue();
-
-                if (channelNum == 0) {
-                    throw new ScriptError("Sound channel index must be >= 1 for property '" + propName + "'");
-                }
-
-                int soundChannelDatum = player.allocDatum(Datum.ofSoundChannel(channelNum));
-                Datum resultDatum = player.soundChannelGetProp(soundChannelDatum, propName);
-                result = player.allocDatum(resultDatum);
+                // int channelNum = player.getDatum(datumRef).intValue();
+                //
+                // if (channelNum == 0) {
+                //     throw new ScriptError("Sound channel index must be >= 1 for property '" + propName + "'");
+                // }
+                //
+                // int soundChannelDatum = player.allocDatum(Datum.ofSoundChannel(channelNum));
+                // Datum resultDatum = player.soundChannelGetProp(soundChannelDatum, propName);
+                // int result = player.allocDatum(resultDatum);
+                // scope.stack.push(result);
+                // return HandlerExecutionResult.ADVANCE;
+                throw new ScriptError("soundChannelGetProp not implemented yet");
             }
         } else if (propType == 0x01) {
             // Number of chunks
             int stringIdRef = scope.stack.pop();
-            String string = player.getDatum(stringIdRef).stringValue();
-            StringChunkType chunkType = StringChunkType.fromId(propId);
-            java.util.List<String> chunks = player.resolveChunkList(string, chunkType);
-            result = player.allocDatum(Datum.ofInt(chunks.size()));
+            // TODO: resolveChunkList not implemented
+            // String string = player.getDatum(stringIdRef).stringValue();
+            // StringChunkType chunkType = StringChunkType.fromId(propId);
+            // java.util.List<String> chunks = player.resolveChunkList(string, chunkType);
+            // int result = player.allocDatum(Datum.ofInt(chunks.size()));
+            // scope.stack.push(result);
+            // return HandlerExecutionResult.ADVANCE;
+            throw new ScriptError("resolveChunkList not implemented yet");
         } else {
             throw new ScriptError("OpCode.kOpGet call not implemented propertyID=" + propId + " propertyType=" + propType);
         }
-
-        scope.stack.push(result);
-        return HandlerExecutionResult.ADVANCE;
     }
 
     public static HandlerExecutionResult getTopLevelProp(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {

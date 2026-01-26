@@ -17,6 +17,9 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 import org.teavm.jso.dom.html.HTMLElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * JavaScript API for the DirPlayer.
@@ -79,7 +82,7 @@ public class JsApi {
         container.appendChild(canvas);
 
         ctx2d = (CanvasRenderingContext2D) canvas.getContext("2d");
-        ctx2d.setImageSmoothingEnabled(false);
+        setImageSmoothingEnabled(ctx2d, false);
 
         // Initialize render bitmap
         renderBitmap = new Bitmap(width, height, 32, 32, 0,
@@ -112,7 +115,7 @@ public class JsApi {
         container.appendChild(previewCanvas);
 
         previewCtx2d = (CanvasRenderingContext2D) previewCanvas.getContext("2d");
-        previewCtx2d.setImageSmoothingEnabled(false);
+        setImageSmoothingEnabled(previewCtx2d, false);
     }
 
     /**
@@ -376,6 +379,10 @@ public class JsApi {
     }
 
     // ---- Native JS methods via JSBody ----
+
+    @JSBody(params = {"ctx", "enabled"},
+            script = "ctx.imageSmoothingEnabled = enabled;")
+    private static native void setImageSmoothingEnabled(CanvasRenderingContext2D ctx, boolean enabled);
 
     @JSBody(params = {"element", "property", "value"},
             script = "element.style[property] = value;")
@@ -724,7 +731,10 @@ public class JsApi {
     @JSExport
     public static void stepOverLine(int[] skipBytecodeIndices) {
         if (player != null) {
-            player.stepOverLine(skipBytecodeIndices);
+            List<Integer> indices = Arrays.stream(skipBytecodeIndices)
+                .boxed()
+                .collect(Collectors.toList());
+            player.stepOverLine(indices);
         }
     }
 
@@ -734,7 +744,10 @@ public class JsApi {
     @JSExport
     public static void stepIntoLine(int[] skipBytecodeIndices) {
         if (player != null) {
-            player.stepIntoLine(skipBytecodeIndices);
+            List<Integer> indices = Arrays.stream(skipBytecodeIndices)
+                .boxed()
+                .collect(Collectors.toList());
+            player.stepIntoLine(indices);
         }
     }
 

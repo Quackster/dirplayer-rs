@@ -23,8 +23,8 @@ import com.dirplayer.rendering.CopyPixelsParams;
 import com.dirplayer.rendering.FilmLoopParentProps;
 import com.dirplayer.rendering.IntRect;
 import com.dirplayer.rendering.ScoreRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * Port of render_stage_to_bitmap and render_score_to_bitmap from Rust.
  */
 public class StageRenderer {
-    private static final Logger logger = LoggerFactory.getLogger(StageRenderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(StageRenderer.class);
 
     private StageRenderer() {
         // Prevent instantiation

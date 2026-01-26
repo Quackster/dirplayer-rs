@@ -10,8 +10,8 @@ import com.dirplayer.player.ScriptScope;
 import com.dirplayer.player.Sprite;
 import com.dirplayer.player.score.Score;
 import com.dirplayer.director.chunks.FrameLabelsChunk.FrameLabel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ import java.util.Map;
  * - Miscellaneous (goToNetPage)
  */
 public class MovieHandlers {
-    private static final Logger logger = LoggerFactory.getLogger(MovieHandlers.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(MovieHandlers.class);
 
     /**
      * Invalid cast member reference constant.

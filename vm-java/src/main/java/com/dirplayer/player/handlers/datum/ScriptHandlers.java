@@ -3,12 +3,9 @@ package com.dirplayer.player.handlers.datum;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.CastMemberRef;
-import com.dirplayer.player.DatumAllocator.ScriptInstance;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import com.dirplayer.player.ScriptErrorCode;
 import com.dirplayer.player.script.Script;
-import com.dirplayer.player.script.ScriptHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,10 +29,14 @@ public class ScriptHandlers {
                 // Check if the script has a handler with this name
                 Datum datum = player.getDatum(datumRef);
                 if (datum.getType() == DatumType.ScriptRef) {
-                    CastMemberRef scriptRef = datum.getScriptRef();
-                    Script script = player.movie.castManager.getScriptByRef(scriptRef);
-                    if (script != null) {
-                        return script.getHandler(name) != null;
+                    try {
+                        CastMemberRef scriptRef = datum.getScriptRef();
+                        Script script = player.movie.castManager.getScriptByRef(scriptRef);
+                        if (script != null) {
+                            return script.getOwnHandler(name) != null;
+                        }
+                    } catch (ScriptError e) {
+                        return false;
                     }
                 }
                 return false;
@@ -67,7 +68,7 @@ public class ScriptHandlers {
             throw new ScriptError("Script not found");
         }
 
-        List<String> handlerNames = script.getHandlerNames();
+        List<String> handlerNames = script.handlerNames;
         List<Integer> handlerNameDatums = new ArrayList<>();
 
         for (String name : handlerNames) {
@@ -89,7 +90,7 @@ public class ScriptHandlers {
             throw new ScriptError("Cannot get handlers of non-script");
         }
 
-        ScriptHandler ownHandler = script.getHandler(name);
+        com.dirplayer.director.chunks.HandlerDef ownHandler = script.getOwnHandler(name);
         return player.allocDatum(Datum.ofInt(ownHandler != null ? 1 : 0));
     }
 
@@ -98,15 +99,18 @@ public class ScriptHandlers {
      * This is the async "new" handler - in Java, it's called by the VM when needed.
      */
     public static ScriptInstanceResult createScriptInstance(DirPlayer player, CastMemberRef scriptRef) throws ScriptError {
-        int instanceId = player.allocator.getFreeScriptInstanceId();
         Script script = player.movie.castManager.getScriptByRef(scriptRef);
 
         if (script == null) {
             throw new ScriptError("Script not found: " + scriptRef);
         }
 
-        ScriptInstance instance = new ScriptInstance(instanceId, scriptRef, script);
+        com.dirplayer.player.DatumAllocator.ScriptInstance instance = new com.dirplayer.player.DatumAllocator.ScriptInstance();
+        instance.scriptRef = scriptRef;
+        instance.properties = new java.util.HashMap<>();
+
         int instanceRef = player.allocator.allocScriptInstance(instance);
+        instance.id = instanceRef; // Set the ID after allocation
         int datumRef = player.allocDatum(Datum.ofScriptInstanceRef(instanceRef));
 
         return new ScriptInstanceResult(instanceRef, datumRef);

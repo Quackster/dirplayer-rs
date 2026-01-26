@@ -3,15 +3,15 @@ package com.dirplayer.director.chunks;
 import com.dirplayer.director.Utils;
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Config chunk - contains movie configuration.
  * Port of Rust ConfigChunk struct.
  */
 public class ConfigChunk {
-    private static final Logger logger = LoggerFactory.getLogger(ConfigChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ConfigChunk.class);
 
     public int len;
     public int fileVersion;

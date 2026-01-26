@@ -14,8 +14,8 @@ import com.dirplayer.player.bitmap.PaletteRef;
 import com.dirplayer.player.bitmap.BuiltInPalette;
 import com.dirplayer.player.bitmap.PaletteMap;
 import com.dirplayer.player.score.Score;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ import java.util.List;
  * Port of Rust rendering.rs
  */
 public class Renderer {
-    private static final Logger logger = LoggerFactory.getLogger(Renderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(Renderer.class);
 
     /**
      * Render the stage to a bitmap.
@@ -95,7 +95,7 @@ public class Renderer {
         logger.debug("STAGE RENDER: frame {} channels {}", frameNum, sortedChannelNumbers);
 
         for (int channelNum : sortedChannelNumbers) {
-            Sprite sprite = score.getSprite(channelNum);
+            Sprite sprite = score.getSprite((short) channelNum);
             if (sprite == null) {
                 continue;
             }
@@ -119,7 +119,7 @@ public class Renderer {
 
         // Draw debug rect
         if (debugSpriteNum != null) {
-            Sprite sprite = score.getSprite(debugSpriteNum);
+            Sprite sprite = score.getSprite(debugSpriteNum.shortValue());
             if (sprite != null) {
                 IntRect spriteRect = getConcreteSpriteRect(player, sprite);
                 bitmap.strokeRect(spriteRect.left, spriteRect.top,

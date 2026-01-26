@@ -7,6 +7,7 @@ import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.handlers.HandlerManager;
 import java.util.List;
 
 /**
@@ -89,7 +90,7 @@ public class FlowControlBytecodeHandler {
         boolean isNoRet = argListDatum.getListType() == DatumType.ArgListNoRet;
 
         // Call external handler
-        int returnValue = player.extCall(name, argRefList, ctx.scopeRef);
+        int returnValue = HandlerManager.callHandler(player, name, argRefList);
 
         if (!isNoRet) {
             scope.stack.push(returnValue);

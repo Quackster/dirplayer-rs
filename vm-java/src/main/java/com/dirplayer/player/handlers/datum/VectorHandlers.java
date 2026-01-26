@@ -50,7 +50,7 @@ public class VectorHandlers {
             throw new ScriptError("Cannot set prop of non-vector");
         }
 
-        double[] vec = datum.getVector();
+        double[] vec = datum.toVector();
         int index = player.getDatum(args.get(0)).intValue() - 1; // Convert to 0-based
 
         if (index < 0 || index >= 3) {
@@ -61,7 +61,7 @@ public class VectorHandlers {
         vec[index] = value;
 
         // Update the datum with the new vector values
-        datum.setVector(vec);
+        datum.setVectorValue(vec);
 
         return 0; // Void
     }
@@ -102,7 +102,7 @@ public class VectorHandlers {
             throw new ScriptError("Cannot set prop of non-vector");
         }
 
-        double[] vec = datum.getVector();
+        double[] vec = datum.toVector();
         double value = player.getDatum(valueRef).floatValue();
 
         switch (prop.toLowerCase()) {
@@ -119,7 +119,7 @@ public class VectorHandlers {
                 throw new ScriptError("Cannot set vector property " + prop);
         }
 
-        datum.setVector(vec);
+        datum.setVectorValue(vec);
     }
 
     /**
@@ -172,7 +172,7 @@ public class VectorHandlers {
             };
         } else if (bDatum.isVector()) {
             // Component-wise multiplication
-            double[] vb = bDatum.getVector();
+            double[] vb = bDatum.toVector();
             result = new double[] {
                 va[0] * vb[0],
                 va[1] * vb[1],
@@ -206,7 +206,7 @@ public class VectorHandlers {
             };
         } else if (bDatum.isVector()) {
             // Component-wise division
-            double[] vb = bDatum.getVector();
+            double[] vb = bDatum.toVector();
             if (vb[0] == 0.0 || vb[1] == 0.0 || vb[2] == 0.0) {
                 throw new ScriptError("Division by zero in vector components");
             }
@@ -229,7 +229,7 @@ public class VectorHandlers {
      */
     private static double[] datumToVec(DirPlayer player, Datum datum) throws ScriptError {
         if (datum.isVector()) {
-            return datum.getVector();
+            return datum.toVector();
         } else if (datum.isList()) {
             List<Integer> list = datum.toList();
             if (list.size() == 3) {

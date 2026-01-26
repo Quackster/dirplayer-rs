@@ -3,15 +3,15 @@ package com.dirplayer.director.chunks;
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Extended media chunk (XMED) - contains extended media data like PFR fonts.
  * Port of Rust XMediaChunk struct.
  */
 public class XMediaChunk {
-    private static final Logger logger = LoggerFactory.getLogger(XMediaChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(XMediaChunk.class);
 
     public byte[] rawData;
 

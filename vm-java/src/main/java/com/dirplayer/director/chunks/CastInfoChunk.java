@@ -2,15 +2,15 @@ package com.dirplayer.director.chunks;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Cast info chunk - contains raw cast information data.
  * Port of Rust CastInfoChunk struct.
  */
 public class CastInfoChunk {
-    private static final Logger logger = LoggerFactory.getLogger(CastInfoChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CastInfoChunk.class);
 
     public byte[] rawData;
 

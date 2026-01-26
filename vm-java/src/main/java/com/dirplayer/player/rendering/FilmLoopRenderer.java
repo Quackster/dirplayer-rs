@@ -19,8 +19,8 @@ import com.dirplayer.player.score.Score;
 import com.dirplayer.player.score.SpritePathKeyframes;
 import com.dirplayer.rendering.CopyPixelsParams;
 import com.dirplayer.rendering.IntRect;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,7 +33,7 @@ import java.util.Map;
  * Port of render_filmloop_from_channel_data from Rust.
  */
 public class FilmLoopRenderer {
-    private static final Logger logger = LoggerFactory.getLogger(FilmLoopRenderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(FilmLoopRenderer.class);
 
     private FilmLoopRenderer() {
         // Prevent instantiation

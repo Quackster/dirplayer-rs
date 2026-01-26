@@ -127,7 +127,7 @@ public class StringChunkHandlers {
         }
 
         switch (chunkExpr.getChunkType()) {
-            case Item: {
+            case ITEM: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -135,7 +135,7 @@ public class StringChunkHandlers {
                 }
                 return joinChunks(chunkList.subList(range[0], range[1]), String.valueOf(chunkExpr.getItemDelimiter()));
             }
-            case Word: {
+            case WORD: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -143,11 +143,11 @@ public class StringChunkHandlers {
                 }
                 return joinChunks(chunkList.subList(range[0], range[1]), " ");
             }
-            case Char: {
+            case CHAR: {
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
                 return str.substring(range[0], range[1]);
             }
-            case Line: {
+            case LINE: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -165,18 +165,18 @@ public class StringChunkHandlers {
      */
     public static List<String> resolveChunkList(String str, StringChunkType chunkType, char itemDelimiter) throws ScriptError {
         switch (chunkType) {
-            case Item:
+            case ITEM:
                 return StringDatumHandlers.getItems(str, itemDelimiter);
-            case Word:
+            case WORD:
                 return StringDatumHandlers.getWords(str);
-            case Char: {
+            case CHAR: {
                 List<String> chars = new ArrayList<>();
                 for (char c : str.toCharArray()) {
                     chars.add(String.valueOf(c));
                 }
                 return chars;
             }
-            case Line:
+            case LINE:
                 return StringDatumHandlers.getLines(str);
             default:
                 throw new ScriptError("Unknown chunk type");
@@ -199,7 +199,7 @@ public class StringChunkHandlers {
      */
     public static int resolveChunkCount(String str, StringChunkType chunkType, char itemDelimiter) throws ScriptError {
         switch (chunkType) {
-            case Item: {
+            case ITEM: {
                 int count = 0;
                 for (char c : str.toCharArray()) {
                     if (c == itemDelimiter) {
@@ -208,11 +208,11 @@ public class StringChunkHandlers {
                 }
                 return count + 1;
             }
-            case Word:
+            case WORD:
                 return str.trim().isEmpty() ? 0 : str.trim().split("\\s+").length;
-            case Char:
+            case CHAR:
                 return str.length();
-            case Line:
+            case LINE:
                 return StringDatumHandlers.getLines(str).size();
             default:
                 throw new ScriptError("Unknown chunk type");
@@ -224,15 +224,15 @@ public class StringChunkHandlers {
      */
     public static String stringByDeletingChunk(String str, StringChunkExpr chunkExpr) throws ScriptError {
         switch (chunkExpr.getChunkType()) {
-            case Char: {
+            case CHAR: {
                 StringBuilder sb = new StringBuilder(str);
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
                 sb.delete(range[0], range[1]);
                 return sb.toString();
             }
-            case Item:
-            case Word:
-            case Line: {
+            case ITEM:
+            case WORD:
+            case LINE: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -258,7 +258,7 @@ public class StringChunkHandlers {
      * Set chunk value in string.
      */
     public static String stringBySettingChunk(String str, StringChunkExpr chunkExpr, String replaceWith) throws ScriptError {
-        if (chunkExpr.getChunkType() == StringChunkType.Char) {
+        if (chunkExpr.getChunkType() == StringChunkType.CHAR) {
             StringBuilder sb = new StringBuilder(str);
             int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
             sb.replace(range[0], range[1], replaceWith);
@@ -273,15 +273,15 @@ public class StringChunkHandlers {
      */
     public static String stringByPuttingIntoChunk(String str, StringChunkExpr chunkExpr, String replaceWith) throws ScriptError {
         switch (chunkExpr.getChunkType()) {
-            case Char: {
+            case CHAR: {
                 StringBuilder sb = new StringBuilder(str);
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
                 sb.replace(range[0], range[1], replaceWith);
                 return sb.toString();
             }
-            case Item:
-            case Word:
-            case Line: {
+            case ITEM:
+            case WORD:
+            case LINE: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -310,15 +310,15 @@ public class StringChunkHandlers {
      */
     public static String stringByPuttingBeforeChunk(String str, StringChunkExpr chunkExpr, String insertValue) throws ScriptError {
         switch (chunkExpr.getChunkType()) {
-            case Char: {
+            case CHAR: {
                 StringBuilder sb = new StringBuilder(str);
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
                 sb.insert(range[0], insertValue);
                 return sb.toString();
             }
-            case Item:
-            case Word:
-            case Line: {
+            case ITEM:
+            case WORD:
+            case LINE: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -346,15 +346,15 @@ public class StringChunkHandlers {
      */
     public static String stringByPuttingAfterChunk(String str, StringChunkExpr chunkExpr, String insertValue) throws ScriptError {
         switch (chunkExpr.getChunkType()) {
-            case Char: {
+            case CHAR: {
                 StringBuilder sb = new StringBuilder(str);
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), str.length());
                 sb.insert(range[1], insertValue);
                 return sb.toString();
             }
-            case Item:
-            case Word:
-            case Line: {
+            case ITEM:
+            case WORD:
+            case LINE: {
                 List<String> chunkList = resolveChunkList(str, chunkExpr.getChunkType(), chunkExpr.getItemDelimiter());
                 int[] range = vmRangeToHost(chunkExpr.getStart(), chunkExpr.getEnd(), chunkList.size());
                 if (chunkList.isEmpty()) {
@@ -400,11 +400,11 @@ public class StringChunkHandlers {
 
     private static String getDelimiterForChunkType(StringChunkType chunkType, char itemDelimiter) {
         switch (chunkType) {
-            case Item:
+            case ITEM:
                 return String.valueOf(itemDelimiter);
-            case Word:
+            case WORD:
                 return " ";
-            case Line:
+            case LINE:
                 return "\r\n";
             default:
                 return "";

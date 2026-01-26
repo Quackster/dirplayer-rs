@@ -24,7 +24,7 @@ public class SoundMember {
         return sound;
     }
 
-    public int getSampleRate() {
+    public long getSampleRate() {
         return info != null ? info.sampleRate : 0;
     }
 
@@ -33,7 +33,7 @@ public class SoundMember {
     }
 
     public int getChannelCount() {
-        return info != null ? info.channelCount : 0;
+        return info != null ? info.channels : 0;
     }
 
     public long getSampleCount() {

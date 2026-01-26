@@ -4,9 +4,11 @@ import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.director.lingo.StringChunkExpr;
 import com.dirplayer.director.lingo.StringChunkType;
+import com.dirplayer.player.ContextVars;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.handlers.datum.StringChunkHandlers;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -117,15 +119,19 @@ public class StringBytecodeHandler {
         PutType putType = PutType.fromValue((int) ((bytecodeObj >> 4) & 0xF));
         int varType = (int) (bytecodeObj & 0xF);
 
-        ContextVarArgs contextVarArgs = player.readContextVarArgs(varType, ctx.scopeRef);
+        int[] contextVarArgs = ContextVars.readContextVarArgs(player, varType, ctx.scopeRef);
+        int idRef = contextVarArgs[0];
+        Integer castIdRef = contextVarArgs.length > 1 ? contextVarArgs[1] : null;
+
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int valueRef = scope.stack.pop();
 
         switch (putType) {
             case INTO:
-                player.playerSetContextVar(
-                    contextVarArgs.idRef,
-                    contextVarArgs.castIdRef,
+                ContextVars.setContextVar(
+                    player,
+                    idRef,
+                    castIdRef,
                     varType,
                     valueRef,
                     putType,
@@ -134,9 +140,10 @@ public class StringBytecodeHandler {
                 break;
 
             case BEFORE: {
-                int currStringId = player.playerGetContextVar(
-                    contextVarArgs.idRef,
-                    contextVarArgs.castIdRef,
+                int currStringId = ContextVars.getContextVar(
+                    player,
+                    idRef,
+                    castIdRef,
                     varType,
                     ctx
                 );
@@ -145,9 +152,10 @@ public class StringBytecodeHandler {
 
                 String newString = valueStr + currString;
                 int newStringRef = player.allocDatum(Datum.ofString(newString));
-                player.playerSetContextVar(
-                    contextVarArgs.idRef,
-                    contextVarArgs.castIdRef,
+                ContextVars.setContextVar(
+                    player,
+                    idRef,
+                    castIdRef,
                     varType,
                     newStringRef,
                     putType,
@@ -157,9 +165,10 @@ public class StringBytecodeHandler {
             }
 
             case AFTER: {
-                int currStringId = player.playerGetContextVar(
-                    contextVarArgs.idRef,
-                    contextVarArgs.castIdRef,
+                int currStringId = ContextVars.getContextVar(
+                    player,
+                    idRef,
+                    castIdRef,
                     varType,
                     ctx
                 );
@@ -168,9 +177,10 @@ public class StringBytecodeHandler {
 
                 String newString = currString + valueStr;
                 int newStringRef = player.allocDatum(Datum.ofString(newString));
-                player.playerSetContextVar(
-                    contextVarArgs.idRef,
-                    contextVarArgs.castIdRef,
+                ContextVars.setContextVar(
+                    player,
+                    idRef,
+                    castIdRef,
                     varType,
                     newStringRef,
                     putType,
@@ -271,7 +281,7 @@ public class StringBytecodeHandler {
         // Apply chunks sequentially
         String result = player.getDatum(stringRef).stringValue();
         for (StringChunkExpr chunkExpr : chunks) {
-            result = player.resolveChunkExprString(result, chunkExpr);
+            result = StringChunkHandlers.resolveChunkExprString(result, chunkExpr);
         }
 
         Datum resultDatum = Datum.ofString(result);
@@ -282,17 +292,22 @@ public class StringBytecodeHandler {
 
     public static HandlerExecutionResult deleteChunk(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
         long bytecodeObj = player.getCtxCurrentBytecode(ctx).obj;
-        ContextVarArgs contextVarArgs = player.readContextVarArgs((int) bytecodeObj, ctx.scopeRef);
+        int[] contextVarArgs = ContextVars.readContextVarArgs(player, (int) bytecodeObj, ctx.scopeRef);
+        int idRef = contextVarArgs[0];
+        Integer castIdRef = contextVarArgs.length > 1 ? contextVarArgs[1] : null;
 
-        int stringRef = player.playerGetContextVar(
-            contextVarArgs.idRef,
-            contextVarArgs.castIdRef,
+        int stringRef = ContextVars.getContextVar(
+            player,
+            idRef,
+            castIdRef,
             (int) bytecodeObj,
             ctx
         );
 
         StringChunkExpr chunkExpr = readSingleChunkRef(player, ctx);
-        player.deleteChunk(stringRef, chunkExpr);
+        String originalStr = player.getDatum(stringRef).stringValue();
+        String newString = StringChunkHandlers.stringByDeletingChunk(originalStr, chunkExpr);
+        player.getDatum(stringRef).setStringValue(newString);
 
         return HandlerExecutionResult.ADVANCE;
     }
@@ -324,7 +339,9 @@ public class StringBytecodeHandler {
         int varType = (int) (bytecodeObj & 0xF);
 
         // Read the target variable
-        ContextVarArgs contextVarArgs = player.readContextVarArgs(varType, ctx.scopeRef);
+        int[] contextVarArgs = ContextVars.readContextVarArgs(player, varType, ctx.scopeRef);
+        int idRef = contextVarArgs[0];
+        Integer castIdRef = contextVarArgs.length > 1 ? contextVarArgs[1] : null;
 
         // Pop the value to put from the stack
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
@@ -334,9 +351,10 @@ public class StringBytecodeHandler {
         StringChunkExpr chunkExpr = readSingleChunkRef(player, ctx);
 
         // Get the current value of the variable
-        int stringRef = player.playerGetContextVar(
-            contextVarArgs.idRef,
-            contextVarArgs.castIdRef,
+        int stringRef = ContextVars.getContextVar(
+            player,
+            idRef,
+            castIdRef,
             varType,
             ctx
         );
@@ -348,22 +366,23 @@ public class StringBytecodeHandler {
         String newString;
         switch (putType) {
             case INTO:
-                newString = player.stringByPuttingIntoChunk(currentString, chunkExpr, valueString);
+                newString = StringChunkHandlers.stringByPuttingIntoChunk(currentString, chunkExpr, valueString);
                 break;
             case BEFORE:
-                newString = player.stringByPuttingBeforeChunk(currentString, chunkExpr, valueString);
+                newString = StringChunkHandlers.stringByPuttingBeforeChunk(currentString, chunkExpr, valueString);
                 break;
             case AFTER:
-                newString = player.stringByPuttingAfterChunk(currentString, chunkExpr, valueString);
+                newString = StringChunkHandlers.stringByPuttingAfterChunk(currentString, chunkExpr, valueString);
                 break;
             default:
                 throw new ScriptError("Unknown put type");
         }
 
         int newStringRef = player.allocDatum(Datum.ofString(newString));
-        player.playerSetContextVar(
-            contextVarArgs.idRef,
-            contextVarArgs.castIdRef,
+        ContextVars.setContextVar(
+            player,
+            idRef,
+            castIdRef,
             varType,
             newStringRef,
             putType,
@@ -371,18 +390,5 @@ public class StringBytecodeHandler {
         );
 
         return HandlerExecutionResult.ADVANCE;
-    }
-}
-
-/**
- * Helper class to hold context variable arguments.
- */
-class ContextVarArgs {
-    public int idRef;
-    public Integer castIdRef;
-
-    public ContextVarArgs(int idRef, Integer castIdRef) {
-        this.idRef = idRef;
-        this.castIdRef = castIdRef;
     }
 }

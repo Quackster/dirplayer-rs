@@ -4,8 +4,8 @@ import com.dirplayer.director.ScriptType;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.cast.CastMemberData;
 import com.dirplayer.player.script.Script;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +17,7 @@ import java.util.Map;
  * Port of Rust CastLib struct.
  */
 public class CastLib {
-    private static final Logger logger = LoggerFactory.getLogger(CastLib.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CastLib.class);
 
     public String name;
     public String fileName;

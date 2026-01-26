@@ -1,12 +1,12 @@
 package com.dirplayer.player.handlers.datum;
 
+import com.dirplayer.director.MemberType;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.StringChunkType;
 import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import com.dirplayer.player.cast.CastMember;
-import com.dirplayer.player.cast.CastMemberType;
+import com.dirplayer.player.CastMember;
 
 import java.util.List;
 
@@ -168,7 +168,7 @@ public class CastMemberRefHandlers {
             throw new ScriptError("Cannot duplicate non-existent cast member");
         }
 
-        CastMember newMember = srcMember.clone();
+        CastMember newMember = srcMember.copy();
         newMember.number = destRef.castMember;
         player.movie.castManager.insertMember(destRef.castLib, destRef.castMember, newMember);
 
@@ -184,7 +184,7 @@ public class CastMemberRefHandlers {
     private static int charPosToLoc(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         CastMemberRef memberRef = player.getDatum(datumRef).toMemberRef();
         CastMember member = player.movie.castManager.findMemberByRef(memberRef);
-        if (member == null || member.memberType != CastMemberType.Text) {
+        if (member == null || member.memberType != MemberType.Text) {
             throw new ScriptError("charPosToLoc requires a text member");
         }
 
@@ -270,7 +270,7 @@ public class CastMemberRefHandlers {
         switch (member.memberType) {
             case Bitmap:
                 return "bitmap";
-            case Field:
+            case RTE:
                 return "field";
             case Text:
                 return "text";
@@ -304,7 +304,8 @@ public class CastMemberRefHandlers {
             case Bitmap:
                 return getBitmapMemberProp(player, member, prop);
             case Text:
-            case Field:
+            case RTE:
+            case Button:
                 return getTextMemberProp(player, member, prop);
             case Sound:
                 return getSoundMemberProp(player, member, prop);
@@ -319,7 +320,8 @@ public class CastMemberRefHandlers {
                 setBitmapMemberProp(player, member, prop, valueRef);
                 break;
             case Text:
-            case Field:
+            case RTE:
+            case Button:
                 setTextMemberProp(player, member, prop, valueRef);
                 break;
             default:
@@ -330,14 +332,14 @@ public class CastMemberRefHandlers {
     private static int getBitmapMemberProp(DirPlayer player, CastMember member, String prop) throws ScriptError {
         switch (prop.toLowerCase()) {
             case "width":
-                return player.allocDatum(Datum.ofInt(member.width));
+                return player.allocDatum(Datum.ofInt(member.getWidth()));
             case "height":
-                return player.allocDatum(Datum.ofInt(member.height));
+                return player.allocDatum(Datum.ofInt(member.getHeight()));
             case "rect": {
                 int left = player.allocDatum(Datum.ofInt(0));
                 int top = player.allocDatum(Datum.ofInt(0));
-                int right = player.allocDatum(Datum.ofInt(member.width));
-                int bottom = player.allocDatum(Datum.ofInt(member.height));
+                int right = player.allocDatum(Datum.ofInt(member.getWidth()));
+                int bottom = player.allocDatum(Datum.ofInt(member.getHeight()));
                 return player.allocDatum(Datum.ofRect(left, top, right, bottom));
             }
             case "regpoint": {
@@ -375,8 +377,8 @@ public class CastMemberRefHandlers {
             case "image":
                 if (value.getType() == com.dirplayer.director.lingo.DatumType.BitmapRef) {
                     member.bitmap = value.toBitmapRef();
-                    member.width = member.bitmap.getWidth();
-                    member.height = member.bitmap.getHeight();
+                    member.setWidth(member.bitmap.getWidth());
+                    member.setHeight(member.bitmap.getHeight());
                 }
                 break;
             default:
@@ -389,14 +391,14 @@ public class CastMemberRefHandlers {
             case "text":
                 return player.allocDatum(Datum.ofString(member.getText() != null ? member.getText() : ""));
             case "width":
-                return player.allocDatum(Datum.ofInt(member.width));
+                return player.allocDatum(Datum.ofInt(member.getWidth()));
             case "height":
-                return player.allocDatum(Datum.ofInt(member.height));
+                return player.allocDatum(Datum.ofInt(member.getHeight()));
             case "rect": {
                 int left = player.allocDatum(Datum.ofInt(0));
                 int top = player.allocDatum(Datum.ofInt(0));
-                int right = player.allocDatum(Datum.ofInt(member.width));
-                int bottom = player.allocDatum(Datum.ofInt(member.height));
+                int right = player.allocDatum(Datum.ofInt(member.getWidth()));
+                int bottom = player.allocDatum(Datum.ofInt(member.getHeight()));
                 return player.allocDatum(Datum.ofRect(left, top, right, bottom));
             }
             case "font":
@@ -420,10 +422,10 @@ public class CastMemberRefHandlers {
                 member.setText(value.stringValue());
                 break;
             case "width":
-                member.width = value.intValue();
+                member.setWidth(value.intValue());
                 break;
             case "height":
-                member.height = value.intValue();
+                member.setHeight(value.intValue());
                 break;
             case "font":
                 member.font = value.stringValue();

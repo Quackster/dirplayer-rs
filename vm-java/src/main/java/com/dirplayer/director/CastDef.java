@@ -5,15 +5,15 @@ import com.dirplayer.io.BinaryReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * CastDef - represents a cast library with its members.
  * Port of Rust CastDef struct.
  */
 public class CastDef {
-    private static final Logger logger = LoggerFactory.getLogger(CastDef.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CastDef.class);
 
     public String name;
     public int id;

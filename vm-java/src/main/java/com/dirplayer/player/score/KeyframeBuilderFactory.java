@@ -8,8 +8,8 @@ import com.dirplayer.player.ColorRef;
 import com.dirplayer.player.score.SpriteKeyframe.*;
 import com.dirplayer.player.score.properties.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * - BackColor keyframes
  */
 public class KeyframeBuilderFactory {
-    private static final Logger logger = LoggerFactory.getLogger(KeyframeBuilderFactory.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(KeyframeBuilderFactory.class);
 
     /**
      * Build all keyframes cache from frame channel data and intervals.

@@ -1,5 +1,6 @@
 package com.dirplayer.director.chunks;
 
+import com.dirplayer.director.lingo.OpCode;
 import com.dirplayer.io.BinaryReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -81,10 +82,8 @@ public class HandlerRecord {
                 }
             }
 
-            Bytecode bytecode = new Bytecode();
-            bytecode.opcode = opcode;
-            bytecode.obj = obj;
-            bytecode.pos = pos;
+            OpCode opcodeEnum = OpCode.from(opcode);
+            Bytecode bytecode = new Bytecode(opcodeEnum, obj, pos);
 
             bytecodeArray.add(bytecode);
             bytecodeIndexMap.put(pos, bytecodeArray.size() - 1);

@@ -2,15 +2,15 @@ package com.dirplayer.director.chunks;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Effect chunk (FXmp) - contains effect/transition data.
  * Port of Rust EffectChunk struct.
  */
 public class EffectChunk {
-    private static final Logger logger = LoggerFactory.getLogger(EffectChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(EffectChunk.class);
 
     public byte[] rawData;
 

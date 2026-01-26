@@ -39,27 +39,29 @@ public class DateHandlers {
      * Call handler on date datum.
      */
     public static int call(DirPlayer player, int datumRef, String handlerName, List<Integer> args) throws ScriptError {
-        int dateId = player.getDatum(datumRef).getDateRef();
+        Datum datum = player.getDatum(datumRef);
+        int dateId = datum.getDateRef();
         DateObject dateObj = player.dateObjects.get(dateId);
 
         if (dateObj == null) {
             throw new ScriptError("Date object " + dateId + " not found");
         }
 
-        LocalDateTime dateTime = Instant.ofEpochMilli(dateObj.timestampMs)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime();
+        LocalDateTime dateTime = dateObj.dateTime;
 
         switch (handlerName.toLowerCase()) {
             case "gettime":
-                return player.allocDatum(Datum.ofInt((int) dateObj.timestampMs));
+                long epochMilli = dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                return player.allocDatum(Datum.ofInt((int) epochMilli));
 
             case "settime": {
                 if (args.isEmpty()) {
                     throw new ScriptError("setTime requires a time argument");
                 }
                 long time = player.getDatum(args.get(0)).intValue();
-                dateObj.timestampMs = time;
+                dateObj.dateTime = Instant.ofEpochMilli(time)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDateTime();
                 return 0; // Void
             }
 
@@ -86,8 +88,7 @@ public class DateHandlers {
                     throw new ScriptError("setFullYear requires a year argument");
                 }
                 int year = player.getDatum(args.get(0)).intValue();
-                LocalDateTime newDateTime = dateTime.withYear(year);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withYear(year);
                 return 0; // Void
             }
 
@@ -96,8 +97,7 @@ public class DateHandlers {
                     throw new ScriptError("setMonth requires a month argument");
                 }
                 int month = player.getDatum(args.get(0)).intValue() + 1; // Convert 0-based to 1-based
-                LocalDateTime newDateTime = dateTime.withMonth(month);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withMonth(month);
                 return 0; // Void
             }
 
@@ -106,8 +106,7 @@ public class DateHandlers {
                     throw new ScriptError("setDate requires a date argument");
                 }
                 int day = player.getDatum(args.get(0)).intValue();
-                LocalDateTime newDateTime = dateTime.withDayOfMonth(day);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withDayOfMonth(day);
                 return 0; // Void
             }
 
@@ -116,8 +115,7 @@ public class DateHandlers {
                     throw new ScriptError("setHours requires an hours argument");
                 }
                 int hours = player.getDatum(args.get(0)).intValue();
-                LocalDateTime newDateTime = dateTime.withHour(hours);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withHour(hours);
                 return 0; // Void
             }
 
@@ -126,8 +124,7 @@ public class DateHandlers {
                     throw new ScriptError("setMinutes requires a minutes argument");
                 }
                 int minutes = player.getDatum(args.get(0)).intValue();
-                LocalDateTime newDateTime = dateTime.withMinute(minutes);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withMinute(minutes);
                 return 0; // Void
             }
 
@@ -136,8 +133,7 @@ public class DateHandlers {
                     throw new ScriptError("setSeconds requires a seconds argument");
                 }
                 int seconds = player.getDatum(args.get(0)).intValue();
-                LocalDateTime newDateTime = dateTime.withSecond(seconds);
-                dateObj.timestampMs = newDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                dateObj.dateTime = dateTime.withSecond(seconds);
                 return 0; // Void
             }
 

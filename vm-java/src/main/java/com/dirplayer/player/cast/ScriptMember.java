@@ -13,7 +13,7 @@ public class ScriptMember {
 
     public ScriptMember() {
         this.scriptId = 0;
-        this.scriptType = ScriptType.MOVIE;
+        this.scriptType = ScriptType.Movie;
         this.name = "";
     }
 

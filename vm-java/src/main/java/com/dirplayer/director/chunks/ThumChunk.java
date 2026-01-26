@@ -2,15 +2,15 @@ package com.dirplayer.director.chunks;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Thumbnail chunk (Thum) - contains thumbnail/preview data.
  * Port of Rust ThumChunk struct.
  */
 public class ThumChunk {
-    private static final Logger logger = LoggerFactory.getLogger(ThumChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ThumChunk.class);
 
     public byte[] rawData;
 

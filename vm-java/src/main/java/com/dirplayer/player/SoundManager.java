@@ -1,5 +1,7 @@
 package com.dirplayer.player;
 
+import com.dirplayer.player.sound.SoundChannel;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,9 +27,9 @@ public class SoundManager {
         this.masterVolume = 255;
     }
 
-    public SoundChannel getChannel(int channelNum) {
-        if (channelNum >= 1 && channelNum <= channelCount) {
-            return channels[channelNum - 1];
+    public SoundChannel getChannel(int channelIdx) {
+        if (channelIdx >= 0 && channelIdx < channelCount) {
+            return channels[channelIdx];
         }
         return null;
     }
@@ -46,65 +48,15 @@ public class SoundManager {
         }
     }
 
-    public static class SoundChannel {
-        public int number;
-        public int volume;
-        public int pan;
-        public int loopCount;
-        public int startTime;
-        public int endTime;
-        public int loopStartTime;
-        public int loopEndTime;
-        public boolean isPlaying;
-        public boolean isPaused;
-        public int currentMemberId;
-        public int currentPosition;
+    public int getNumChannels() {
+        return channelCount;
+    }
 
-        public SoundChannel(int number) {
-            this.number = number;
-            this.volume = 255;
-            this.pan = 0;
-            this.loopCount = 1;
-            this.startTime = 0;
-            this.endTime = 0;
-            this.loopStartTime = 0;
-            this.loopEndTime = 0;
-            this.isPlaying = false;
-            this.isPaused = false;
-            this.currentMemberId = 0;
-            this.currentPosition = 0;
+    public boolean isChannelBusy(int channelNum) {
+        if (channelNum > 0 && channelNum <= channelCount) {
+            return channels[channelNum - 1].isBusy();
         }
-
-        public void play(int memberId) {
-            this.currentMemberId = memberId;
-            this.isPlaying = true;
-            this.isPaused = false;
-            this.currentPosition = startTime;
-        }
-
-        public void stop() {
-            this.isPlaying = false;
-            this.isPaused = false;
-            this.currentPosition = 0;
-        }
-
-        public void pause() {
-            if (isPlaying) {
-                isPaused = true;
-            }
-        }
-
-        public void resume() {
-            if (isPaused) {
-                isPaused = false;
-            }
-        }
-
-        public int getStatus() {
-            if (isPlaying && !isPaused) return 1;  // Playing
-            if (isPaused) return 2;  // Paused
-            return 0;  // Stopped
-        }
+        return false;
     }
 
     public static class AudioData {

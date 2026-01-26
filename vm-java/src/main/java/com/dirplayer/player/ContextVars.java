@@ -4,15 +4,15 @@ import com.dirplayer.director.chunks.HandlerDef;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.bytecode.BytecodeHandlerContext;
 import com.dirplayer.player.bytecode.PutType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Context variable handling for bytecode execution.
  * Port of Rust context_vars.rs
  */
 public class ContextVars {
-    private static final Logger logger = LoggerFactory.getLogger(ContextVars.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(ContextVars.class);
 
     /**
      * Context variable types.
@@ -50,7 +50,7 @@ public class ContextVars {
             BytecodeHandlerContext ctx
     ) throws ScriptError {
         int variableMultiplier = getVariableMultiplier(player, ctx);
-        Datum idDatum = player.allocator.getDatum(idRef);
+        Datum idDatum = player.allocator.get(idRef);
         HandlerDef handler = getCurrentHandlerDef(player, ctx);
 
         switch (varType) {
@@ -75,7 +75,7 @@ public class ContextVars {
                 // Field variable - get field text
                 String text = player.movie.castManager.getFieldValueByIdentifiers(
                     idDatum,
-                    castIdRef != null ? player.allocator.getDatum(castIdRef) : null
+                    castIdRef != null ? player.allocator.get(castIdRef) : null
                 );
                 return player.allocator.alloc(Datum.ofString(text));
 
@@ -97,7 +97,7 @@ public class ContextVars {
             BytecodeHandlerContext ctx
     ) throws ScriptError {
         int variableMultiplier = getVariableMultiplier(player, ctx);
-        Datum idDatum = player.allocator.getDatum(idRef);
+        Datum idDatum = player.allocator.get(idRef);
         HandlerDef handler = getCurrentHandlerDef(player, ctx);
 
         switch (varType) {
@@ -121,10 +121,10 @@ public class ContextVars {
 
             case VAR_TYPE_FIELD:
                 // Field variable - set field text
-                String newValue = player.allocator.getDatum(valueRef).stringValue();
+                String newValue = player.allocator.get(valueRef).stringValue();
                 CastMemberRef memberRef = player.movie.castManager.findMemberRefByIdentifiers(
                     idDatum,
-                    castIdRef != null ? player.allocator.getDatum(castIdRef) : null
+                    castIdRef != null ? player.allocator.get(castIdRef) : null
                 );
 
                 if (memberRef == null) {
@@ -132,7 +132,7 @@ public class ContextVars {
                 }
 
                 CastMember member = player.movie.castManager.findMemberByRef(memberRef);
-                if (member == null || member.getMemberType() != com.dirplayer.player.cast.CastMemberType.Field) {
+                if (member == null || !member.isField()) {
                     throw new ScriptError("Member is not a Field");
                 }
 

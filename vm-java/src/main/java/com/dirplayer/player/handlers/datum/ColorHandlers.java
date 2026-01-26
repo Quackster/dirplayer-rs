@@ -22,31 +22,31 @@ public class ColorHandlers {
         switch (prop.toLowerCase()) {
             case "red":
                 if (colorRef.isRgb()) {
-                    return player.allocDatum(Datum.ofInt(colorRef.getRed()));
+                    return player.allocDatum(Datum.ofInt(colorRef.red));
                 } else {
                     // Palette index - resolve to RGB
-                    int[] rgb = player.resolvePaletteColor(colorRef.getPaletteIndex());
+                    int[] rgb = player.resolvePaletteColor(colorRef.paletteIndex);
                     return player.allocDatum(Datum.ofInt(rgb[0]));
                 }
             case "green":
                 if (colorRef.isRgb()) {
-                    return player.allocDatum(Datum.ofInt(colorRef.getGreen()));
+                    return player.allocDatum(Datum.ofInt(colorRef.green));
                 } else {
-                    int[] rgb = player.resolvePaletteColor(colorRef.getPaletteIndex());
+                    int[] rgb = player.resolvePaletteColor(colorRef.paletteIndex);
                     return player.allocDatum(Datum.ofInt(rgb[1]));
                 }
             case "blue":
                 if (colorRef.isRgb()) {
-                    return player.allocDatum(Datum.ofInt(colorRef.getBlue()));
+                    return player.allocDatum(Datum.ofInt(colorRef.blue));
                 } else {
-                    int[] rgb = player.resolvePaletteColor(colorRef.getPaletteIndex());
+                    int[] rgb = player.resolvePaletteColor(colorRef.paletteIndex);
                     return player.allocDatum(Datum.ofInt(rgb[2]));
                 }
             case "ilk":
                 return player.allocDatum(Datum.ofSymbol("color"));
             case "paletteindex":
                 if (colorRef.isPaletteIndex()) {
-                    return player.allocDatum(Datum.ofInt(colorRef.getPaletteIndex()));
+                    return player.allocDatum(Datum.ofInt(colorRef.paletteIndex));
                 } else {
                     return player.allocDatum(Datum.ofInt(-1)); // RGB colors don't have palette index
                 }
@@ -71,21 +71,21 @@ public class ColorHandlers {
         switch (prop.toLowerCase()) {
             case "red":
                 if (colorRef.isRgb()) {
-                    colorRef.setRed(value);
+                    colorRef.red = value;
                 } else {
                     throw new ScriptError("Cannot set red on palette index color");
                 }
                 break;
             case "green":
                 if (colorRef.isRgb()) {
-                    colorRef.setGreen(value);
+                    colorRef.green = value;
                 } else {
                     throw new ScriptError("Cannot set green on palette index color");
                 }
                 break;
             case "blue":
                 if (colorRef.isRgb()) {
-                    colorRef.setBlue(value);
+                    colorRef.blue = value;
                 } else {
                     throw new ScriptError("Cannot set blue on palette index color");
                 }

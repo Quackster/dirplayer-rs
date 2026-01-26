@@ -76,7 +76,7 @@ public class BytecodeHandlerManager {
             int idx = (start + i) % EXECUTION_HISTORY_SIZE;
             ExecutionHistoryEntry entry = executionHistory[idx];
             if (entry != null) {
-                OpCode opcode = OpCode.fromValue(entry.opcode);
+                OpCode opcode = OpCode.from(entry.opcode);
                 String opName = opcode != null ? opcode.name() : "UNKNOWN";
                 System.err.printf("%3d. [%4d] %-20s %6d (@%d:%d)%n",
                     i + 1,

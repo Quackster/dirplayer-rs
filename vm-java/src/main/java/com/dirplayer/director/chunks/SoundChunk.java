@@ -2,15 +2,15 @@ package com.dirplayer.director.chunks;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Sound chunk - contains audio data.
  * Port of Rust SoundChunk struct.
  */
 public class SoundChunk {
-    private static final Logger logger = LoggerFactory.getLogger(SoundChunk.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(SoundChunk.class);
 
     private int channels;
     private int sampleRate;

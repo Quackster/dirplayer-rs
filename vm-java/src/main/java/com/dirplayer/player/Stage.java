@@ -4,15 +4,15 @@ import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.bitmap.Bitmap;
 import com.dirplayer.player.bitmap.BuiltInPalette;
 import com.dirplayer.player.bitmap.PaletteRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Stage property accessor for the main window/canvas.
  * Port of Rust stage.rs.
  */
 public class Stage {
-    private static final Logger logger = LoggerFactory.getLogger(Stage.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(Stage.class);
 
     /**
      * Get a stage property.

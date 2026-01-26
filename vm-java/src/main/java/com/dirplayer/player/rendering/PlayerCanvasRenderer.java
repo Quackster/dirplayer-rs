@@ -7,8 +7,8 @@ import com.dirplayer.player.bitmap.BuiltInPalette;
 import com.dirplayer.player.bitmap.PaletteRef;
 import com.dirplayer.rendering.IntRect;
 import com.dirplayer.rendering.ScoreRef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Main renderer for the Director player.
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * Platform-specific rendering is abstracted through the CanvasContext interface.
  */
 public class PlayerCanvasRenderer {
-    private static final Logger logger = LoggerFactory.getLogger(PlayerCanvasRenderer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(PlayerCanvasRenderer.class);
 
     /** Canvas context abstraction for platform-specific rendering */
     private CanvasContext canvasContext;

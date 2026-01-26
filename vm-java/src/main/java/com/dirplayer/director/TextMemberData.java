@@ -2,15 +2,15 @@ package com.dirplayer.director;
 
 import com.dirplayer.io.BinaryReader;
 import java.nio.ByteOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Text member data structure.
  * Port of Rust TextMemberData struct.
  */
 public class TextMemberData {
-    private static final Logger logger = LoggerFactory.getLogger(TextMemberData.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(TextMemberData.class);
 
     public long width;
     public long height;

@@ -1,13 +1,14 @@
 package com.dirplayer.player;
 
+import com.dirplayer.director.MemberType;
 import com.dirplayer.director.ScriptType;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.player.bitmap.PaletteMap;
 import com.dirplayer.player.cast.CastMemberType;
 import com.dirplayer.player.cast.PaletteMember;
 import com.dirplayer.player.script.Script;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.List;
  * Port of Rust CastManager struct.
  */
 public class CastManager {
-    private static final Logger logger = LoggerFactory.getLogger(CastManager.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CastManager.class);
 
     public List<CastLib> casts;
     private List<Script> movieScriptCache;
@@ -126,7 +127,7 @@ public class CastManager {
                     castLib = getCastOrNull(intVal);
                 }
             } else {
-                throw new ScriptError("Cast number or name invalid: " + castNameOrNum.getTypeString());
+                throw new ScriptError("Cast number or name invalid: " + castNameOrNum.getTypeName());
             }
         }
 
@@ -152,7 +153,7 @@ public class CastManager {
                 return findMemberRefByNumber(num);
             }
         } else {
-            throw new ScriptError("Member number or name type invalid: " + memberNameOrNum.getTypeString());
+            throw new ScriptError("Member number or name type invalid: " + memberNameOrNum.getTypeName());
         }
 
         return null;
@@ -227,7 +228,7 @@ public class CastManager {
         if (member == null) {
             throw new ScriptError("Cast member not found");
         }
-        if (member.getMemberType() != CastMemberType.Field) {
+        if (!member.isField()) {
             throw new ScriptError("Cast member is not a field");
         }
         // TODO: Get field text
@@ -284,7 +285,7 @@ public class CastManager {
             paletteCache = new PaletteMap();
             for (CastLib cast : casts) {
                 for (CastMember member : cast.members.values()) {
-                    if (member.getMemberType() == CastMemberType.Palette) {
+                    if (member.getMemberType() == MemberType.Palette) {
                         int slotNumber = getCastSlotNumber(cast.number, member.number);
                         // Store palette in map
                         // TODO: Get palette data from member
@@ -352,5 +353,27 @@ public class CastManager {
 
     public CastMemberRef findMemberByName(String name) {
         return findMemberRefByName(name);
+    }
+
+    /**
+     * Insert a member at a specific cast library and member number.
+     */
+    public void insertMember(int castLib, int memberNumber, CastMember member) {
+        CastLib cast = getCastOrNull(castLib);
+        if (cast != null) {
+            cast.insertMember(memberNumber, member);
+        }
+    }
+
+    /**
+     * Remove a member by reference.
+     */
+    public void removeMember(CastMemberRef memberRef) {
+        if (memberRef != null && memberRef.isValid()) {
+            CastLib cast = getCastOrNull(memberRef.getCastLib());
+            if (cast != null) {
+                cast.removeMember(memberRef.getCastMember());
+            }
+        }
     }
 }

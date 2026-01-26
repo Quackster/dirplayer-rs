@@ -211,7 +211,7 @@ public class SoundChannelHandlers {
         if (datum.getType() != DatumType.SoundChannel) {
             throw new ScriptError("Expected sound channel reference");
         }
-        int channelNum = datum.getSoundChannel();
+        int channelNum = datum.toSoundChannel();
         if (channelNum == 0) {
             throw new ScriptError("Sound channel index must be >= 1");
         }

@@ -13,8 +13,7 @@ import com.dirplayer.player.handlers.datum.PropListHandlers;
 import com.dirplayer.player.handlers.datum.ScriptInstanceHandlers;
 import com.dirplayer.player.script.ScriptInstanceRef;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -33,7 +32,7 @@ import java.util.Set;
  * coordinating between various specialized handler classes.
  */
 public class HandlerManager {
-    private static final Logger logger = LoggerFactory.getLogger(HandlerManager.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(HandlerManager.class);
 
     private static final Random random = new Random();
 
@@ -746,7 +745,7 @@ public class HandlerManager {
         // Call handler on each instance
         int result = 0; // Void
         for (ScriptInstanceRef instanceRef : instanceRefs) {
-            int handlerResult = ScriptInstanceHandlers.callHandler(player, instanceRef.id, handlerName, callArgs);
+            int handlerResult = ScriptInstanceHandlers.call(player, player.allocDatum(Datum.ofScriptInstanceRef(instanceRef.id())), handlerName, callArgs);
             result = handlerResult;
         }
 
@@ -783,7 +782,7 @@ public class HandlerManager {
         Datum datum = player.getDatum(datumRef);
 
         if (datum.isScriptInstanceRef()) {
-            return ScriptInstanceHandlers.callHandler(player, datum.getScriptInstanceRef(), handlerName, args);
+            return ScriptInstanceHandlers.call(player, datumRef, handlerName, args);
         } else if (datum.isList()) {
             return ListHandlers.call(player, datumRef, handlerName, args);
         } else if (datum.isPropList()) {

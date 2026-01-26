@@ -2,15 +2,15 @@ package com.dirplayer.player.bitmap;
 
 import com.dirplayer.director.BitmapInfo;
 import com.dirplayer.io.BinaryReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Bitmap decompression and decoding utilities.
  * Port of Rust bitmap decompression functions.
  */
 public class BitmapDecoder {
-    private static final Logger logger = LoggerFactory.getLogger(BitmapDecoder.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(BitmapDecoder.class);
 
     /**
      * Decompress and decode a Director bitmap.

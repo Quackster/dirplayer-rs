@@ -64,9 +64,9 @@ public class ScriptInstanceHandlers {
         }
 
         // Check own handler
-        ScriptHandler handler = script.getHandler(name);
-        if (handler != null) {
-            return handler;
+        com.dirplayer.director.chunks.HandlerDef handlerDef = script.getOwnHandler(name);
+        if (handlerDef != null) {
+            return new ScriptHandler(instance.scriptRef, name, handlerDef, script);
         }
 
         // Check ancestor
@@ -239,11 +239,11 @@ public class ScriptInstanceHandlers {
     private static int handler(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         String name = player.getDatum(args.get(0)).stringValue();
         ScriptInfo info = getScript(player, datumRef);
-        ScriptHandler h = info.script.getHandler(name);
+        com.dirplayer.director.chunks.HandlerDef h = info.script.getOwnHandler(name);
         return player.allocDatum(Datum.ofInt(h != null ? 1 : 0));
     }
 
-    private static int setAProp(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
+    public static int setAProp(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         String propName = player.getDatum(args.get(0)).stringValue();
         int valueRef = args.get(1);
         setProp(player, datumRef, propName, valueRef);
@@ -295,7 +295,7 @@ public class ScriptInstanceHandlers {
         return localPropRef;
     }
 
-    private static int getAProp(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
+    public static int getAProp(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         String propName = player.getDatum(args.get(0)).stringValue();
         return getProp(player, datumRef, propName);
     }
@@ -342,7 +342,7 @@ public class ScriptInstanceHandlers {
 
     private static int handlers(DirPlayer player, int datumRef, List<Integer> args) throws ScriptError {
         ScriptInfo info = getScript(player, datumRef);
-        List<String> handlerNames = info.script.getHandlerNames();
+        List<String> handlerNames = info.script.handlerNames;
 
         List<Integer> handlerRefs = new ArrayList<>();
         for (String name : handlerNames) {

@@ -21,7 +21,7 @@ public class SpriteHandlers {
      */
     public static int getProp(DirPlayer player, int datumRef, String prop) throws ScriptError {
         int spriteNum = player.getDatum(datumRef).toSpriteRef();
-        Sprite sprite = player.movie.score.getSprite(spriteNum);
+        Sprite sprite = player.movie.score.getSprite((short)spriteNum);
 
         if (sprite == null) {
             throw new ScriptError("Sprite " + spriteNum + " not found");
@@ -35,7 +35,7 @@ public class SpriteHandlers {
      */
     public static void setProp(DirPlayer player, int datumRef, String prop, int valueRef) throws ScriptError {
         int spriteNum = player.getDatum(datumRef).toSpriteRef();
-        Sprite sprite = player.movie.score.getSprite(spriteNum);
+        Sprite sprite = player.movie.score.getSprite((short)spriteNum);
 
         if (sprite == null) {
             throw new ScriptError("Sprite " + spriteNum + " not found");
@@ -55,8 +55,8 @@ public class SpriteHandlers {
         int spriteNum = player.getDatum(datumRef).toSpriteRef();
         int otherSpriteNum = player.getDatum(args.get(0)).intValue();
 
-        Sprite sprite1 = player.movie.score.getSprite(spriteNum);
-        Sprite sprite2 = player.movie.score.getSprite(otherSpriteNum);
+        Sprite sprite1 = player.movie.score.getSprite((short)spriteNum);
+        Sprite sprite2 = player.movie.score.getSprite((short)otherSpriteNum);
 
         if (sprite1 == null || sprite2 == null) {
             return player.allocDatum(Datum.ofInt(0));
@@ -146,19 +146,19 @@ public class SpriteHandlers {
             case "blend":
                 return player.allocDatum(Datum.ofInt(sprite.blend));
             case "rotation":
-                return player.allocDatum(Datum.ofFloat(sprite.rotation));
+                return player.allocDatum(Datum.ofFloat((double)sprite.getRotation()));
             case "skew":
-                return player.allocDatum(Datum.ofFloat(sprite.skew));
+                return player.allocDatum(Datum.ofFloat((double)sprite.getSkew()));
             case "fliph":
                 return player.allocDatum(Datum.ofInt(sprite.flipH ? 1 : 0));
             case "flipv":
                 return player.allocDatum(Datum.ofInt(sprite.flipV ? 1 : 0));
             case "stretch":
-                return player.allocDatum(Datum.ofInt(sprite.stretch ? 1 : 0));
+                return player.allocDatum(Datum.ofInt(sprite.stretch));
             case "moveable":
                 return player.allocDatum(Datum.ofInt(sprite.moveable ? 1 : 0));
             case "editable":
-                return player.allocDatum(Datum.ofInt(sprite.editable ? 1 : 0));
+                return player.allocDatum(Datum.ofInt(sprite.editableText ? 1 : 0));
             case "trails":
                 return player.allocDatum(Datum.ofInt(sprite.trails ? 1 : 0));
             case "puppet":
@@ -170,27 +170,27 @@ public class SpriteHandlers {
                 return 0; // Void
             }
             case "member":
-                if (sprite.member != null && sprite.member.castMember > 0) {
-                    return player.allocDatum(Datum.ofCastMember(sprite.member));
+                if (sprite.memberRef != null && sprite.memberRef.castMember > 0) {
+                    return player.allocDatum(Datum.ofCastMember(sprite.memberRef));
                 }
                 return 0; // Void
             case "membernum":
-                if (sprite.member != null) {
-                    return player.allocDatum(Datum.ofInt(sprite.member.castMember));
+                if (sprite.memberRef != null) {
+                    return player.allocDatum(Datum.ofInt(sprite.memberRef.castMember));
                 }
                 return player.allocDatum(Datum.ofInt(0));
             case "castnum":
             case "castlibnum":
-                if (sprite.member != null) {
-                    return player.allocDatum(Datum.ofInt(sprite.member.castLib));
+                if (sprite.memberRef != null) {
+                    return player.allocDatum(Datum.ofInt(sprite.memberRef.castLib));
                 }
                 return player.allocDatum(Datum.ofInt(0));
             case "forecolor":
             case "color":
-                return player.allocDatum(Datum.ofColorRef(sprite.color));
+                return player.allocDatum(Datum.ofColorRef(sprite.getColor()));
             case "backcolor":
             case "bgcolor":
-                return player.allocDatum(Datum.ofColorRef(sprite.bgColor));
+                return player.allocDatum(Datum.ofColorRef(sprite.getBgColor()));
             default:
                 throw new ScriptError("Cannot get sprite property " + prop);
         }
@@ -250,10 +250,10 @@ public class SpriteHandlers {
                 sprite.blend = value.intValue();
                 break;
             case "rotation":
-                sprite.rotation = value.floatValue();
+                sprite.setRotation((float)value.floatValue());
                 break;
             case "skew":
-                sprite.skew = value.floatValue();
+                sprite.setSkew((float)value.floatValue());
                 break;
             case "fliph":
                 sprite.flipH = value.intValue() != 0;
@@ -262,13 +262,13 @@ public class SpriteHandlers {
                 sprite.flipV = value.intValue() != 0;
                 break;
             case "stretch":
-                sprite.stretch = value.intValue() != 0;
+                sprite.stretch = value.intValue();
                 break;
             case "moveable":
                 sprite.moveable = value.intValue() != 0;
                 break;
             case "editable":
-                sprite.editable = value.intValue() != 0;
+                sprite.editableText = value.intValue() != 0;
                 break;
             case "trails":
                 sprite.trails = value.intValue() != 0;
@@ -278,28 +278,28 @@ public class SpriteHandlers {
                 break;
             case "member":
                 if (value.isCastMemberRef()) {
-                    sprite.member = value.toMemberRef();
+                    sprite.memberRef = value.toMemberRef();
                 } else if (value.isInt()) {
                     int memberNum = value.intValue();
-                    sprite.member = new CastMemberRef(1, memberNum);
+                    sprite.memberRef = new CastMemberRef(1, memberNum);
                 } else {
                     throw new ScriptError("member must be a cast member or integer");
                 }
                 break;
             case "membernum":
-                if (sprite.member == null) {
-                    sprite.member = new CastMemberRef(1, value.intValue());
+                if (sprite.memberRef == null) {
+                    sprite.memberRef = new CastMemberRef(1, value.intValue());
                 } else {
-                    sprite.member = new CastMemberRef(sprite.member.castLib, value.intValue());
+                    sprite.memberRef = new CastMemberRef(sprite.memberRef.castLib, value.intValue());
                 }
                 break;
             case "forecolor":
             case "color":
-                sprite.color = value.toColorRef();
+                sprite.setColor(value.toColorRef());
                 break;
             case "backcolor":
             case "bgcolor":
-                sprite.bgColor = value.toColorRef();
+                sprite.setBgColor(value.toColorRef());
                 break;
             default:
                 throw new ScriptError("Cannot set sprite property " + prop);
@@ -314,7 +314,7 @@ public class SpriteHandlers {
         int bottom = top + sprite.height;
 
         // Apply registration point offset if member exists
-        if (sprite.member != null && sprite.member.castMember > 0) {
+        if (sprite.memberRef != null && sprite.memberRef.castMember > 0) {
             // TODO: Get reg point from member and adjust
         }
 

@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'org.teavm' version '0.10.2'
 }
 
 group = 'com.dirplayer'
@@ -45,4 +46,20 @@ test {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+// TeaVM configuration for WebAssembly output
+teavm {
+    js {
+        mainClass = 'com.dirplayer.JsApi'
+        targetFileName = 'dirplayer.js'
+        obfuscated = false
+        sourceMap = true
+    }
+    wasm {
+        mainClass = 'com.dirplayer.JsApi'
+        targetFileName = 'dirplayer.wasm'
+        minHeapSize = 4
+        maxHeapSize = 128
+    }
 }

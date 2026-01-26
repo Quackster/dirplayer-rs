@@ -289,6 +289,19 @@ public class Datum {
     }
 
     /**
+     * Create a timeout instance datum.
+     */
+    public static Datum ofTimeoutInstance(String name, int duration, int callback, int target, Integer scriptInstance) {
+        Datum d = new Datum(DatumType.TimeoutInstance);
+        d.timeoutName = name;
+        d.timeoutDuration = duration;
+        d.timeoutCallback = callback;
+        d.timeoutTarget = target;
+        d.timeoutScriptInstance = scriptInstance;
+        return d;
+    }
+
+    /**
      * Create an Xtra datum.
      */
     public static Datum ofXtra(String name) {
@@ -639,11 +652,25 @@ public class Datum {
         return castMemberRef;
     }
 
+    public CastMemberRef getScriptRef() throws ScriptError {
+        if (type != DatumType.ScriptRef) {
+            throw new ScriptError("Cannot get script ref from non-script datum");
+        }
+        return castMemberRef;
+    }
+
     public BitmapRef toBitmapRef() throws ScriptError {
         if (type != DatumType.BitmapRef) {
             throw new ScriptError("Cannot convert datum to bitmap ref");
         }
         return bitmapRef;
+    }
+
+    public int toSoundChannel() throws ScriptError {
+        if (type != DatumType.SoundChannel) {
+            throw new ScriptError("Cannot convert datum to sound channel");
+        }
+        return soundChannel;
     }
 
     public int getScriptInstanceRef() throws ScriptError {
@@ -665,6 +692,13 @@ public class Datum {
             throw new ScriptError("Cannot convert datum to math ref");
         }
         return mathRef;
+    }
+
+    public int getXmlRef() throws ScriptError {
+        if (type != DatumType.XmlRef) {
+            throw new ScriptError("Cannot convert datum to xml ref");
+        }
+        return xmlRef;
     }
 
     public StringChunkExpr getStringChunkExpr() throws ScriptError {
@@ -700,6 +734,10 @@ public class Datum {
 
     public void setPointValue(int[] value) {
         this.pointValue = value;
+    }
+
+    public void setVectorValue(double[] value) {
+        this.vectorValue = value;
     }
 
     /**
@@ -742,6 +780,47 @@ public class Datum {
 
     public void setListType(DatumType listType) {
         this.listType = listType;
+    }
+
+    // Timeout instance getters/setters
+    public String getTimeoutName() {
+        return timeoutName;
+    }
+
+    public void setTimeoutName(String timeoutName) {
+        this.timeoutName = timeoutName;
+    }
+
+    public int getTimeoutDuration() {
+        return timeoutDuration;
+    }
+
+    public void setTimeoutDuration(int timeoutDuration) {
+        this.timeoutDuration = timeoutDuration;
+    }
+
+    public int getTimeoutCallback() {
+        return timeoutCallback;
+    }
+
+    public void setTimeoutCallback(int timeoutCallback) {
+        this.timeoutCallback = timeoutCallback;
+    }
+
+    public int getTimeoutTarget() {
+        return timeoutTarget;
+    }
+
+    public void setTimeoutTarget(int timeoutTarget) {
+        this.timeoutTarget = timeoutTarget;
+    }
+
+    public Integer getTimeoutScriptInstance() {
+        return timeoutScriptInstance;
+    }
+
+    public void setTimeoutScriptInstance(Integer timeoutScriptInstance) {
+        this.timeoutScriptInstance = timeoutScriptInstance;
     }
 
     // Xtra instance getters/setters

@@ -2,15 +2,15 @@ package com.dirplayer.player.commands;
 
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Command executor for player VM commands.
  * Port of Rust run_command_loop function.
  */
 public class CommandExecutor {
-    private static final Logger logger = LoggerFactory.getLogger(CommandExecutor.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(CommandExecutor.class);
 
     private final DirPlayer player;
 

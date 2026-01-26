@@ -5,6 +5,7 @@ import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
+import com.dirplayer.player.handlers.datum.SpriteHandlers;
 import java.util.List;
 
 /**
@@ -37,7 +38,9 @@ public class SpriteCompareBytecodeHandler {
      * Returns [left, top, right, bottom].
      */
     private static int[] getRectBounds(DirPlayer player, int spriteNum) throws ScriptError {
-        Datum rectDatum = player.spriteGetProp(spriteNum, "rect");
+        int spriteRef = player.allocDatum(Datum.ofSpriteRef(spriteNum));
+        int rectRef = SpriteHandlers.getProp(player, spriteRef, "rect");
+        Datum rectDatum = player.getDatum(rectRef);
 
         if (rectDatum.isRect()) {
             int[] coords = rectDatum.toRect();

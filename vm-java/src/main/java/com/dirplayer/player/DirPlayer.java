@@ -2,22 +2,21 @@ package com.dirplayer.player;
 
 import com.dirplayer.player.bitmap.BitmapManager;
 import com.dirplayer.player.score.Score;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.LinkedList;
 
 /**
  * Main DirPlayer class - the Shockwave/Director player emulator.
  * Port of Rust DirPlayer struct.
  */
 public class DirPlayer {
-    private static final Logger logger = LoggerFactory.getLogger(DirPlayer.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(DirPlayer.class);
 
     public static final int MAX_STACK_SIZE = 50;
 
@@ -108,7 +107,7 @@ public class DirPlayer {
     public ScoreRef currentScoreContext;
 
     // Command queue
-    public ConcurrentLinkedQueue<PlayerVMCommand> commandQueue;
+    public LinkedList<PlayerVMCommand> commandQueue;
 
     // Stream handling
     public boolean enableStreamStatusHandler;
@@ -190,7 +189,7 @@ public class DirPlayer {
         this.dirCache = new HashMap<>();
 
         this.currentScoreContext = new ScoreRef();
-        this.commandQueue = new ConcurrentLinkedQueue<>();
+        this.commandQueue = new LinkedList<>();
         this.enableStreamStatusHandler = false;
     }
 
@@ -371,7 +370,7 @@ public class DirPlayer {
     public int getSpriteAt(int x, int y) {
         // Find topmost sprite at position
         for (int i = movie.score.channels.size() - 1; i >= 0; i--) {
-            Sprite sprite = movie.score.getSprite(i);
+            Sprite sprite = movie.score.getSprite((short) i);
             if (sprite != null && sprite.visible && sprite.containsPoint(x, y)) {
                 return i;
             }
@@ -493,8 +492,8 @@ public class DirPlayer {
     }
 
     public String getName(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx, int nameId) {
-        if (ctx.script != null && ctx.script.names != null && nameId >= 0 && nameId < ctx.script.names.size()) {
-            return ctx.script.names.get(nameId);
+        if (ctx.scriptContext != null && ctx.scriptContext.names != null && nameId >= 0 && nameId < ctx.scriptContext.names.size()) {
+            return ctx.scriptContext.names.get(nameId);
         }
         return "name_" + nameId;
     }
@@ -518,6 +517,11 @@ public class DirPlayer {
 
     public int callDatumHandler(int objRef, String handlerName, java.util.List<Integer> args) throws ScriptError {
         // TODO: Implement datum handler call
+        return 0;
+    }
+
+    public int localCall(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx, int handlerIndex, java.util.List<Integer> args) throws ScriptError {
+        // TODO: Implement local handler call
         return 0;
     }
 
@@ -551,6 +555,49 @@ public class DirPlayer {
 
     public void triggerAlertHook() {
         // TODO: Implement alert hook
+    }
+
+    public void setExternalParams(org.teavm.jso.JSObject params) {
+        // TODO: Store external params from JSObject
+    }
+
+    public void loadMovieFromFile(String path, boolean autoplay) {
+        // TODO: Implement async movie loading from file
+        logger.info("Loading movie from file: {}", path);
+    }
+
+    public void requestDatumSnapshot(int datumId) {
+        // TODO: Implement datum snapshot request
+    }
+
+    public void requestScriptInstanceSnapshot(int scriptInstanceId) {
+        // TODO: Implement script instance snapshot request
+    }
+
+    public void provideNetTaskData(int taskId, byte[] data) {
+        netManager.provideNetTaskData(taskId, data);
+    }
+
+    public void evalLingoCommand(String command) {
+        // TODO: Implement Lingo command evaluation
+        logger.info("Evaluating Lingo command: {}", command);
+    }
+
+    public String getChannelDisplayName(int channelNum) {
+        if (movie == null || movie.score == null) {
+            return "";
+        }
+        // TODO: Get channel name from score
+        return "Channel " + channelNum;
+    }
+
+    public void printMemberBitmapHex(int castLib, int castMember) {
+        // TODO: Implement bitmap hex print for debugging
+        logger.info("Print member bitmap hex: cast {} member {}", castLib, castMember);
+    }
+
+    public boolean getBreakOnError() {
+        return breakOnError;
     }
 
     // Placeholder inner classes - these would be fully implemented

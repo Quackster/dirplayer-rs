@@ -1,7 +1,6 @@
 package com.dirplayer.player;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -13,17 +12,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.HashMap;
 
 /**
  * Network manager for handling HTTP requests.
  * Port of Rust NetManager struct.
  */
 public class NetManager {
-    private static final Logger logger = LoggerFactory.getLogger(NetManager.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(NetManager.class);
 
     public String basePath;
     private URI basePathUri;
@@ -41,11 +38,8 @@ public class NetManager {
     private Map<Integer, String> taskLastModDates;
     private Map<Integer, String> taskLocalPaths;
 
-    // Executor for async tasks
-    private final ExecutorService executor;
-
-    // Listeners for task completion
-    private final Map<Integer, CompletableFuture<Void>> taskFutures;
+    // Pending tasks that need to be handled externally (e.g., by JavaScript in TeaVM)
+    private final Map<Integer, Boolean> pendingTasks;
 
     public NetManager() {
         this.basePath = null;
@@ -59,8 +53,7 @@ public class NetManager {
         this.taskMimeTypes = new ConcurrentHashMap<>();
         this.taskLastModDates = new ConcurrentHashMap<>();
         this.taskLocalPaths = new ConcurrentHashMap<>();
-        this.executor = Executors.newCachedThreadPool();
-        this.taskFutures = new ConcurrentHashMap<>();
+        this.pendingTasks = new HashMap<>();
     }
 
     /**
@@ -131,17 +124,10 @@ public class NetManager {
     }
 
     /**
-     * Create a future that completes when the task is done.
+     * Check if a task is pending external handling.
      */
-    public CompletableFuture<Void> createTaskFuture(int taskId) {
-        NetTask.NetTaskState state = getTaskState(taskId);
-        if (state != null && state.isDone()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        taskFutures.put(taskId, future);
-        return future;
+    public boolean isTaskPending(int taskId) {
+        return pendingTasks.getOrDefault(taskId, false);
     }
 
     /**
@@ -165,13 +151,12 @@ public class NetManager {
         String resolvedUrlStr = resolvedUrl.toString();
         boolean isFileUrl = resolvedUrlStr.startsWith("file://");
 
-        if (isFileUrl) {
-            // Handle file:// URLs synchronously or via external handler
-            handleFileUrl(taskId, resolvedUrl);
-        } else {
-            // Execute normal HTTP fetch asynchronously
-            executeTask(taskId, task);
-        }
+        // Mark task as pending for external handling (e.g., by JavaScript in TeaVM)
+        // The external handler should call provideNetTaskData() when the fetch completes
+        pendingTasks.put(taskId, true);
+
+        // For synchronous environments or testing, you can uncomment:
+        // executeSynchronously(taskId, task, isFileUrl, resolvedUrl);
 
         return taskId;
     }
@@ -189,8 +174,8 @@ public class NetManager {
         tasks.put(taskId, task);
         taskStates.put(taskId, new NetTask.NetTaskState());
 
-        // Execute the POST request asynchronously
-        executeTask(taskId, task);
+        // Mark task as pending for external handling
+        pendingTasks.put(taskId, true);
 
         return taskId;
     }
@@ -206,57 +191,61 @@ public class NetManager {
     }
 
     /**
-     * Execute a network task asynchronously.
+     * Execute a network task synchronously (for non-TeaVM environments).
+     * In TeaVM, network operations should be handled via JavaScript interop.
      */
-    private void executeTask(int taskId, NetTask task) {
-        executor.submit(() -> {
-            try {
-                NetTask.NetResult result = fetchNetTask(task);
-                fulfillTask(taskId, result);
+    private void executeSynchronously(int taskId, NetTask task, boolean isFileUrl, URI resolvedUrl) {
+        try {
+            NetTask.NetResult result;
 
-                // If this was a download task, save to local path
-                String localPath = taskLocalPaths.get(taskId);
-                if (localPath != null && result.isOk()) {
-                    try {
-                        Path path = Paths.get(localPath);
-                        Files.createDirectories(path.getParent());
-                        Files.write(path, result.getData());
-                    } catch (Exception e) {
-                        logger.error("Failed to save downloaded file: {}", localPath, e);
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Error executing network task {}: {}", taskId, e.getMessage(), e);
-                fulfillTask(taskId, NetTask.NetResult.error(4));
+            if (isFileUrl) {
+                result = handleFileUrlSync(resolvedUrl);
+            } else {
+                result = fetchNetTask(task);
             }
-        });
+
+            fulfillTask(taskId, result);
+
+            // If this was a download task, save to local path
+            String localPath = taskLocalPaths.get(taskId);
+            if (localPath != null && result.isOk()) {
+                try {
+                    Path path = Paths.get(localPath);
+                    Files.createDirectories(path.getParent());
+                    Files.write(path, result.getData());
+                } catch (Exception e) {
+                    logger.error("Failed to save downloaded file: {}", localPath, e);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error executing network task {}: {}", taskId, e.getMessage(), e);
+            fulfillTask(taskId, NetTask.NetResult.error(4));
+        }
     }
 
     /**
-     * Handle file:// URLs.
+     * Handle file:// URLs synchronously.
      */
-    private void handleFileUrl(int taskId, URI resolvedUrl) {
-        executor.submit(() -> {
-            try {
-                String path = resolvedUrl.getPath();
-                // On Windows, remove leading slash from paths like /C:/...
-                if (path.length() > 2 && path.charAt(0) == '/' && path.charAt(2) == ':') {
-                    path = path.substring(1);
-                }
-
-                Path filePath = Paths.get(path);
-                if (Files.exists(filePath)) {
-                    byte[] data = Files.readAllBytes(filePath);
-                    fulfillTask(taskId, NetTask.NetResult.ok(data));
-                } else {
-                    logger.warn("File not found: {}", path);
-                    fulfillTask(taskId, NetTask.NetResult.error(4));
-                }
-            } catch (Exception e) {
-                logger.error("Error reading file for task {}: {}", taskId, e.getMessage(), e);
-                fulfillTask(taskId, NetTask.NetResult.error(4));
+    private NetTask.NetResult handleFileUrlSync(URI resolvedUrl) {
+        try {
+            String path = resolvedUrl.getPath();
+            // On Windows, remove leading slash from paths like /C:/...
+            if (path.length() > 2 && path.charAt(0) == '/' && path.charAt(2) == ':') {
+                path = path.substring(1);
             }
-        });
+
+            Path filePath = Paths.get(path);
+            if (Files.exists(filePath)) {
+                byte[] data = Files.readAllBytes(filePath);
+                return NetTask.NetResult.ok(data);
+            } else {
+                logger.warn("File not found: {}", path);
+                return NetTask.NetResult.error(4);
+            }
+        } catch (Exception e) {
+            logger.error("Error reading file: {}", e.getMessage(), e);
+            return NetTask.NetResult.error(4);
+        }
     }
 
     /**
@@ -329,11 +318,8 @@ public class NetManager {
             taskStates.put(taskId, newState);
         }
 
-        // Notify any waiting futures
-        CompletableFuture<Void> future = taskFutures.remove(taskId);
-        if (future != null) {
-            future.complete(null);
-        }
+        // Mark task as no longer pending
+        pendingTasks.remove(taskId);
 
         // Cache successful results
         if (result.isOk()) {
@@ -362,10 +348,7 @@ public class NetManager {
             state.setResult(NetTask.NetResult.error(-1)); // Aborted
         }
 
-        CompletableFuture<Void> future = taskFutures.remove(taskId);
-        if (future != null) {
-            future.complete(null);
-        }
+        pendingTasks.remove(taskId);
     }
 
     /**
@@ -377,8 +360,7 @@ public class NetManager {
                 entry.getValue().setResult(NetTask.NetResult.error(-1)); // Aborted
             }
         }
-        taskFutures.values().forEach(f -> f.complete(null));
-        taskFutures.clear();
+        pendingTasks.clear();
     }
 
     /**
@@ -462,10 +444,21 @@ public class NetManager {
     }
 
     /**
-     * Shutdown the executor service.
+     * Cleanup method (no-op for TeaVM compatibility).
      */
     public void shutdown() {
-        executor.shutdown();
+        // No executor to shutdown in TeaVM version
+    }
+
+    /**
+     * Provide data for a pending network task (used by JS callback).
+     */
+    public void provideNetTaskData(int taskId, byte[] data) {
+        if (data != null) {
+            fulfillTask(taskId, NetTask.NetResult.ok(data));
+        } else {
+            fulfillTask(taskId, NetTask.NetResult.error(4));
+        }
     }
 
     /**

@@ -8,15 +8,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * DirectorFile - parses and represents a Director movie file.
  * Port of Rust DirectorFile struct.
  */
 public class DirectorFile {
-    private static final Logger logger = LoggerFactory.getLogger(DirectorFile.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(DirectorFile.class);
 
     public URL basePath;
     public String fileName;

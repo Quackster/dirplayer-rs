@@ -2,15 +2,15 @@ package com.dirplayer.player;
 
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.dirplayer.SimpleLogger;
+
 
 /**
  * Datum comparison utilities.
  * Port of Rust compare.rs
  */
 public class DatumCompare {
-    private static final Logger logger = LoggerFactory.getLogger(DatumCompare.class);
+    private static final SimpleLogger logger = SimpleLogger.getLogger(DatumCompare.class);
 
     /**
      * Check if two datums are equal.
@@ -44,12 +44,12 @@ public class DatumCompare {
                     return pointEquals(left, right, allocator);
                 case Rect:
                     return rectEquals(left, right, allocator);
-                case CastMember:
-                    return left.getCastMemberRef().equals(right.getCastMemberRef());
+                case CastMemberRef:
+                    return left.toMemberRef().equals(right.toMemberRef());
                 case SpriteRef:
                     return left.intValue() == right.intValue();
                 case ColorRef:
-                    return left.getColorRef().equals(right.getColorRef());
+                    return left.toColorRef().equals(right.toColorRef());
                 default:
                     logger.warn("Unhandled equals comparison for type: {}", leftType);
                     return false;
@@ -93,7 +93,7 @@ public class DatumCompare {
      */
     public static boolean datumLessThan(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
         if (left.isNumber() && right.isNumber()) {
-            return left.toDouble() < right.toDouble();
+            return left.floatValue() < right.floatValue();
         }
         if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) < 0;
@@ -113,7 +113,7 @@ public class DatumCompare {
      */
     public static boolean datumGreaterThan(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
         if (left.isNumber() && right.isNumber()) {
-            return left.toDouble() > right.toDouble();
+            return left.floatValue() > right.floatValue();
         }
         if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) > 0;
@@ -138,14 +138,14 @@ public class DatumCompare {
     }
 
     private static boolean listEquals(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
-        int[] leftList = left.getListValue();
-        int[] rightList = right.getListValue();
-        if (leftList.length != rightList.length) {
+        java.util.List<Integer> leftList = left.toList();
+        java.util.List<Integer> rightList = right.toList();
+        if (leftList.size() != rightList.size()) {
             return false;
         }
-        for (int i = 0; i < leftList.length; i++) {
-            Datum leftItem = allocator.getDatum(leftList[i]);
-            Datum rightItem = allocator.getDatum(rightList[i]);
+        for (int i = 0; i < leftList.size(); i++) {
+            Datum leftItem = allocator.get(leftList.get(i));
+            Datum rightItem = allocator.get(rightList.get(i));
             if (!datumEquals(leftItem, rightItem, allocator)) {
                 return false;
             }
@@ -159,14 +159,14 @@ public class DatumCompare {
     }
 
     private static boolean pointEquals(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
-        int[] leftPoint = left.getPointValue();
-        int[] rightPoint = right.getPointValue();
+        int[] leftPoint = left.toPoint();
+        int[] rightPoint = right.toPoint();
         return leftPoint[0] == rightPoint[0] && leftPoint[1] == rightPoint[1];
     }
 
     private static boolean rectEquals(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
-        int[] leftRect = left.getRectValue();
-        int[] rightRect = right.getRectValue();
+        int[] leftRect = left.toRect();
+        int[] rightRect = right.toRect();
         return leftRect[0] == rightRect[0] && leftRect[1] == rightRect[1] &&
                leftRect[2] == rightRect[2] && leftRect[3] == rightRect[3];
     }
