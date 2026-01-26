@@ -30,6 +30,12 @@ public class KeyboardManager {
     /** List of currently pressed keys */
     private final List<KeyboardKey> downKeys;
 
+    /** The last key string pressed */
+    public String lastKey = "";
+
+    /** The last key code pressed */
+    public int lastKeyCode = 0;
+
     public KeyboardManager() {
         this.downKeys = new ArrayList<>();
     }
@@ -50,6 +56,9 @@ public class KeyboardManager {
         if (!alreadyDown) {
             downKeys.add(new KeyboardKey(key, mappedCode));
         }
+        // Update last key info
+        this.lastKey = key;
+        this.lastKeyCode = mappedCode;
     }
 
     /**

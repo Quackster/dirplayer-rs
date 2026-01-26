@@ -21,6 +21,7 @@ public class CastManager {
     private static final SimpleLogger logger = SimpleLogger.getLogger(CastManager.class);
 
     public List<CastLib> casts;
+    public java.util.Map<Integer, CastLib> castLibs;
     private List<Script> movieScriptCache;
     private PaletteMap paletteCache;
 
@@ -34,6 +35,7 @@ public class CastManager {
 
     public CastManager() {
         this.casts = new ArrayList<>();
+        this.castLibs = new java.util.HashMap<>();
         this.movieScriptCache = null;
         this.paletteCache = null;
     }

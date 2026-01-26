@@ -136,9 +136,26 @@ public class ContextVars {
                     throw new ScriptError("Member is not a Field");
                 }
 
-                // TODO: Apply put type (into, before, after)
-                // For now just set the text
-                logger.debug("Setting field text: {}", newValue);
+                // Apply put type (into, before, after)
+                String existingText = member.field != null ? member.field.text : "";
+                String finalText;
+                switch (putType) {
+                    case INTO:
+                        finalText = newValue;
+                        break;
+                    case BEFORE:
+                        finalText = newValue + existingText;
+                        break;
+                    case AFTER:
+                        finalText = existingText + newValue;
+                        break;
+                    default:
+                        finalText = newValue;
+                }
+                if (member.field != null) {
+                    member.field.text = finalText;
+                }
+                logger.debug("Setting field text: {}", finalText);
                 break;
 
             default:
@@ -147,7 +164,9 @@ public class ContextVars {
     }
 
     private static int getVariableMultiplier(DirPlayer player, BytecodeHandlerContext ctx) {
-        // TODO: Get from script context
+        // Variable multiplier depends on Director version
+        // D4: multiplier is 6
+        // D5+: multiplier is 8
         if (player.movie.dirVersion >= 500) {
             return 8;
         }
@@ -155,12 +174,26 @@ public class ContextVars {
     }
 
     private static HandlerDef getCurrentHandlerDef(DirPlayer player, BytecodeHandlerContext ctx) {
-        // TODO: Get current handler from script
+        // Get handler from context
+        if (ctx.handler != null) {
+            return ctx.handler;
+        }
+        // Fall back to script's handlers list
+        if (ctx.script != null && ctx.handlerIndex >= 0 && ctx.handlerIndex < ctx.script.handlers.size()) {
+            return ctx.script.handlers.get(ctx.handlerIndex);
+        }
         return null;
     }
 
     private static String getName(DirPlayer player, BytecodeHandlerContext ctx, int nameId) {
-        // TODO: Get name from script context
+        // Get name from script context
+        if (ctx.scriptContext != null) {
+            String name = ctx.scriptContext.getName(nameId);
+            if (name != null) {
+                return name;
+            }
+        }
+        // Fallback - return placeholder name
         return "var_" + nameId;
     }
 }

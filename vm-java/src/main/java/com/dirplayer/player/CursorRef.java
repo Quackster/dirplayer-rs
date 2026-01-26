@@ -9,20 +9,26 @@ import java.util.List;
  */
 public class CursorRef {
     public int cursorId;
+    public int systemId;  // Alias for cursorId for system cursors
     public CastMemberRef memberRef;
     public boolean isSystemCursor;
     public List<Integer> memberList;  // For member-based cursors with multiple parts (cursor + mask)
+    public int[] memberIds;  // Array version of memberList for compatibility
 
     public CursorRef() {
         this.cursorId = 0;
+        this.systemId = 0;
         this.isSystemCursor = true;
         this.memberList = null;
+        this.memberIds = null;
     }
 
     public CursorRef(int cursorId) {
         this.cursorId = cursorId;
+        this.systemId = cursorId;
         this.isSystemCursor = true;
         this.memberList = null;
+        this.memberIds = null;
     }
 
     public static CursorRef system(int cursorId) {
@@ -36,11 +42,27 @@ public class CursorRef {
         return c;
     }
 
+    public static CursorRef member(int[] memberIds) {
+        CursorRef c = new CursorRef();
+        c.isSystemCursor = false;
+        c.memberIds = memberIds;
+        c.memberList = new ArrayList<>();
+        for (int id : memberIds) {
+            c.memberList.add(id);
+        }
+        return c;
+    }
+
     public static CursorRef memberList(List<Integer> slotNumbers) {
         CursorRef c = new CursorRef();
         c.isSystemCursor = false;
         c.memberList = new ArrayList<>(slotNumbers);
+        c.memberIds = slotNumbers.stream().mapToInt(i -> i).toArray();
         return c;
+    }
+
+    public boolean isSystem() {
+        return isSystemCursor;
     }
 
     /**

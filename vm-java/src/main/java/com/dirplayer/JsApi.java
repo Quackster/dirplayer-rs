@@ -283,7 +283,22 @@ public class JsApi {
             return;
         }
 
-        // TODO: Implement preview rendering
+        // Get member bitmap if available
+        Bitmap memberBitmap = player.getMemberBitmap(previewMemberRef);
+        if (memberBitmap == null) {
+            return;
+        }
+
+        // Resize preview canvas if needed
+        int width = memberBitmap.getWidth();
+        int height = memberBitmap.getHeight();
+        if (previewCanvas.getWidth() != width || previewCanvas.getHeight() != height) {
+            previewCanvas.setWidth(width);
+            previewCanvas.setHeight(height);
+        }
+
+        // Draw bitmap to preview canvas
+        drawBitmapToCanvas(memberBitmap, previewCtx2d);
     }
 
     /**
@@ -325,8 +340,57 @@ public class JsApi {
         if (player == null) {
             return "{}";
         }
-        // TODO: Implement cast member info serialization
-        return "{}";
+
+        com.dirplayer.player.CastMember member = player.getMovie().getCastManager().findMemberByRef(
+            new CastMemberRef(castLib, castNum)
+        );
+        if (member == null) {
+            return "{}";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"number\":").append(member.number).append(",");
+        sb.append("\"castLib\":").append(castLib).append(",");
+        sb.append("\"name\":\"").append(escapeJson(member.name != null ? member.name : "")).append("\",");
+        sb.append("\"type\":\"").append(member.memberType != null ? member.memberType.name() : "Unknown").append("\"");
+
+        // Add type-specific fields
+        if (member.memberType != null) {
+            switch (member.memberType) {
+                case BITMAP:
+                    sb.append(",\"width\":").append(member.bitmapWidth);
+                    sb.append(",\"height\":").append(member.bitmapHeight);
+                    sb.append(",\"bitDepth\":").append(member.bitDepth);
+                    sb.append(",\"regPointX\":").append(member.regPointX);
+                    sb.append(",\"regPointY\":").append(member.regPointY);
+                    break;
+                case FIELD:
+                case TEXT:
+                    sb.append(",\"text\":\"").append(escapeJson(member.text != null ? member.text : "")).append("\"");
+                    sb.append(",\"font\":\"").append(escapeJson(member.font != null ? member.font : "")).append("\"");
+                    sb.append(",\"fontSize\":").append(member.fontSize);
+                    break;
+                case SOUND:
+                    sb.append(",\"sampleRate\":").append(member.sampleRate);
+                    sb.append(",\"sampleSize\":").append(member.sampleSize);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     /**
@@ -337,8 +401,30 @@ public class JsApi {
         if (player == null) {
             return "{}";
         }
-        // TODO: Implement sprite info serialization
-        return "{}";
+
+        com.dirplayer.player.Sprite sprite = player.getSprite(channelNum);
+        if (sprite == null) {
+            return "{}";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"channel\":").append(sprite.channelNumber).append(",");
+        sb.append("\"memberCastLib\":").append(sprite.memberRef != null ? sprite.memberRef.castLib : 0).append(",");
+        sb.append("\"memberCastMember\":").append(sprite.memberRef != null ? sprite.memberRef.castMember : 0).append(",");
+        sb.append("\"locH\":").append(sprite.locH).append(",");
+        sb.append("\"locV\":").append(sprite.locV).append(",");
+        sb.append("\"width\":").append(sprite.width).append(",");
+        sb.append("\"height\":").append(sprite.height).append(",");
+        sb.append("\"visible\":").append(sprite.visible).append(",");
+        sb.append("\"puppet\":").append(sprite.puppet).append(",");
+        sb.append("\"ink\":").append(sprite.ink).append(",");
+        sb.append("\"blend\":").append(sprite.blend).append(",");
+        sb.append("\"foreColor\":").append(sprite.foreColor).append(",");
+        sb.append("\"backColor\":").append(sprite.backColor).append(",");
+        sb.append("\"rotation\":").append(sprite.rotation);
+        sb.append("}");
+        return sb.toString();
     }
 
     /**
@@ -349,8 +435,12 @@ public class JsApi {
         if (player == null) {
             return "Error: Player not initialized";
         }
-        // TODO: Implement Lingo evaluation
-        return "";
+        try {
+            player.evalLingoCommand(code);
+            return "";
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
     }
 
     // ---- Helper methods ----

@@ -1,10 +1,12 @@
 package com.dirplayer.director.lingo;
 
 import com.dirplayer.player.CastMemberRef;
+import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.bitmap.BitmapRef;
 import com.dirplayer.player.ColorRef;
 import com.dirplayer.player.CursorRef;
+import com.dirplayer.player.script.ScriptInstanceRef;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -167,6 +169,15 @@ public class Datum {
     public static Datum ofScriptInstanceRef(int instanceId) {
         Datum d = new Datum(DatumType.ScriptInstanceRef);
         d.scriptInstanceRef = instanceId;
+        return d;
+    }
+
+    /**
+     * Create a script instance reference from a ScriptInstanceRef object.
+     */
+    public static Datum ofScriptInstanceRef(ScriptInstanceRef ref) {
+        Datum d = new Datum(DatumType.ScriptInstanceRef);
+        d.scriptInstanceRef = ref != null ? ref.instanceId : 0;
         return d;
     }
 
@@ -678,6 +689,61 @@ public class Datum {
             throw new ScriptError("Cannot convert datum to script instance id");
         }
         return scriptInstanceRef;
+    }
+
+    /**
+     * Convert to a ScriptInstanceRef object.
+     */
+    public ScriptInstanceRef toScriptInstanceRef() throws ScriptError {
+        if (type != DatumType.ScriptInstanceRef) {
+            throw new ScriptError("Cannot convert datum to script instance ref");
+        }
+        return new ScriptInstanceRef(scriptInstanceRef);
+    }
+
+    /**
+     * Convert to boolean.
+     */
+    public boolean toBool() throws ScriptError {
+        return boolValue();
+    }
+
+    /**
+     * Get the CastMemberRef (for CastMemberRef type).
+     */
+    public CastMemberRef toCastMemberRef() throws ScriptError {
+        if (type != DatumType.CastMemberRef && type != DatumType.CastMember) {
+            throw new ScriptError("Cannot convert datum to cast member ref");
+        }
+        return castMemberRef;
+    }
+
+    /**
+     * Get point coordinates as int array [x, y].
+     * Resolves datum refs using the provided player.
+     */
+    public int[] toPointCoords(DirPlayer player) throws ScriptError {
+        if (type != DatumType.Point) {
+            throw new ScriptError("Cannot get point coords from non-point");
+        }
+        int x = player.getDatum(pointValue[0]).intValue();
+        int y = player.getDatum(pointValue[1]).intValue();
+        return new int[] { x, y };
+    }
+
+    /**
+     * Get rect coordinates as int array [left, top, right, bottom].
+     * Resolves datum refs using the provided player.
+     */
+    public int[] toRectCoords(DirPlayer player) throws ScriptError {
+        if (type != DatumType.Rect) {
+            throw new ScriptError("Cannot get rect coords from non-rect");
+        }
+        int left = player.getDatum(rectValue[0]).intValue();
+        int top = player.getDatum(rectValue[1]).intValue();
+        int right = player.getDatum(rectValue[2]).intValue();
+        int bottom = player.getDatum(rectValue[3]).intValue();
+        return new int[] { left, top, right, bottom };
     }
 
     public int getDateRef() throws ScriptError {

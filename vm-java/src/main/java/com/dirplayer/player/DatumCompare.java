@@ -154,8 +154,34 @@ public class DatumCompare {
     }
 
     private static boolean propListEquals(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {
-        // TODO: Implement prop list equality
-        return false;
+        java.util.List<int[]> leftList = left.toPropList();
+        java.util.List<int[]> rightList = right.toPropList();
+
+        if (leftList.size() != rightList.size()) {
+            return false;
+        }
+
+        // Compare each key-value pair
+        for (int i = 0; i < leftList.size(); i++) {
+            int[] leftPair = leftList.get(i);
+            int[] rightPair = rightList.get(i);
+
+            // Compare keys
+            Datum leftKey = allocator.get(leftPair[0]);
+            Datum rightKey = allocator.get(rightPair[0]);
+            if (!datumEquals(leftKey, rightKey, allocator)) {
+                return false;
+            }
+
+            // Compare values
+            Datum leftValue = allocator.get(leftPair[1]);
+            Datum rightValue = allocator.get(rightPair[1]);
+            if (!datumEquals(leftValue, rightValue, allocator)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static boolean pointEquals(Datum left, Datum right, DatumAllocator allocator) throws ScriptError {

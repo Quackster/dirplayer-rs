@@ -27,6 +27,7 @@ public class SoundChannel {
     private int channelCount;
     private List<SoundSegment> playlistSegments;
     private List<Integer> playlist;
+    public com.dirplayer.player.CastMemberRef memberRef;
 
     public SoundChannel(int channelNum) {
         this.channelNum = channelNum;
@@ -53,6 +54,15 @@ public class SoundChannel {
     }
 
     public void play() {
+        status = SoundStatus.Playing;
+    }
+
+    /**
+     * Play a sound from a cast member reference.
+     * @param memberRef The cast member reference
+     */
+    public void play(com.dirplayer.player.CastMemberRef memberRef) {
+        this.memberRef = memberRef;
         status = SoundStatus.Playing;
     }
 

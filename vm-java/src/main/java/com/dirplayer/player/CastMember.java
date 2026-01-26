@@ -11,6 +11,7 @@ public class CastMember {
     public int number;  // Member number within cast
     public CastMemberRef memberRef;
     public MemberType memberType;
+    public MemberType type;  // Alias for memberType for compatibility
     public String name;
     public int scriptId;
     public Object specificData;  // Type-specific data (bitmap, sound, etc.)
@@ -58,14 +59,16 @@ public class CastMember {
     public CastMember() {
         this.memberRef = new CastMemberRef();
         this.memberType = MemberType.Null;
+        this.type = MemberType.Null;
         this.name = "";
         this.scriptId = 0;
         this.isLoaded = false;
     }
 
-    public CastMember(CastMemberRef ref, MemberType type) {
+    public CastMember(CastMemberRef ref, MemberType memberType) {
         this.memberRef = ref;
-        this.memberType = type;
+        this.memberType = memberType;
+        this.type = memberType;
         this.name = "";
         this.scriptId = 0;
         this.isLoaded = false;

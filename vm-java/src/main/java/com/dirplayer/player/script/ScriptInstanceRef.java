@@ -7,7 +7,7 @@ import java.util.Objects;
  * Port of Rust ScriptInstanceRef struct.
  */
 public class ScriptInstanceRef {
-    private final int instanceId;
+    public final int instanceId;
 
     public ScriptInstanceRef(int instanceId) {
         this.instanceId = instanceId;

@@ -233,8 +233,27 @@ public class DatumFormatter {
     }
 
     private static String formatPropList(Datum datum, DirPlayer player) {
-        // TODO: Implement prop list formatting
-        return "[:]";
+        try {
+            java.util.List<int[]> pairs = datum.toPropList();
+            if (pairs == null || pairs.isEmpty()) {
+                return "[:]";
+            }
+
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < pairs.size(); i++) {
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                int[] pair = pairs.get(i);
+                String keyStr = formatDatum(pair[0], player);
+                String valueStr = formatDatum(pair[1], player);
+                sb.append(keyStr).append(": ").append(valueStr);
+            }
+            sb.append("]");
+            return sb.toString();
+        } catch (Exception e) {
+            return "[:]";
+        }
     }
 
     private static String formatPoint(Datum datum, DirPlayer player) {
@@ -277,7 +296,21 @@ public class DatumFormatter {
     }
 
     private static String formatPaletteRef(Datum datum) {
-        // TODO: Implement palette ref formatting
-        return "<palette>";
+        try {
+            // Try to get the palette reference info
+            if (datum.getIntValue() != null) {
+                int paletteId = datum.getIntValue();
+                if (paletteId < 0) {
+                    // Built-in palette
+                    return "palette(" + paletteId + ")";
+                } else {
+                    // Cast member palette
+                    return "palette(member " + paletteId + ")";
+                }
+            }
+            return "<palette>";
+        } catch (Exception e) {
+            return "<palette>";
+        }
     }
 }

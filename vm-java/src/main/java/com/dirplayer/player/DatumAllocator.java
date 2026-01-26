@@ -1,6 +1,8 @@
 package com.dirplayer.player;
 
 import com.dirplayer.director.lingo.Datum;
+import com.dirplayer.player.script.ScriptInstance;
+import com.dirplayer.player.script.ScriptInstanceRef;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,12 +47,29 @@ public class DatumAllocator {
 
     public int allocScriptInstance(ScriptInstance instance) {
         int id = nextScriptInstanceId++;
+        instance.instanceId = id;
         scriptInstances.put(id, instance);
         return id;
     }
 
     public ScriptInstance getScriptInstance(int id) {
         return scriptInstances.get(id);
+    }
+
+    /**
+     * Get script instance by reference.
+     */
+    public ScriptInstance getScriptInstance(ScriptInstanceRef ref) {
+        if (ref == null) return null;
+        return scriptInstances.get(ref.instanceId);
+    }
+
+    /**
+     * Get mutable script instance by reference.
+     */
+    public ScriptInstance getScriptInstanceMut(ScriptInstanceRef ref) {
+        if (ref == null) return null;
+        return scriptInstances.get(ref.instanceId);
     }
 
     public void freeScriptInstance(int id) {
@@ -63,32 +82,5 @@ public class DatumAllocator {
         nextDatumId = 1;
         nextScriptInstanceId = 1;
         datums.put(0, Datum.VOID);
-    }
-
-    /**
-     * Script instance for behavior/parent scripts.
-     */
-    public static class ScriptInstance {
-        public int id;
-        public CastMemberRef scriptRef;
-        public Map<String, Integer> properties;  // Property name -> DatumRef
-        public int ancestor;  // DatumRef to ancestor instance
-
-        public ScriptInstance() {
-            this.properties = new HashMap<>();
-            this.ancestor = 0;
-        }
-
-        public void setProperty(String name, int datumRef) {
-            properties.put(name.toLowerCase(), datumRef);
-        }
-
-        public Integer getProperty(String name) {
-            return properties.get(name.toLowerCase());
-        }
-
-        public boolean hasProperty(String name) {
-            return properties.containsKey(name.toLowerCase());
-        }
     }
 }

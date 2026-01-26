@@ -3,7 +3,7 @@ package com.dirplayer.player.handlers.datum;
 import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.CastMemberRef;
-import com.dirplayer.player.DatumAllocator.ScriptInstance;
+import com.dirplayer.player.script.ScriptInstance;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.script.Script;
@@ -33,7 +33,7 @@ public class ScriptInstanceHandlers {
             throw new ScriptError("Script instance " + instanceId + " not found");
         }
 
-        Script script = player.movie.castManager.getScriptByRef(instance.scriptRef);
+        Script script = player.movie.castManager.getScriptByRef(instance.script);
         if (script == null) {
             throw new ScriptError("Script not found");
         }
@@ -58,7 +58,7 @@ public class ScriptInstanceHandlers {
             return null;
         }
 
-        Script script = player.movie.castManager.getScriptByRef(instance.scriptRef);
+        Script script = player.movie.castManager.getScriptByRef(instance.script);
         if (script == null) {
             return null;
         }
@@ -66,7 +66,7 @@ public class ScriptInstanceHandlers {
         // Check own handler
         com.dirplayer.director.chunks.HandlerDef handlerDef = script.getOwnHandler(name);
         if (handlerDef != null) {
-            return new ScriptHandler(instance.scriptRef, name, handlerDef, script);
+            return new ScriptHandler(instance.script, name, handlerDef, script);
         }
 
         // Check ancestor
@@ -107,9 +107,9 @@ public class ScriptInstanceHandlers {
                 }
                 return player.allocDatum(Datum.ofInt(0));
             case "script": {
-                Script script = player.movie.castManager.getScriptByRef(instance.scriptRef);
+                Script script = player.movie.castManager.getScriptByRef(instance.script);
                 if (script != null) {
-                    return player.allocDatum(Datum.ofScriptRef(instance.scriptRef));
+                    return player.allocDatum(Datum.ofScriptRef(instance.script));
                 }
                 return 0; // Void
             }

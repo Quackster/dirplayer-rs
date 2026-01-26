@@ -567,48 +567,83 @@ public class ExpressionEvaluator {
         throw new ScriptError("Expected identifier as chunk source");
     }
 
-    // ============ Property Access Stubs ============
-    // These would be implemented to interact with player state
+    // ============ Property Access Methods ============
+    // These interact with player state for property get/set
 
     private int getMovieProp(String propName) throws ScriptError {
-        // TODO: Implement movie property access
-        // This would call player.getMovieProp(propName)
-        throw new ScriptError("Movie property not implemented: " + propName);
+        // Movie properties are accessed through the DirPlayer
+        return player.getMovieProp(propName);
     }
 
     private void setMovieProp(String propName, int valueRef) throws ScriptError {
-        // TODO: Implement movie property setting
-        // This would call player.setMovieProp(propName, value)
-        throw new ScriptError("Movie property setting not implemented: " + propName);
+        // Movie property setting through DirPlayer
+        Datum value = player.getDatum(valueRef);
+        player.setMovieProp(propName, value);
     }
 
     private int getTopLevelProp(String propName) throws ScriptError {
-        // TODO: Implement top-level property access
+        // Check global variables first
+        Datum global = player.getGlobal(propName);
+        if (global != null) {
+            return player.globals.get(propName);
+        }
         // Return void for undefined variables
         return 0;
     }
 
     private int getObjProp(int objRef, String propName) throws ScriptError {
-        // TODO: Implement object property access
-        // This would call player.getObjProp(objRef, propName)
-        throw new ScriptError("Object property access not implemented: " + propName);
+        // Get property from a datum object
+        Datum datum = player.getDatum(objRef);
+        if (datum == null || datum.isVoid()) {
+            throw new ScriptError("Cannot get property of void");
+        }
+        return com.dirplayer.player.bytecode.GetSetBytecodeHandler.getObjPropInternal(
+            player, objRef, propName);
     }
 
     private void setObjProp(int objRef, String propName, int valueRef) throws ScriptError {
-        // TODO: Implement object property setting
-        // This would call player.setObjProp(objRef, propName, valueRef)
-        throw new ScriptError("Object property setting not implemented: " + propName);
+        // Set property on a datum object
+        Datum datum = player.getDatum(objRef);
+        if (datum == null || datum.isVoid()) {
+            throw new ScriptError("Cannot set property of void");
+        }
+        com.dirplayer.player.bytecode.GetSetBytecodeHandler.playerSetObjProp(
+            player, objRef, propName, valueRef);
     }
 
     private int callHandler(String handlerName, List<Integer> argRefs) throws ScriptError {
-        // TODO: Implement handler call
-        // This would call player.callGlobalHandler(handlerName, argRefs)
-        throw new ScriptError("Handler call not implemented: " + handlerName);
+        // Call a global handler through the handler manager
+        return com.dirplayer.player.handlers.HandlerManager.callHandler(player, handlerName, argRefs);
     }
 
     private int callObjHandler(int objRef, String handlerName, List<Integer> argRefs) throws ScriptError {
-        // TODO: Implement object handler call
-        // This would call player.callObjHandler(objRef, handlerName, argRefs)
-        throw new ScriptError("Object handler call not implemented: " + handlerName);
+        // Call a handler on a datum object
+        Datum datum = player.getDatum(objRef);
+        if (datum == null || datum.isVoid()) {
+            throw new ScriptError("Cannot call handler on void");
+        }
+
+        // Route to appropriate datum handler based on type
+        DatumType type = datum.getType();
+        switch (type) {
+            case List:
+            case ArgList:
+            case ArgListNoRet:
+                return com.dirplayer.player.handlers.datum.ListHandlers.call(player, objRef, handlerName, argRefs);
+            case PropList:
+                return com.dirplayer.player.handlers.datum.PropListHandlers.call(player, objRef, handlerName, argRefs);
+            case String:
+                return com.dirplayer.player.handlers.datum.StringDatumHandlers.call(player, objRef, handlerName, argRefs);
+            case ScriptInstanceRef:
+                return com.dirplayer.player.handlers.datum.ScriptInstanceHandlers.call(player, objRef, handlerName, argRefs);
+            case ScriptRef:
+                return com.dirplayer.player.handlers.datum.ScriptHandlers.call(player, objRef, handlerName, argRefs);
+            case CastMemberRef:
+                return com.dirplayer.player.handlers.datum.CastMemberRefHandlers.call(player, objRef, handlerName, argRefs);
+            case SpriteRef:
+                return com.dirplayer.player.handlers.datum.SpriteHandlers.call(player, objRef, handlerName, argRefs);
+            default:
+                throw new ScriptError("Cannot call handler '" + handlerName + "' on " + type);
+        }
     }
 }

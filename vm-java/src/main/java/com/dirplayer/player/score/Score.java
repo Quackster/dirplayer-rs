@@ -52,6 +52,9 @@ public class Score {
     /** Frame labels for navigation */
     public List<FrameLabel> frameLabels;
 
+    /** Channel names for display */
+    public List<String> channelNames;
+
     /** Track which sounds have been triggered on which frames */
     public Map<Integer, Integer> soundChannelTriggered;
 
@@ -74,6 +77,7 @@ public class Score {
         this.soundChannelData = new ArrayList<>();
         this.tempoChannelData = new ArrayList<>();
         this.frameLabels = new ArrayList<>();
+        this.channelNames = new ArrayList<>();
         this.soundChannelTriggered = new HashMap<>();
         this.keyframesCache = new HashMap<>();
         this.spriteDetails = new HashMap<>();

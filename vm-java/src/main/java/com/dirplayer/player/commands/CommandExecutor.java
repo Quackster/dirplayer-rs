@@ -60,7 +60,7 @@ public class CommandExecutor {
 
     private Object executeLoadMovieFromFile(PlayerCommand.LoadMovieFromFile cmd) throws ScriptError {
         logger.info("Loading movie from file: {}", cmd.path);
-        // TODO: Implement movie loading
+        player.loadMovieFromFile(cmd.path, cmd.autoplay);
         return null;
     }
 
@@ -80,14 +80,14 @@ public class CommandExecutor {
     }
 
     private Object executeMouseDown(PlayerCommand.MouseDown cmd) throws ScriptError {
+        // mouseDown() already dispatches events via EventDispatcher
         player.mouseDown(cmd.x, cmd.y);
-        // TODO: Dispatch mouse events
         return null;
     }
 
     private Object executeMouseUp(PlayerCommand.MouseUp cmd) throws ScriptError {
+        // mouseUp() already dispatches events via EventDispatcher
         player.mouseUp(cmd.x, cmd.y);
-        // TODO: Dispatch mouse events
         return null;
     }
 
@@ -97,8 +97,8 @@ public class CommandExecutor {
     }
 
     private Object executeKeyDown(PlayerCommand.KeyDown cmd) throws ScriptError {
+        // keyDown() already dispatches events via EventDispatcher
         player.keyDown(cmd.key, cmd.keyCode);
-        // TODO: Dispatch key events
         return null;
     }
 
@@ -123,14 +123,14 @@ public class CommandExecutor {
     }
 
     private Object executeTimeoutTriggered(PlayerCommand.TimeoutTriggered cmd) throws ScriptError {
-        // TODO: Handle timeout callback
         logger.debug("Timeout triggered: {}", cmd.timeoutRef);
+        player.triggerTimeout(cmd.timeoutRef);
         return null;
     }
 
     private Object executeTriggerAlertHook() throws ScriptError {
-        // TODO: Trigger alert hook
         logger.debug("Alert hook triggered");
+        player.triggerAlertHook();
         return null;
     }
 }

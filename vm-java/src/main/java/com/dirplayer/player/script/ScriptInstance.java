@@ -13,14 +13,14 @@ import java.util.Map;
 public class ScriptInstance {
     public int instanceId;
     public CastMemberRef script;
-    public ScriptInstanceRef ancestor;
+    public int ancestor;  // DatumRef ID to ancestor instance (0 = none)
     public Map<String, Integer> properties;  // Property name -> DatumRef ID
     public boolean beginSpriteCalled;
 
     public ScriptInstance() {
         this.instanceId = 0;
         this.script = new CastMemberRef(0, 0);
-        this.ancestor = null;
+        this.ancestor = 0;  // 0 = no ancestor (Void)
         this.properties = new HashMap<>();
         this.beginSpriteCalled = false;
     }

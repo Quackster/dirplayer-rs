@@ -1,6 +1,9 @@
 package com.dirplayer.player;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,10 +13,12 @@ import java.util.Map;
 public class FontManager {
     public Map<String, BitmapFont> fonts;
     public BitmapFont systemFont;
+    public String systemFontPath;
 
     public FontManager() {
         this.fonts = new HashMap<>();
         this.systemFont = null;
+        this.systemFontPath = "";
     }
 
     public void addFont(String name, BitmapFont font) {
@@ -30,6 +35,33 @@ public class FontManager {
 
     public void setSystemFont(BitmapFont font) {
         this.systemFont = font;
+    }
+
+    public void setSystemFontPath(String path) {
+        this.systemFontPath = path;
+    }
+
+    public String getSystemFontPath() {
+        return systemFontPath;
+    }
+
+    /**
+     * Check if a font with the given name is loaded.
+     * @param name The font name to check
+     * @return true if the font is available
+     */
+    public boolean hasFont(String name) {
+        return fonts.containsKey(name.toLowerCase());
+    }
+
+    /**
+     * List all available font names.
+     * @return Sorted list of font names
+     */
+    public List<String> listFonts() {
+        List<String> fontNames = new ArrayList<>(fonts.keySet());
+        Collections.sort(fontNames);
+        return fontNames;
     }
 
     public static class BitmapFont {

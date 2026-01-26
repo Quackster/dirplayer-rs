@@ -126,6 +126,31 @@ public class ColorRef {
         return blue;
     }
 
+    public int getRed() {
+        return red;
+    }
+
+    public int getGreen() {
+        return green;
+    }
+
+    public int getBlue() {
+        return blue;
+    }
+
+    /**
+     * Convert to palette index using a default system palette.
+     * If this is already a palette index, returns that index.
+     */
+    public int toIndex() {
+        if (isPaletteColor) {
+            return paletteIndex;
+        }
+        // Calculate approximate palette index from RGB (using standard grayscale approximation)
+        // Real Director would use the actual palette
+        return (red + green + blue) / 3;
+    }
+
     public int getPaletteIndex() {
         return paletteIndex;
     }

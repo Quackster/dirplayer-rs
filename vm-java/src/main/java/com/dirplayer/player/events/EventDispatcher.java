@@ -3,7 +3,10 @@ package com.dirplayer.player.events;
 import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
+import com.dirplayer.player.script.Script;
+import com.dirplayer.player.script.ScriptInstance;
 import com.dirplayer.player.script.ScriptInstanceRef;
+import com.dirplayer.player.score.ScoreBehaviorReference;
 import com.dirplayer.SimpleLogger;
 
 
@@ -545,12 +548,19 @@ public class EventDispatcher {
         List<CastMemberRef> result = new ArrayList<>();
 
         // Frame script first
-        // Note: This would need access to score.getScriptInFrame(currentFrame)
-        // For now we return an empty list as the full implementation requires
-        // access to the cast manager
+        ScoreBehaviorReference frameScript = player.movie.score.getScriptInFrame(player.movie.currentFrame);
+        if (frameScript != null) {
+            CastMemberRef scriptRef = new CastMemberRef(frameScript.castLib, frameScript.castMember);
+            result.add(scriptRef);
+        }
 
         // Then movie scripts
-        // Note: This would need access to cast_manager.get_movie_scripts()
+        List<Script> movieScripts = player.movie.castManager.getMovieScripts();
+        if (movieScripts != null) {
+            for (Script script : movieScripts) {
+                result.add(script.memberRef);
+            }
+        }
 
         return result;
     }
@@ -558,7 +568,26 @@ public class EventDispatcher {
     private List<ScriptInstanceRef> getActiveInstanceScripts(DirPlayer player) {
         List<ScriptInstanceRef> result = new ArrayList<>();
 
-        // Collect active sprite script instances
+        // Collect active sprite script instances from active channels
+        result.addAll(getActiveScriptInstanceList(player));
+
+        // Collect global script instances (including parent scripts)
+        for (var entry : player.getHydratedGlobals().entrySet()) {
+            com.dirplayer.director.lingo.Datum datum = entry.getValue();
+            if (datum.isScriptInstanceRef()) {
+                try {
+                    result.add(new ScriptInstanceRef(datum.intValue()));
+                } catch (ScriptError e) {
+                    // Skip invalid values
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private List<ScriptInstanceRef> getActiveScriptInstanceList(DirPlayer player) {
+        List<ScriptInstanceRef> result = new ArrayList<>();
         for (var channel : player.movie.score.channels) {
             if (channel.sprite != null && !channel.sprite.scriptInstanceList.isEmpty()) {
                 for (int id : channel.sprite.scriptInstanceList) {
@@ -566,43 +595,103 @@ public class EventDispatcher {
                 }
             }
         }
-
-        // Collect global script instances
-        // Note: This would need access to player.getHydratedGlobals()
-
         return result;
     }
 
     private HandlerRef getScriptInstanceHandler(DirPlayer player, String handlerName, ScriptInstanceRef instanceRef) {
-        // Note: Full implementation requires access to ScriptInstanceUtils.getScriptInstanceHandler
-        // For now return null - the actual implementation would look up the handler
+        ScriptInstance instance = player.allocator.getScriptInstance(instanceRef);
+        if (instance == null) {
+            return null;
+        }
+
+        // Get the script for this instance
+        Script script = player.movie.castManager.getScriptByRef(instance.script);
+        if (script == null) {
+            return null;
+        }
+
+        // Check if this script has the handler
+        if (script.hasHandler(handlerName)) {
+            return new HandlerRef(script.memberRef, handlerName);
+        }
+
+        // If not found, check ancestor
+        if (instance.ancestor != 0) {
+            // ancestor is a DatumRef ID - we need to get the ScriptInstanceRef from the datum
+            com.dirplayer.director.lingo.Datum ancestorDatum = player.getDatum(instance.ancestor);
+            if (ancestorDatum != null && ancestorDatum.isScriptInstanceRef()) {
+                try {
+                    ScriptInstanceRef ancestorRef = new ScriptInstanceRef(ancestorDatum.intValue());
+                    return getScriptInstanceHandler(player, handlerName, ancestorRef);
+                } catch (ScriptError e) {
+                    // If we can't get the ancestor instance ID, skip it
+                    return null;
+                }
+            }
+        }
+
         return null;
     }
 
     private boolean hasHandler(DirPlayer player, CastMemberRef scriptRef, String handlerName) {
-        // Note: Full implementation requires access to cast_manager.getScriptByRef
-        // For now return false - the actual implementation would check the script
-        return false;
+        Script script = player.movie.castManager.getScriptByRef(scriptRef);
+        if (script == null) {
+            return false;
+        }
+        return script.hasHandler(handlerName);
     }
 
     private ScriptInstanceRef getFrameScriptInstance(DirPlayer player, CastMemberRef scriptRef) {
-        // Note: Full implementation would check if scriptRef matches frame_script_member
-        // and return frame_script_instance
+        // Check if scriptRef matches frame_script_member
+        if (player.movie.frameScriptMember != null &&
+            player.movie.frameScriptMember.equals(scriptRef)) {
+            // Return the frame script instance
+            if (player.movie.frameScriptInstance != null) {
+                return new ScriptInstanceRef(player.movie.frameScriptInstance);
+            }
+        }
         return null;
     }
 
     private BeginSpriteData collectBeginSpriteData(DirPlayer player) {
         BeginSpriteData data = new BeginSpriteData();
 
-        // Collect stage sprites
+        // Collect active channel numbers from sprite_spans
         Set<Integer> activeChannelNumbers = new HashSet<>();
-        // Note: Would need access to sprite_spans
+        int currentFrame = player.movie.currentFrame;
+        for (var span : player.movie.score.spriteSpans) {
+            if (com.dirplayer.player.score.Score.isSpanInFrame(span, currentFrame)) {
+                activeChannelNumbers.add(span.channelNumber);
+            }
+        }
 
         for (var channel : player.movie.score.channels) {
             if (channel.sprite == null || channel.sprite.scriptInstanceList.isEmpty()) {
                 continue;
             }
-            // Note: Would need to check sprite.entered and beginSpriteCalled
+
+            // Skip if not in an active span
+            if (!activeChannelNumbers.contains(channel.number)) {
+                continue;
+            }
+
+            // Skip if sprite hasn't entered or has already had beginSprite called
+            if (!channel.sprite.entered) {
+                continue;
+            }
+
+            // Check if beginSprite was already called for all behaviors
+            boolean allBeginSpriteCalled = true;
+            for (int id : channel.sprite.scriptInstanceList) {
+                ScriptInstance instance = player.allocator.getScriptInstance(id);
+                if (instance != null && !instance.beginSpriteCalled) {
+                    allBeginSpriteCalled = false;
+                    break;
+                }
+            }
+            if (allBeginSpriteCalled) {
+                continue;
+            }
 
             for (int id : channel.sprite.scriptInstanceList) {
                 ScriptInstanceRef ref = new ScriptInstanceRef(id);
@@ -617,7 +706,7 @@ public class EventDispatcher {
             data.allChannels.add(new SpriteChannelRef(ScoreRef.stage(), channel.number));
         }
 
-        // Note: Would also collect filmloop sprites here
+        // TODO: Also collect filmloop sprites here
 
         return data;
     }
@@ -655,15 +744,24 @@ public class EventDispatcher {
     private BehaviorData collectBehaviorData(DirPlayer player) {
         BehaviorData data = new BehaviorData();
 
-        // Collect stage sprites
+        // Collect active channel numbers from sprite_spans
         Set<Integer> activeChannelNumbers = new HashSet<>();
-        // Note: Would need access to sprite_spans
+        int currentFrame = player.movie.currentFrame;
+        for (var span : player.movie.score.spriteSpans) {
+            if (com.dirplayer.player.score.Score.isSpanInFrame(span, currentFrame)) {
+                activeChannelNumbers.add(span.channelNumber);
+            }
+        }
 
         for (var channel : player.movie.score.channels) {
             if (channel.sprite == null || channel.sprite.scriptInstanceList.isEmpty()) {
                 continue;
             }
-            // Note: Would need to check sprite.entered and activeChannelNumbers
+
+            // Skip if sprite hasn't entered or isn't in an active span
+            if (!channel.sprite.entered || !activeChannelNumbers.contains(channel.number)) {
+                continue;
+            }
 
             List<ScriptInstanceRef> behaviors = new ArrayList<>();
             for (int id : channel.sprite.scriptInstanceList) {
@@ -678,7 +776,7 @@ public class EventDispatcher {
             }
         }
 
-        // Note: Would also collect filmloop sprites here
+        // TODO: Also collect filmloop sprites here
 
         return data;
     }

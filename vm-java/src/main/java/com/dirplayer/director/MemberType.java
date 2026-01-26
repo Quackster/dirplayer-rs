@@ -48,6 +48,13 @@ public enum MemberType {
         return from((int) val);
     }
 
+    /**
+     * Get the name of this member type as a lowercase string (for symbol representation).
+     */
+    public String getName() {
+        return this.name().toLowerCase();
+    }
+
     // Alias for backward compatibility
     public static final MemberType NULL = Null;
 }

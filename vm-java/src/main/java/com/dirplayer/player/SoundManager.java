@@ -59,6 +59,31 @@ public class SoundManager {
         return false;
     }
 
+    /**
+     * Play a sound on a channel.
+     * @param channelNum The channel number (1-based)
+     * @param memberRef The sound member reference
+     */
+    public void playSound(int channelNum, CastMemberRef memberRef) throws ScriptError {
+        if (channelNum <= 0 || channelNum > channelCount) {
+            throw new ScriptError("Invalid sound channel: " + channelNum);
+        }
+        SoundChannel channel = channels[channelNum - 1];
+        // TODO: Load sound data from cast member and play
+        channel.play(memberRef);
+    }
+
+    /**
+     * Stop a sound channel.
+     * @param channelNum The channel number (1-based)
+     */
+    public void stopSound(int channelNum) throws ScriptError {
+        if (channelNum <= 0 || channelNum > channelCount) {
+            throw new ScriptError("Invalid sound channel: " + channelNum);
+        }
+        channels[channelNum - 1].stop();
+    }
+
     public static class AudioData {
         public int memberId;
         public byte[] data;

@@ -105,12 +105,12 @@ public class ScriptHandlers {
             throw new ScriptError("Script not found: " + scriptRef);
         }
 
-        com.dirplayer.player.DatumAllocator.ScriptInstance instance = new com.dirplayer.player.DatumAllocator.ScriptInstance();
-        instance.scriptRef = scriptRef;
+        com.dirplayer.player.script.ScriptInstance instance = new com.dirplayer.player.script.ScriptInstance();
+        instance.script = scriptRef;
         instance.properties = new java.util.HashMap<>();
 
         int instanceRef = player.allocator.allocScriptInstance(instance);
-        instance.id = instanceRef; // Set the ID after allocation
+        instance.instanceId = instanceRef; // Set the ID after allocation
         int datumRef = player.allocDatum(Datum.ofScriptInstanceRef(instanceRef));
 
         return new ScriptInstanceResult(instanceRef, datumRef);

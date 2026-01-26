@@ -12,6 +12,7 @@ public enum DatumType {
     ScriptInstanceRef("script_instance"),
     ScriptRef("script_ref"),
     CastLibRef("cast_lib"),
+    CastMember("cast_member"),
     CastMemberRef("cast_member"),
     StageRef("stage"),
     SpriteRef("sprite_ref"),
