@@ -87,6 +87,18 @@ public class CastManager {
     }
 
     /**
+     * Find cast library number by name (case-insensitive).
+     * Returns null if not found.
+     */
+    public Integer findCastLibByName(String name) {
+        CastLib cast = getCastByName(name);
+        if (cast != null) {
+            return cast.number;
+        }
+        return null;
+    }
+
+    /**
      * Find member reference by number, searching all casts.
      */
     public CastMemberRef findMemberRefByNumber(int number) {
@@ -230,11 +242,11 @@ public class CastManager {
         if (member == null) {
             throw new ScriptError("Cast member not found");
         }
-        if (!member.isField()) {
-            throw new ScriptError("Cast member is not a field");
+        if (!member.isField() && !member.isText()) {
+            throw new ScriptError("Cast member is not a field or text member");
         }
-        // TODO: Get field text
-        return "";
+        String text = member.getText();
+        return text != null ? text : "";
     }
 
     /**
@@ -289,8 +301,11 @@ public class CastManager {
                 for (CastMember member : cast.members.values()) {
                     if (member.getMemberType() == MemberType.Palette) {
                         int slotNumber = getCastSlotNumber(cast.number, member.number);
-                        // Store palette in map
-                        // TODO: Get palette data from member
+                        // Extract palette data from member specificData
+                        if (member.specificData instanceof PaletteMember) {
+                            PaletteMember paletteMember = (PaletteMember) member.specificData;
+                            paletteCache.addCastPalette(slotNumber, paletteMember.colors);
+                        }
                     }
                 }
             }

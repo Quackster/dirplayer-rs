@@ -5,6 +5,7 @@ import com.dirplayer.director.lingo.Datum;
 import com.dirplayer.director.lingo.Datum.PropListPair;
 import com.dirplayer.director.lingo.DatumType;
 import com.dirplayer.player.DirPlayer;
+import com.dirplayer.player.NetTask;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.ScriptScope;
 import com.dirplayer.player.handlers.datum.ListHandlers;
@@ -434,8 +435,33 @@ public class HandlerManager {
         if (args.isEmpty()) {
             throw new ScriptError("new requires at least one argument");
         }
-        // TODO: Implement full new() functionality for script instances
-        // For now, delegate to newObject
+
+        Datum firstArg = player.getDatum(args.get(0));
+
+        // Check if it's a script reference or script name
+        if (firstArg.isScriptRef() || firstArg.isSymbol() || firstArg.isString()) {
+            // Get the script reference
+            com.dirplayer.player.CastMemberRef scriptRef = null;
+
+            if (firstArg.isScriptRef()) {
+                scriptRef = firstArg.toScriptRef();
+            } else if (firstArg.isSymbol() || firstArg.isString()) {
+                String scriptName = firstArg.isSymbol() ? firstArg.symbolValue() : firstArg.stringValue();
+                scriptRef = player.movie.castManager.findMemberRefByName(scriptName);
+            }
+
+            if (scriptRef != null) {
+                com.dirplayer.player.script.Script script = player.movie.castManager.getScriptByRef(scriptRef);
+                if (script != null) {
+                    // Create a new script instance
+                    List<Integer> constructorArgs = args.size() > 1 ? args.subList(1, args.size()) : new ArrayList<>();
+                    int instanceRef = player.createScriptInstance(scriptRef, constructorArgs);
+                    return instanceRef;
+                }
+            }
+        }
+
+        // Fall back to newObject for other types
         return TypeHandlers.newObject(player, args);
     }
 
@@ -443,9 +469,40 @@ public class HandlerManager {
      * Call ancestor handler.
      */
     public static int callAncestor(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement ancestor calling
-        logger.warn("callAncestor not fully implemented");
-        return 0; // Void
+        if (args.size() < 2) {
+            throw new ScriptError("callAncestor requires at least 2 arguments (handler name, object)");
+        }
+
+        String handlerName = player.getDatum(args.get(0)).symbolValue();
+        int objectRef = args.get(1);
+        Datum objectDatum = player.getDatum(objectRef);
+
+        if (!objectDatum.isScriptInstanceRef()) {
+            throw new ScriptError("callAncestor: second argument must be a script instance");
+        }
+
+        // Get the script instance
+        int instanceId = objectDatum.getScriptInstanceRef();
+        com.dirplayer.player.script.ScriptInstance instance = player.getScriptInstance(instanceId);
+        if (instance == null) {
+            throw new ScriptError("callAncestor: script instance not found");
+        }
+
+        // Get the ancestor property
+        int ancestorRef = instance.getProperty("ancestor");
+        if (ancestorRef == 0) {
+            // No ancestor, return void
+            return 0;
+        }
+
+        Datum ancestorDatum = player.getDatum(ancestorRef);
+        if (ancestorDatum.isVoid() || ancestorDatum.isNull()) {
+            return 0;
+        }
+
+        // Call the handler on the ancestor
+        List<Integer> callArgs = args.size() > 2 ? args.subList(2, args.size()) : new ArrayList<>();
+        return ScriptInstanceHandlers.call(player, ancestorRef, handlerName, callArgs);
     }
 
     // ========================================================================
@@ -763,9 +820,11 @@ public class HandlerManager {
             instanceRefs.add(new ScriptInstanceRef(value.getScriptInstanceRef()));
         } else if (value.isSpriteRef()) {
             // Get script instances from sprite
-            int spriteId = value.toSpriteRef();
-            // TODO: Get script instance list from sprite when score is implemented
-            // For now, return empty list
+            int spriteNum = value.toSpriteRef();
+            com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNum);
+            if (sprite != null && sprite.scriptInstanceList != null) {
+                instanceRefs.addAll(sprite.scriptInstanceList);
+            }
         } else if (value.isInt()) {
             // Integer is allowed but ignored (e.g., for empty slots)
         } else {
@@ -1463,46 +1522,226 @@ public class HandlerManager {
     // ========================================================================
 
     public static int castLib(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement castLib handler
         if (args.isEmpty()) {
             throw new ScriptError("castLib requires at least 1 argument");
         }
-        return player.allocDatum(Datum.ofInt(1)); // Default to cast lib 1
+
+        Datum identifier = player.getDatum(args.get(0));
+
+        if (identifier.isInt()) {
+            int castLibNum = identifier.intValue();
+            return player.allocDatum(Datum.ofCastLibRef(castLibNum));
+        } else if (identifier.isString()) {
+            String castLibName = identifier.stringValue();
+            // Look up cast lib by name
+            Integer castLibNum = player.movie.castManager.findCastLibByName(castLibName);
+            if (castLibNum != null) {
+                return player.allocDatum(Datum.ofCastLibRef(castLibNum));
+            } else {
+                // Return invalid cast lib reference (0)
+                return player.allocDatum(Datum.ofCastLibRef(0));
+            }
+        } else {
+            throw new ScriptError("castLib expects an integer or string, got " + identifier.typeStr());
+        }
     }
 
     public static int preloadNetThing(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement net preloading
-        return player.allocDatum(Datum.ofInt(1)); // Return "done"
+        if (args.isEmpty()) {
+            throw new ScriptError("preloadNetThing requires a URL argument");
+        }
+        String url = player.getDatum(args.get(0)).stringValue();
+        int taskId = player.netManager.preloadNetThing(url);
+        return player.allocDatum(Datum.ofInt(taskId));
     }
 
     public static int netDone(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Check if net operation is complete
-        return player.allocDatum(Datum.ofInt(1)); // Return true (done)
+        Integer taskId = null;
+        if (!args.isEmpty()) {
+            Datum taskIdDatum = player.getDatum(args.get(0));
+            if (!taskIdDatum.isVoid()) {
+                taskId = taskIdDatum.intValue();
+            }
+        }
+        NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
+        boolean isDone = taskState != null && taskState.isDone();
+        return player.allocDatum(Datum.ofInt(isDone ? 1 : 0));
     }
 
     public static int getNetText(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement net text fetching
-        return player.allocDatum(Datum.ofInt(0)); // Return network ID
+        if (args.isEmpty()) {
+            throw new ScriptError("getNetText requires a URL argument");
+        }
+        String originalUrl = player.getDatum(args.get(0)).stringValue();
+        // Decode URL-encoded characters
+        String url;
+        try {
+            url = java.net.URLDecoder.decode(originalUrl, "UTF-8");
+        } catch (Exception e) {
+            throw new ScriptError("Cannot decode URL: " + e.getMessage());
+        }
+        int taskId = player.netManager.preloadNetThing(url);
+        return player.allocDatum(Datum.ofInt(taskId));
     }
 
     public static int getStreamStatus(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement stream status
-        return player.allocDatum(Datum.ofString(""));
+        if (args.isEmpty()) {
+            throw new ScriptError("getStreamStatus requires a task ID or URL argument");
+        }
+
+        Datum arg = player.getDatum(args.get(0));
+        int taskId;
+
+        // Support both task ID (int) and URL (string)
+        if (arg.isInt()) {
+            taskId = arg.intValue();
+        } else if (arg.isString()) {
+            String url = arg.stringValue();
+            Integer foundTaskId = player.netManager.findTaskByUrl(url);
+            if (foundTaskId == null) {
+                throw new ScriptError("Network task not found for URL: " + url);
+            }
+            taskId = foundTaskId;
+        } else {
+            throw new ScriptError("getStreamStatus requires an integer task ID or URL string");
+        }
+
+        NetTask task = player.netManager.getTask(taskId);
+        if (task == null) {
+            throw new ScriptError("Network task " + taskId + " not found");
+        }
+
+        NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
+        if (taskState == null) {
+            throw new ScriptError("Network task state " + taskId + " not found");
+        }
+
+        String state;
+        String error;
+        boolean isOk;
+
+        if (taskState.isDone() && taskState.getResult() != null && taskState.getResult().isOk()) {
+            state = "Complete";
+            error = "OK";
+            isOk = true;
+        } else if (taskState.isDone() && taskState.getResult() != null && taskState.getResult().isError()) {
+            state = "Complete";
+            error = "Task failed";
+            isOk = false;
+        } else {
+            state = "InProgress";
+            error = "";
+            isOk = false;
+        }
+
+        // Build the result property list
+        List<Datum.PropListPair> propList = new ArrayList<>();
+        propList.add(new Datum.PropListPair(
+            player.allocDatum(Datum.ofString("URL")),
+            player.allocDatum(Datum.ofString(task.url))));
+        propList.add(new Datum.PropListPair(
+            player.allocDatum(Datum.ofString("state")),
+            player.allocDatum(Datum.ofString(state))));
+        propList.add(new Datum.PropListPair(
+            player.allocDatum(Datum.ofString("bytesSoFar")),
+            player.allocDatum(Datum.ofInt(isOk ? 100 : 0))));
+        propList.add(new Datum.PropListPair(
+            player.allocDatum(Datum.ofString("bytesTotal")),
+            player.allocDatum(Datum.ofInt(100))));
+        propList.add(new Datum.PropListPair(
+            player.allocDatum(Datum.ofString("error")),
+            player.allocDatum(Datum.ofString(error))));
+
+        return player.allocDatum(Datum.ofPropListPairs(propList, false));
     }
 
     public static int netError(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement net error
-        return player.allocDatum(Datum.ofString("OK"));
+        Integer taskId = null;
+        if (!args.isEmpty()) {
+            Datum datum = player.getDatum(args.get(0));
+            if (!datum.isVoid()) {
+                taskId = datum.intValue();
+            }
+        }
+        NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
+        if (taskState == null) {
+            throw new ScriptError("Network task not found");
+        }
+        boolean isOk = taskState.isDone() &&
+                       taskState.getResult() != null &&
+                       taskState.getResult().isOk();
+        Datum error;
+        if (isOk) {
+            error = Datum.ofString("OK");
+        } else if (taskState.getResult() != null && taskState.getResult().isError()) {
+            error = Datum.ofInt(taskState.getResult().getErrorCode());
+        } else {
+            error = Datum.ofInt(0);
+        }
+        return player.allocDatum(error);
     }
 
     public static int netTextResult(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement net text result
-        return player.allocDatum(Datum.ofString(""));
+        Integer taskId = null;
+        if (!args.isEmpty()) {
+            Datum datum = player.getDatum(args.get(0));
+            if (!datum.isVoid()) {
+                taskId = datum.intValue();
+            }
+        }
+        NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
+        if (taskState == null) {
+            throw new ScriptError("Network task not found");
+        }
+        boolean isOk = taskState.isDone() &&
+                       taskState.getResult() != null &&
+                       taskState.getResult().isOk();
+        String text;
+        if (isOk) {
+            text = taskState.getResult().getDataAsString();
+        } else {
+            text = "";
+        }
+        return player.allocDatum(Datum.ofString(text));
     }
 
     public static int postNetText(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement POST request
-        return player.allocDatum(Datum.ofInt(0));
+        if (args.isEmpty()) {
+            throw new ScriptError("postNetText requires at least 1 argument (url)");
+        }
+        String url = player.getDatum(args.get(0)).stringValue();
+
+        // Get the post data (can be a property list or string)
+        String postData;
+        if (args.size() > 1) {
+            Datum dataDatum = player.getDatum(args.get(1));
+            if (dataDatum.isPropList()) {
+                // Convert property list to form data
+                List<String> formParts = new ArrayList<>();
+                List<PropListPair> propList = dataDatum.toMap();
+                for (PropListPair pair : propList) {
+                    String key = player.getDatum(pair.key).stringValue();
+                    String value = player.getDatum(pair.value).stringValue();
+                    try {
+                        String encodedKey = java.net.URLEncoder.encode(key, "UTF-8");
+                        String encodedValue = java.net.URLEncoder.encode(value, "UTF-8");
+                        formParts.add(encodedKey + "=" + encodedValue);
+                    } catch (Exception e) {
+                        throw new ScriptError("Failed to encode form data: " + e.getMessage());
+                    }
+                }
+                postData = String.join("&", formParts);
+            } else if (dataDatum.isString()) {
+                postData = dataDatum.stringValue();
+            } else {
+                throw new ScriptError("postNetText second argument must be a property list or string, got " + dataDatum.typeStr());
+            }
+        } else {
+            postData = "";
+        }
+
+        int taskId = player.netManager.postNetText(url, postData);
+        return player.allocDatum(Datum.ofInt(taskId));
     }
 
     public static int puppetTempo(DirPlayer player, List<Integer> args) throws ScriptError {
@@ -1514,17 +1753,72 @@ public class HandlerManager {
     }
 
     public static int script(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Return script reference
-        return 0; // Void
+        if (args.isEmpty()) {
+            throw new ScriptError("script requires at least 1 argument");
+        }
+        Datum identifier = player.getDatum(args.get(0));
+
+        com.dirplayer.player.CastMemberRef memberRef = null;
+
+        if (identifier.isString()) {
+            String scriptName = identifier.stringValue();
+            memberRef = player.movie.castManager.findMemberRefByName(scriptName);
+        } else if (identifier.isInt()) {
+            int scriptNum = identifier.intValue();
+            memberRef = player.movie.castManager.findMemberRefByNumber(scriptNum);
+        } else if (identifier.isCastMemberRef()) {
+            memberRef = identifier.toCastMemberRef();
+        } else {
+            throw new ScriptError("Invalid identifier for script: " + player.formatDatum(identifier));
+        }
+
+        if (memberRef != null) {
+            com.dirplayer.player.script.Script script = player.movie.castManager.getScriptByRef(memberRef);
+            if (script != null) {
+                return player.allocDatum(Datum.ofScriptRef(memberRef));
+            }
+        }
+
+        throw new ScriptError("Script not found: " + player.formatDatum(identifier));
     }
 
     public static int member(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Return member reference
-        return 0; // Void
+        if (args.isEmpty()) {
+            throw new ScriptError("member requires at least 1 argument");
+        }
+        if (args.size() > 2) {
+            throw new ScriptError("Too many arguments for member");
+        }
+
+        Datum memberNameOrNum = player.getDatum(args.get(0));
+
+        // If already a cast member ref, return it
+        if (memberNameOrNum.isCastMemberRef()) {
+            return args.get(0);
+        }
+
+        Datum castNameOrNum = args.size() > 1 ? player.getDatum(args.get(1)) : null;
+
+        com.dirplayer.player.CastMemberRef memberRef = player.movie.castManager.findMemberRefByIdentifiers(memberNameOrNum, castNameOrNum);
+
+        if (memberRef != null) {
+            return player.allocDatum(Datum.ofCastMemberRef(memberRef));
+        } else {
+            // Return invalid member reference
+            return player.allocDatum(Datum.ofCastMemberRef(com.dirplayer.player.CastMemberRef.INVALID));
+        }
     }
 
     public static int puppetSprite(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Set sprite puppet state
+        if (args.size() < 2) {
+            throw new ScriptError("puppetSprite requires 2 arguments");
+        }
+        int spriteNumber = player.getDatum(args.get(0)).intValue();
+        boolean isPuppet = player.getDatum(args.get(1)).intValue() == 1;
+        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNumber);
+        if (sprite != null) {
+            sprite.puppet = isPuppet;
+        }
         return 0; // Void
     }
 
@@ -1541,32 +1835,110 @@ public class HandlerManager {
     }
 
     public static int externalParamName(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement external param name
-        return player.allocDatum(Datum.ofString(""));
+        if (args.isEmpty()) {
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        Datum datum = player.getDatum(args.get(0));
+
+        // Case 1: argument is a string (lookup by name, case-insensitive)
+        if (datum.isString()) {
+            String key = datum.stringValue();
+            for (String paramKey : player.externalParams.keySet()) {
+                if (paramKey.toLowerCase().equals(key.toLowerCase())) {
+                    return player.allocDatum(Datum.ofString(key));
+                }
+            }
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        // Case 2: argument is an integer (index, 1-based)
+        if (datum.isInt()) {
+            int index = datum.intValue();
+            if (index > 0 && index <= player.externalParams.size()) {
+                int i = 1;
+                for (String key : player.externalParams.keySet()) {
+                    if (i == index) {
+                        return player.allocDatum(Datum.ofString(key));
+                    }
+                    i++;
+                }
+            }
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        logger.debug("externalParamName(): invalid argument type, returning Void");
+        return player.allocDatum(Datum.ofVoid());
     }
 
     public static int externalParamValue(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement external param value
-        return player.allocDatum(Datum.ofString(""));
+        if (args.isEmpty()) {
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        Datum datum = player.getDatum(args.get(0));
+
+        // Case 1: argument is a string (lookup by name, case-insensitive)
+        if (datum.isString()) {
+            String key = datum.stringValue();
+            for (Map.Entry<String, String> entry : player.externalParams.entrySet()) {
+                if (entry.getKey().toLowerCase().equals(key.toLowerCase())) {
+                    return player.allocDatum(Datum.ofString(entry.getValue()));
+                }
+            }
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        // Case 2: argument is an integer (index, 1-based)
+        if (datum.isInt()) {
+            int index = datum.intValue();
+            if (index > 0 && index <= player.externalParams.size()) {
+                int i = 1;
+                for (String value : player.externalParams.values()) {
+                    if (i == index) {
+                        return player.allocDatum(Datum.ofString(value));
+                    }
+                    i++;
+                }
+            }
+            return player.allocDatum(Datum.ofVoid());
+        }
+
+        logger.debug("externalParamValue(): invalid argument type, returning Void");
+        return player.allocDatum(Datum.ofVoid());
     }
 
     public static int stopEvent(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement stop event
+        int scopeRef = player.currentScopeRef();
+        if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
+            ScriptScope scope = player.scopes.get(scopeRef);
+            scope.passed = false;  // Stop event propagation
+        }
         return 0; // Void
     }
 
     public static int getPref(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement preferences
-        return 0; // Void
+        // Return empty string - Lingo code handles the fallback
+        return player.allocDatum(Datum.ofString(""));
     }
 
     public static int setPref(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement preferences
+        // Preferences storage not supported in browser environment
         return 0; // Void
     }
 
     public static int goToNetPage(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement navigation
+        if (args.isEmpty()) {
+            throw new ScriptError("gotoNetPage requires a URL argument");
+        }
+        String url = player.getDatum(args.get(0)).stringValue();
+        String target = args.size() > 1 ? player.getDatum(args.get(1)).stringValue() : "_self";
+
+        // Log the navigation request - actual navigation handled by JS host
+        logger.info("gotoNetPage: {} (target: {})", url, target);
+
+        // Dispatch external event for host to handle
+        dispatchExternalEvent("gotoNetPage:" + url);
         return 0; // Void
     }
 
@@ -1584,7 +1956,22 @@ public class HandlerManager {
     }
 
     public static int puppetSound(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement puppet sound
+        if (args.isEmpty()) {
+            throw new ScriptError("puppetSound requires at least 1 argument");
+        }
+
+        // If only one argument, use channel 1 by default
+        int channelNum;
+        int memberRef;
+        if (args.size() == 1) {
+            channelNum = 1;
+            memberRef = args.get(0);
+        } else {
+            channelNum = player.getDatum(args.get(0)).intValue();
+            memberRef = args.get(1);
+        }
+
+        player.puppetSound(channelNum, memberRef);
         return 0; // Void
     }
 
@@ -1594,23 +1981,83 @@ public class HandlerManager {
     }
 
     public static int cursor(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement cursor handler
+        if (args.isEmpty()) {
+            // Return current cursor
+            return player.allocDatum(Datum.ofInt(player.currentCursor));
+        }
+
+        // Set cursor
+        Datum cursorDatum = player.getDatum(args.get(0));
+        if (cursorDatum.isInt()) {
+            player.currentCursor = cursorDatum.intValue();
+        } else if (cursorDatum.isList()) {
+            // Cursor specified as list [resourceID, maskID] - just set to arrow for now
+            player.currentCursor = 0;
+        }
+
         return 0; // Void
     }
 
     public static int timeout(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement timeout handler
-        return 0; // Void
+        if (args.isEmpty()) {
+            throw new ScriptError("timeout requires at least 1 argument (name)");
+        }
+
+        String timeoutName = player.getDatum(args.get(0)).stringValue();
+
+        // Look up existing timeout by name
+        com.dirplayer.player.TimeoutManager.TimeoutInstance existingTimeout = player.timeoutManager.getTimeout(timeoutName);
+        if (existingTimeout != null) {
+            return player.allocDatum(Datum.ofTimeoutInstance(existingTimeout));
+        }
+
+        // If not found, create a new timeout (requires #new call in Lingo typically)
+        throw new ScriptError("Timeout not found: " + timeoutName);
     }
 
     public static int image(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement image handler
-        return 0; // Void
+        if (args.size() < 2) {
+            throw new ScriptError("image requires at least 2 arguments (width, height)");
+        }
+
+        int width = player.getDatum(args.get(0)).intValue();
+        int height = player.getDatum(args.get(1)).intValue();
+
+        // Optional bit depth (default 32)
+        int bitDepth = 32;
+        if (args.size() >= 3) {
+            bitDepth = player.getDatum(args.get(2)).intValue();
+        }
+
+        // Create a new bitmap
+        com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(width, height);
+        bitmap.depth = bitDepth;
+
+        // Allocate and return as bitmap ref
+        int bitmapId = player.allocBitmap(bitmap);
+        return player.allocDatum(Datum.ofBitmapRef(bitmapId));
     }
 
     public static int xtra(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement xtra handler
-        return 0; // Void
+        if (args.isEmpty()) {
+            throw new ScriptError("xtra requires at least 1 argument (xtra name)");
+        }
+
+        String xtraName = player.getDatum(args.get(0)).stringValue();
+
+        // Look up xtra by name
+        com.dirplayer.player.xtra.XtraInstance xtraInstance = player.getXtra(xtraName);
+        if (xtraInstance != null) {
+            return player.allocDatum(Datum.ofXtraInstance(xtraInstance));
+        }
+
+        // Create a new xtra instance
+        xtraInstance = player.createXtra(xtraName);
+        if (xtraInstance != null) {
+            return player.allocDatum(Datum.ofXtraInstance(xtraInstance));
+        }
+
+        throw new ScriptError("Xtra not found: " + xtraName);
     }
 
     public static int union(DirPlayer player, List<Integer> args) throws ScriptError {
@@ -1656,17 +2103,95 @@ public class HandlerManager {
     }
 
     public static int sendSprite(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement send sprite
-        return 0; // Void
+        if (args.size() < 2) {
+            throw new ScriptError("sendSprite requires at least 2 arguments (sprite, message)");
+        }
+
+        int spriteNum = player.getDatum(args.get(0)).intValue();
+        String message = player.getDatum(args.get(1)).symbolValue();
+        List<Integer> remainingArgs = args.size() > 2 ? args.subList(2, args.size()) : new ArrayList<>();
+
+        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNum);
+        if (sprite == null) {
+            throw new ScriptError("sendSprite: sprite " + spriteNum + " not found");
+        }
+
+        List<ScriptInstanceRef> receivers = new ArrayList<>(sprite.scriptInstanceList);
+
+        boolean handledBySprite = false;
+        for (ScriptInstanceRef receiver : receivers) {
+            List<ScriptInstanceRef> singleReceiver = new ArrayList<>();
+            singleReceiver.add(receiver);
+
+            try {
+                boolean handled = player.eventDispatcher.invokeEventToInstances(message, remainingArgs, singleReceiver);
+                if (handled) {
+                    handledBySprite = true;
+                }
+            } catch (ScriptError e) {
+                logger.warn("sendSprite continuing after error in handler");
+            }
+        }
+
+        if (!handledBySprite) {
+            player.eventDispatcher.invokeStaticEvent(message, remainingArgs);
+        }
+
+        return player.allocDatum(Datum.ofInt(handledBySprite ? 1 : 0));
     }
 
     public static int sendAllSprites(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement send all sprites
-        return 0; // Void
+        if (args.isEmpty()) {
+            throw new ScriptError("sendAllSprites requires at least 1 argument (message)");
+        }
+
+        // Check for re-entrant sendAllSprites call
+        if (player.isInSendAllSprites) {
+            logger.warn("Blocking re-entrant sendAllSprites call to prevent infinite recursion");
+            return 0; // Void
+        }
+        player.isInSendAllSprites = true;
+
+        try {
+            String message = player.getDatum(args.get(0)).symbolValue();
+            List<Integer> remainingArgs = args.size() > 1 ? args.subList(1, args.size()) : new ArrayList<>();
+
+            // Collect receivers from stage score
+            List<ScriptInstanceRef> receivers = player.movie.score.getActiveScriptInstanceList();
+
+            boolean handledBySprite = false;
+            for (ScriptInstanceRef receiver : receivers) {
+                List<ScriptInstanceRef> singleReceiver = new ArrayList<>();
+                singleReceiver.add(receiver);
+
+                try {
+                    boolean handled = player.eventDispatcher.invokeEventToInstances(message, remainingArgs, singleReceiver);
+                    if (handled) {
+                        handledBySprite = true;
+                    }
+                } catch (ScriptError e) {
+                    logger.warn("sendAllSprites continuing after error in handler");
+                }
+            }
+
+            if (!handledBySprite) {
+                player.eventDispatcher.invokeStaticEvent(message, remainingArgs);
+            }
+
+            return player.allocDatum(Datum.ofInt(handledBySprite ? 1 : 0));
+        } finally {
+            player.isInSendAllSprites = false;
+        }
     }
 
     public static int updateStage(DirPlayer player, List<Integer> args) throws ScriptError {
-        // TODO: Implement stage update
+        // Trigger synchronous render if we're in a safe state
+        if (player.isYieldSafe()) {
+            logger.debug("updateStage: performing synchronous render");
+            player.renderStage();
+        } else {
+            logger.debug("updateStage: skipped render, not in yield-safe state");
+        }
         return 0; // Void
     }
 

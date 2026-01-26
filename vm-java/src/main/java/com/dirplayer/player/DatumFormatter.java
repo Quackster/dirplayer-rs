@@ -298,17 +298,14 @@ public class DatumFormatter {
     private static String formatPaletteRef(Datum datum) {
         try {
             // Try to get the palette reference info
-            if (datum.getIntValue() != null) {
-                int paletteId = datum.getIntValue();
-                if (paletteId < 0) {
-                    // Built-in palette
-                    return "palette(" + paletteId + ")";
-                } else {
-                    // Cast member palette
-                    return "palette(member " + paletteId + ")";
-                }
+            int paletteId = datum.intValue();
+            if (paletteId < 0) {
+                // Built-in palette
+                return "palette(" + paletteId + ")";
+            } else {
+                // Cast member palette
+                return "palette(member " + paletteId + ")";
             }
-            return "<palette>";
         } catch (Exception e) {
             return "<palette>";
         }

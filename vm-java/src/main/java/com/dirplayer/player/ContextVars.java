@@ -137,7 +137,7 @@ public class ContextVars {
                 }
 
                 // Apply put type (into, before, after)
-                String existingText = member.field != null ? member.field.text : "";
+                String existingText = member.text != null ? member.text : "";
                 String finalText;
                 switch (putType) {
                     case INTO:
@@ -152,9 +152,7 @@ public class ContextVars {
                     default:
                         finalText = newValue;
                 }
-                if (member.field != null) {
-                    member.field.text = finalText;
-                }
+                member.text = finalText;
                 logger.debug("Setting field text: {}", finalText);
                 break;
 

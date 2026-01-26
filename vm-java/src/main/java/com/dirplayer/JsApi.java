@@ -358,20 +358,21 @@ public class JsApi {
         // Add type-specific fields
         if (member.memberType != null) {
             switch (member.memberType) {
-                case BITMAP:
+                case Bitmap:
                     sb.append(",\"width\":").append(member.bitmapWidth);
                     sb.append(",\"height\":").append(member.bitmapHeight);
                     sb.append(",\"bitDepth\":").append(member.bitDepth);
                     sb.append(",\"regPointX\":").append(member.regPointX);
                     sb.append(",\"regPointY\":").append(member.regPointY);
                     break;
-                case FIELD:
-                case TEXT:
+                case Button:
+                case RTE:
+                case Text:
                     sb.append(",\"text\":\"").append(escapeJson(member.text != null ? member.text : "")).append("\"");
                     sb.append(",\"font\":\"").append(escapeJson(member.font != null ? member.font : "")).append("\"");
                     sb.append(",\"fontSize\":").append(member.fontSize);
                     break;
-                case SOUND:
+                case Sound:
                     sb.append(",\"sampleRate\":").append(member.sampleRate);
                     sb.append(",\"sampleSize\":").append(member.sampleSize);
                     break;
@@ -409,7 +410,7 @@ public class JsApi {
 
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        sb.append("\"channel\":").append(sprite.channelNumber).append(",");
+        sb.append("\"channel\":").append(sprite.number).append(",");
         sb.append("\"memberCastLib\":").append(sprite.memberRef != null ? sprite.memberRef.castLib : 0).append(",");
         sb.append("\"memberCastMember\":").append(sprite.memberRef != null ? sprite.memberRef.castMember : 0).append(",");
         sb.append("\"locH\":").append(sprite.locH).append(",");

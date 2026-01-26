@@ -42,6 +42,7 @@ public class DirPlayer {
     public DatumAllocator allocator;
     public BreakpointManager breakpointManager;
     public com.dirplayer.player.xtra.XtraManager xtraManager;
+    public com.dirplayer.player.events.EventDispatcher eventDispatcher;
 
     // Debug state
     public BreakpointContext currentBreakpoint;
@@ -138,6 +139,7 @@ public class DirPlayer {
         this.allocator = new DatumAllocator();
         this.breakpointManager = new BreakpointManager();
         this.xtraManager = new com.dirplayer.player.xtra.XtraManager();
+        this.eventDispatcher = new com.dirplayer.player.events.EventDispatcher();
 
         this.currentBreakpoint = null;
         this.stepMode = StepMode.None;
@@ -293,11 +295,7 @@ public class DirPlayer {
         clickOnSprite = getSpriteAt(x, y);
 
         // Dispatch mouseDown event to sprites and scripts
-        try {
-            eventDispatcher.dispatchGlobalEvent("mouseDown", new java.util.ArrayList<>());
-        } catch (ScriptError e) {
-            logger.warn("Error dispatching mouseDown event: {}", e.getMessage());
-        }
+        eventDispatcher.dispatchGlobalEvent("mouseDown", new java.util.ArrayList<>());
     }
 
     public void mouseUp(int x, int y) {
@@ -306,11 +304,7 @@ public class DirPlayer {
         movie.mouseDown = false;
 
         // Dispatch mouseUp event to sprites and scripts
-        try {
-            eventDispatcher.dispatchGlobalEvent("mouseUp", new java.util.ArrayList<>());
-        } catch (ScriptError e) {
-            logger.warn("Error dispatching mouseUp event: {}", e.getMessage());
-        }
+        eventDispatcher.dispatchGlobalEvent("mouseUp", new java.util.ArrayList<>());
     }
 
     public void mouseMove(int x, int y) {
@@ -331,22 +325,14 @@ public class DirPlayer {
         keyboardManager.keyDown(key, code);
 
         // Dispatch keyDown event to sprites and scripts
-        try {
-            eventDispatcher.dispatchGlobalEvent("keyDown", new java.util.ArrayList<>());
-        } catch (ScriptError e) {
-            logger.warn("Error dispatching keyDown event: {}", e.getMessage());
-        }
+        eventDispatcher.dispatchGlobalEvent("keyDown", new java.util.ArrayList<>());
     }
 
     public void keyUp(String key, int code) {
         keyboardManager.keyUp(key, code);
 
         // Dispatch keyUp event to sprites and scripts
-        try {
-            eventDispatcher.dispatchGlobalEvent("keyUp", new java.util.ArrayList<>());
-        } catch (ScriptError e) {
-            logger.warn("Error dispatching keyUp event: {}", e.getMessage());
-        }
+        eventDispatcher.dispatchGlobalEvent("keyUp", new java.util.ArrayList<>());
     }
 
     // Getter methods for rendering/JsApi compatibility
@@ -960,7 +946,7 @@ public class DirPlayer {
     public void requestDatumSnapshot(int datumId) {
         // For debugging - return datum value as JSON-like string
         com.dirplayer.director.lingo.Datum datum = getDatum(datumId);
-        String snapshot = com.dirplayer.player.DatumFormatter.format(this, datumId);
+        String snapshot = com.dirplayer.player.DatumFormatter.formatDatum(datumId, this);
         logger.debug("Datum {} snapshot: {}", datumId, snapshot);
     }
 

@@ -30,6 +30,20 @@ public class TimeoutManager {
         timeouts.clear();
     }
 
+    /**
+     * Trigger a timeout by name.
+     * @param player The player instance
+     * @param name The timeout name
+     */
+    public void triggerTimeout(DirPlayer player, String name) throws ScriptError {
+        Timeout timeout = timeouts.get(name);
+        if (timeout != null && timeout.isActive) {
+            timeout.reset();
+            // The actual callback is handled via event dispatch in JS layer
+            // Just reset the timeout state here
+        }
+    }
+
     public static class Timeout {
         public String name;
         public int duration;

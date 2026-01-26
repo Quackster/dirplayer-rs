@@ -84,9 +84,9 @@ public abstract class PlayerCommand {
     }
 
     public static class TimeoutTriggered extends PlayerCommand {
-        public final int timeoutRef;
+        public final String timeoutRef;
 
-        public TimeoutTriggered(int timeoutRef) {
+        public TimeoutTriggered(String timeoutRef) {
             this.timeoutRef = timeoutRef;
         }
 
