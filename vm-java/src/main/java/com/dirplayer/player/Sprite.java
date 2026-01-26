@@ -1,0 +1,117 @@
+package com.dirplayer.player;
+
+/**
+ * A sprite in a score channel.
+ * Port of Rust Sprite struct.
+ */
+public class Sprite {
+    public int number;
+    public CastMemberRef memberRef;
+    public int locH;
+    public int locV;
+    public int width;
+    public int height;
+    public int ink;
+    public int blend;
+    public boolean visible;
+    public boolean puppet;
+    public boolean moveable;
+    public boolean editableText;
+    public int foreColor;
+    public int backColor;
+    public int constraint;
+    public boolean trails;
+    public boolean stretch;
+    public int rotation;
+    public int skew;
+    public boolean flipH;
+    public boolean flipV;
+
+    // Behavior/script list
+    public int scriptNum;
+    public java.util.List<Integer> scriptInstanceList;
+
+    // Cursor
+    public CursorRef cursor;
+
+    // Timeline properties
+    public int startTime;
+    public int stopTime;
+    public int movieRate;
+    public int movieTime;
+    public int currentTime;
+
+    // Type-specific properties
+    public int lineSize;
+    public int pattern;
+
+    public Sprite(int number) {
+        this.number = number;
+        this.memberRef = new CastMemberRef();
+        this.locH = 0;
+        this.locV = 0;
+        this.width = 0;
+        this.height = 0;
+        this.ink = 0;
+        this.blend = 100;
+        this.visible = true;
+        this.puppet = false;
+        this.moveable = false;
+        this.editableText = false;
+        this.foreColor = 255;
+        this.backColor = 0;
+        this.constraint = 0;
+        this.trails = false;
+        this.stretch = false;
+        this.rotation = 0;
+        this.skew = 0;
+        this.flipH = false;
+        this.flipV = false;
+        this.scriptNum = 0;
+        this.scriptInstanceList = new java.util.ArrayList<>();
+        this.cursor = new CursorRef();
+        this.startTime = 0;
+        this.stopTime = 0;
+        this.movieRate = 0;
+        this.movieTime = 0;
+        this.currentTime = 0;
+        this.lineSize = 1;
+        this.pattern = 0;
+    }
+
+    public int getLeft() {
+        return locH - width / 2;
+    }
+
+    public int getTop() {
+        return locV - height / 2;
+    }
+
+    public int getRight() {
+        return locH + width / 2;
+    }
+
+    public int getBottom() {
+        return locV + height / 2;
+    }
+
+    public IntRect getRect() {
+        return new IntRect(getLeft(), getTop(), getRight(), getBottom());
+    }
+
+    public boolean containsPoint(int x, int y) {
+        return x >= getLeft() && x < getRight() && y >= getTop() && y < getBottom();
+    }
+
+    public void setLoc(int h, int v) {
+        this.locH = h;
+        this.locV = v;
+    }
+
+    public void setRect(int left, int top, int right, int bottom) {
+        this.width = right - left;
+        this.height = bottom - top;
+        this.locH = left + width / 2;
+        this.locV = top + height / 2;
+    }
+}
