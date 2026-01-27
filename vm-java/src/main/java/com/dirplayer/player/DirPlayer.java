@@ -384,20 +384,13 @@ public class DirPlayer {
                 return;
             }
 
-            // Load cast members from the parsed director file
-            // TODO: Implement cast loading from DirectorFile chunks
-            // movie.castManager.loadFromFile(dirFile, netManager, bitmapManager, this);
-
-            // Load score from the parsed director file
-            // TODO: Implement score loading from DirectorFile chunks
-            // movie.score.loadFromFile(dirFile);
-
-            // Store movie properties from config chunk
+            // Store movie properties from config chunk first
             if (dirFile.config != null) {
                 var config = dirFile.config;
                 movie.rect = new IntRect(config.movieLeft, config.movieTop,
                     config.movieRight, config.movieBottom);
                 movie.dirVersion = config.directorVersion;
+                movie.frameRate = config.frameRate;
                 // Use stage color from config
                 if (config.d7StageColorIsRgb != 0) {
                     movie.stageColorR = config.d7StageColorR;
@@ -408,7 +401,31 @@ public class DirPlayer {
                 }
             }
 
+            // Load cast members from the parsed director file
+            movie.castManager.loadFromDir(dirFile, bitmapManager);
+
+            // Load score from the parsed director file
+            if (dirFile.score != null) {
+                movie.score.loadFromScoreChunk(dirFile.score);
+
+                // Load frame labels if available
+                if (dirFile.frameLabels != null) {
+                    movie.score.frameLabels = dirFile.frameLabels.labels;
+                }
+            }
+
+            // Store the file reference
+            movie.basePath = dirFile.basePath != null ? dirFile.basePath.toString() : "";
+            movie.fileName = dirFile.fileName;
+
+            // Load fonts from cast members
+            movie.castManager.loadFontsIntoManager(fontManager);
+
             reset();
+            logger.info("Loaded movie: {}x{}, {} casts, {} frames",
+                movie.rect.width(), movie.rect.height(),
+                movie.castManager.getCastLibCount(),
+                movie.score.totalFrames);
         } catch (Exception e) {
             logger.error("Failed to load from director file: {}", e.getMessage());
         }
@@ -1557,5 +1574,170 @@ public class DirPlayer {
      */
     public XmlNode getXmlNode(int nodeId) {
         return xmlNodes.get(nodeId);
+    }
+
+    // ==================== Swing Player Support Methods ====================
+
+    /**
+     * Main tick method for playback loop.
+     * Called each frame during playback.
+     */
+    public void tick() {
+        if (!isPlaying || isScriptPaused) {
+            return;
+        }
+
+        try {
+            // Begin frame processing
+            isInFrameUpdate = true;
+
+            // Update timeouts - check for any that should trigger
+            for (TimeoutManager.Timeout timeout : timeoutManager.timeouts.values()) {
+                if (timeout.shouldTrigger()) {
+                    timeout.reset();
+                }
+            }
+
+            // Dispatch prepareFrame event
+            inPrepareFrame = true;
+            eventDispatcher.dispatchGlobalEvent("prepareFrame", new java.util.ArrayList<>());
+            inPrepareFrame = false;
+
+            // Initialize sprites for current frame
+            beginAllSprites();
+
+            // Dispatch enterFrame event
+            inEnterFrame = true;
+            eventDispatcher.dispatchGlobalEvent("enterFrame", new java.util.ArrayList<>());
+            inEnterFrame = false;
+
+            // Dispatch step frame events (idle, timeouts, etc)
+            eventDispatcher.dispatchGlobalEvent("stepFrame", new java.util.ArrayList<>());
+
+            // Dispatch exitFrame event
+            eventDispatcher.dispatchGlobalEvent("exitFrame", new java.util.ArrayList<>());
+
+            // Advance to next frame
+            advanceFrame();
+
+            isInFrameUpdate = false;
+
+        } catch (Exception e) {
+            isInFrameUpdate = false;
+            logger.error("Tick error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Debug step into - wrapper for Swing player.
+     */
+    public void debugStepInto() {
+        stepInto();
+    }
+
+    /**
+     * Debug step over - wrapper for Swing player.
+     */
+    public void debugStepOver() {
+        stepOver();
+    }
+
+    /**
+     * Debug step out - wrapper for Swing player.
+     */
+    public void debugStepOut() {
+        stepOut();
+    }
+
+    /**
+     * Evaluate a Lingo command and return the result as a string.
+     * Used by the debug console.
+     * @param command The Lingo command to evaluate
+     * @return The result as a string, or null if no result
+     */
+    public String evaluateLingo(String command) {
+        try {
+            evalLingoCommand(command);
+            // For simple commands, return the effect
+            command = command.trim().toLowerCase();
+            if (command.startsWith("put ")) {
+                // Parse and evaluate the expression after "put"
+                String expr = command.substring(4).trim();
+                // Try to evaluate common expressions
+                if (expr.equals("the frame")) {
+                    return String.valueOf(movie.currentFrame);
+                } else if (expr.equals("the moviename")) {
+                    return movie.fileName;
+                } else if (expr.startsWith("sprite(") && expr.contains(").")) {
+                    // Parse sprite property access
+                    return evaluateSpriteExpr(expr);
+                }
+                return expr;
+            }
+            return null;
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Helper to evaluate sprite expressions for debug console.
+     */
+    private String evaluateSpriteExpr(String expr) {
+        try {
+            // Parse sprite(N).property
+            int start = expr.indexOf('(') + 1;
+            int end = expr.indexOf(')');
+            int spriteNum = Integer.parseInt(expr.substring(start, end).trim());
+            String prop = expr.substring(expr.indexOf('.') + 1).trim();
+
+            Sprite sprite = getSprite(spriteNum);
+            if (sprite == null) {
+                return "sprite not found";
+            }
+
+            switch (prop.toLowerCase()) {
+                case "loch":
+                    return String.valueOf(sprite.locH);
+                case "locv":
+                    return String.valueOf(sprite.locV);
+                case "visible":
+                    return String.valueOf(sprite.visible);
+                case "member":
+                    return sprite.memberRef != null ? sprite.memberRef.toString() : "void";
+                default:
+                    return "unknown property: " + prop;
+            }
+        } catch (Exception e) {
+            return "parse error";
+        }
+    }
+
+    /**
+     * Get all global variables for debug display.
+     * @return Map of global variable names to their Datum values
+     */
+    public Map<String, com.dirplayer.director.lingo.Datum> getGlobals() {
+        return getHydratedGlobals();
+    }
+
+    /**
+     * Handle key down with keyCode and keyChar (Swing-style).
+     * @param keyCode The key code (from KeyEvent)
+     * @param keyChar The character typed
+     */
+    public void handleKeyDown(int keyCode, char keyChar) {
+        keyboardManager.setLastKeyCode(keyCode);
+        keyboardManager.setLastKey(String.valueOf(keyChar));
+        keyDown(String.valueOf(keyChar), keyCode);
+    }
+
+    /**
+     * Handle key up with keyCode and keyChar (Swing-style).
+     * @param keyCode The key code (from KeyEvent)
+     * @param keyChar The character typed
+     */
+    public void handleKeyUp(int keyCode, char keyChar) {
+        keyUp(String.valueOf(keyChar), keyCode);
     }
 }

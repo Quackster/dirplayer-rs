@@ -205,6 +205,22 @@ public class KeyboardManager {
     }
 
     /**
+     * Set the last key code (for external input handling).
+     * @param code The Shockwave key code
+     */
+    public void setLastKeyCode(int code) {
+        this.lastKeyCode = code;
+    }
+
+    /**
+     * Set the last key string (for external input handling).
+     * @param key The key string
+     */
+    public void setLastKey(String key) {
+        this.lastKey = key;
+    }
+
+    /**
      * Set the shift modifier state directly.
      * Note: This is for external input handling; prefer using keyDown/keyUp.
      * @param shiftDown true if shift should be considered pressed

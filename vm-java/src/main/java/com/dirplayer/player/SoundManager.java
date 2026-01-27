@@ -112,4 +112,71 @@ public class SoundManager {
             this.compressionType = "";
         }
     }
+
+    // ==================== Swing Sound Manager Support ====================
+
+    /**
+     * State for a sound channel, used by SwingSoundManager.
+     */
+    public static class SoundChannelState {
+        public boolean shouldPlay;
+        public byte[] soundData;
+        public boolean loop;
+        public int volume;
+
+        public SoundChannelState() {
+            this.shouldPlay = false;
+            this.soundData = null;
+            this.loop = false;
+            this.volume = 255;
+        }
+    }
+
+    // State tracking for each channel (for Swing sound manager)
+    private SoundChannelState[] channelStates;
+
+    /**
+     * Get the channel state for Swing sound manager.
+     * @param channelNum The channel number (1-based)
+     * @return The channel state, or null if invalid channel
+     */
+    public SoundChannelState getChannelState(int channelNum) {
+        if (channelNum <= 0 || channelNum > channelCount) {
+            return null;
+        }
+        // Lazy initialization
+        if (channelStates == null) {
+            channelStates = new SoundChannelState[channelCount];
+            for (int i = 0; i < channelCount; i++) {
+                channelStates[i] = new SoundChannelState();
+            }
+        }
+        return channelStates[channelNum - 1];
+    }
+
+    /**
+     * Set the busy state of a channel (called by SwingSoundManager).
+     * @param channelNum The channel number (1-based)
+     * @param busy Whether the channel is currently playing
+     */
+    public void setChannelBusy(int channelNum, boolean busy) {
+        if (channelNum > 0 && channelNum <= channelCount) {
+            channels[channelNum - 1].setBusy(busy);
+        }
+    }
+
+    /**
+     * Queue a sound to be played by the Swing sound manager.
+     * @param channelNum The channel number (1-based)
+     * @param soundData The raw audio data
+     * @param loop Whether to loop the sound
+     */
+    public void queueSound(int channelNum, byte[] soundData, boolean loop) {
+        SoundChannelState state = getChannelState(channelNum);
+        if (state != null) {
+            state.soundData = soundData;
+            state.loop = loop;
+            state.shouldPlay = true;
+        }
+    }
 }

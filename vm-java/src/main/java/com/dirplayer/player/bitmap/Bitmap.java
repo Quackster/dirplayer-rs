@@ -135,6 +135,36 @@ public class Bitmap {
     }
 
     /**
+     * Clear bitmap to a specific color.
+     * @param color The color to fill with
+     */
+    public void clear(com.dirplayer.player.ColorRef color) {
+        if (color == null) {
+            clearData();
+            return;
+        }
+
+        int r = color.red & 0xFF;
+        int g = color.green & 0xFF;
+        int b = color.blue & 0xFF;
+
+        if (bitDepth == 32) {
+            // RGBA format
+            for (int i = 0; i < data.length; i += 4) {
+                data[i] = (byte) r;
+                data[i + 1] = (byte) g;
+                data[i + 2] = (byte) b;
+                data[i + 3] = (byte) 0xFF;  // Full opacity
+            }
+        } else if (bitDepth == 8) {
+            // Palette index - use index 0 (typically background)
+            java.util.Arrays.fill(data, (byte) 0);
+        } else {
+            java.util.Arrays.fill(data, (byte) 0);
+        }
+    }
+
+    /**
      * Set pixel with RGB values.
      */
     public void setPixel(int x, int y, int r, int g, int b, PaletteMap palettes) {

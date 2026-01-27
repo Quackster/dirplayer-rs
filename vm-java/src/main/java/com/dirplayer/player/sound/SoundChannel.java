@@ -53,6 +53,19 @@ public class SoundChannel {
         return status == SoundStatus.Playing;
     }
 
+    /**
+     * Set the busy state of this channel.
+     * Called by external sound managers (e.g., SwingSoundManager).
+     * @param busy Whether the channel is currently playing
+     */
+    public void setBusy(boolean busy) {
+        if (busy) {
+            status = SoundStatus.Playing;
+        } else if (status == SoundStatus.Playing) {
+            status = SoundStatus.Stopped;
+        }
+    }
+
     public void play() {
         status = SoundStatus.Playing;
     }

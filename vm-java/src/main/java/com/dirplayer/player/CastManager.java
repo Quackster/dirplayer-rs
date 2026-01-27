@@ -393,4 +393,313 @@ public class CastManager {
             }
         }
     }
+
+    /**
+     * Load cast libraries and members from a DirectorFile.
+     * Port of Rust load_from_dir method.
+     */
+    public void loadFromDir(com.dirplayer.director.DirectorFile dirFile,
+                            com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        if (dirFile == null) {
+            return;
+        }
+
+        List<CastLib> loadedCasts = new ArrayList<>();
+
+        // Iterate through cast entries
+        for (int index = 0; index < dirFile.castEntries.size(); index++) {
+            com.dirplayer.director.chunks.CastListChunk.CastListEntry castEntry = dirFile.castEntries.get(index);
+
+            // Find matching CastDef
+            com.dirplayer.director.CastDef castDef = null;
+            for (com.dirplayer.director.CastDef def : dirFile.casts) {
+                if (def.id == castEntry.id) {
+                    castDef = def;
+                    break;
+                }
+            }
+
+            // Create CastLib
+            CastLib cast = new CastLib();
+            cast.name = castEntry.name;
+            cast.fileName = castEntry.filePath != null ? castEntry.filePath : "";
+            cast.number = index + 1;  // 1-indexed
+            cast.isExternal = castDef == null;
+            cast.state = castDef != null ? CastLib.CastLibState.Loaded : CastLib.CastLibState.None;
+            cast.preloadMode = castEntry.preloadSettings;
+
+            // Apply cast definition if available
+            if (castDef != null) {
+                applyCastDef(cast, dirFile, castDef, bitmapManager);
+                clearMovieScriptCache();
+            }
+
+            loadedCasts.add(cast);
+        }
+
+        this.casts = loadedCasts;
+        logger.debug("Loaded {} cast libraries", casts.size());
+    }
+
+    /**
+     * Apply cast definition to a cast library, loading all members.
+     */
+    private void applyCastDef(CastLib cast, com.dirplayer.director.DirectorFile dirFile,
+                               com.dirplayer.director.CastDef castDef,
+                               com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        cast.dirVersion = dirFile.version;
+
+        // Load each member from the cast definition
+        for (java.util.Map.Entry<Integer, com.dirplayer.director.CastDef.CastMemberDef> entry : castDef.members.entrySet()) {
+            int memberNumber = entry.getKey();
+            com.dirplayer.director.CastDef.CastMemberDef memberDef = entry.getValue();
+
+            CastMember member = createMemberFromDef(cast.number, memberNumber, memberDef, castDef, bitmapManager);
+            if (member != null) {
+                cast.insertMember(memberNumber, member);
+
+                // Create script if this is a script member
+                if (member.getMemberType() == MemberType.Script && castDef.lctx != null) {
+                    Script script = createScriptFromMember(cast, memberNumber, member, memberDef, castDef);
+                    if (script != null) {
+                        cast.scripts.put(memberNumber, script);
+                    }
+                }
+            }
+        }
+
+        logger.debug("Applied cast def to cast {}: {} members, {} scripts",
+            cast.number, cast.members.size(), cast.scripts.size());
+    }
+
+    /**
+     * Create a CastMember from a CastMemberDef.
+     */
+    private CastMember createMemberFromDef(int castLibNum, int memberNumber,
+                                            com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                            com.dirplayer.director.CastDef castDef,
+                                            com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        if (memberDef.chunk == null) {
+            return null;
+        }
+
+        CastMember member = new CastMember();
+        member.number = memberNumber;
+        member.memberRef = new CastMemberRef(castLibNum, memberNumber);
+        member.memberType = memberDef.chunk.memberType;
+        member.type = memberDef.chunk.memberType;
+        member.isLoaded = true;
+
+        // Set name from member info
+        if (memberDef.chunk.memberInfo != null) {
+            member.name = memberDef.chunk.memberInfo.name;
+        }
+
+        // Load type-specific data using specificData from the chunk
+        com.dirplayer.director.chunks.CastMemberSpecificData specificData = memberDef.chunk.specificData;
+
+        switch (memberDef.chunk.memberType) {
+            case Bitmap:
+                loadBitmapMember(member, memberDef, specificData, bitmapManager);
+                break;
+            case Text:
+            case RTE:
+            case Button:
+                loadTextMember(member, memberDef, specificData);
+                break;
+            case Sound:
+                loadSoundMember(member, memberDef);
+                break;
+            case Script:
+                loadScriptMember(member, specificData);
+                break;
+            case Palette:
+                loadPaletteMember(member, memberDef);
+                break;
+            case Shape:
+                loadShapeMember(member, specificData);
+                break;
+            case FilmLoop:
+                loadFilmLoopMember(member, specificData);
+                break;
+            default:
+                // Other types keep default values
+                break;
+        }
+
+        return member;
+    }
+
+    /**
+     * Load bitmap-specific data into a member.
+     */
+    private void loadBitmapMember(CastMember member,
+                                   com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                   com.dirplayer.director.chunks.CastMemberSpecificData specificData,
+                                   com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        com.dirplayer.director.BitmapInfo info = specificData.getBitmapInfo();
+        if (info != null) {
+            member.bitmapWidth = info.width;
+            member.bitmapHeight = info.height;
+            member.bitDepth = info.bitDepth;
+            member.regPointX = info.regX;
+            member.regPointY = info.regY;
+            member.paletteRef = info.paletteId;
+        }
+
+        // Load bitmap data if available
+        if (memberDef.bitmap != null && bitmapManager != null && info != null) {
+            try {
+                com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
+                    info.width, info.height, info.bitDepth, info.bitDepth, 0,
+                    com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
+                        com.dirplayer.player.bitmap.BuiltInPalette.SystemWin));
+
+                // Decode bitmap data using decompressBitmap
+                if (memberDef.bitmap.data != null && memberDef.bitmap.data.length > 0) {
+                    bitmap = com.dirplayer.player.bitmap.BitmapDecoder.decompressBitmap(
+                        memberDef.bitmap.data, info, 0, 0);
+                }
+
+                int bitmapId = bitmapManager.addBitmap(bitmap);
+                member.bitmap = new com.dirplayer.player.bitmap.BitmapRef(bitmapId, bitmap.getWidth(), bitmap.getHeight(), info.bitDepth);
+            } catch (Exception e) {
+                logger.warn("Failed to decode bitmap: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Load text-specific data into a member.
+     */
+    private void loadTextMember(CastMember member,
+                                 com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                 com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        if (memberDef.text != null) {
+            member.text = memberDef.text.text;
+        }
+        com.dirplayer.director.FieldInfo fieldInfo = specificData.getFieldInfo();
+        if (fieldInfo != null) {
+            member.textWidth = fieldInfo.width;
+            member.textHeight = fieldInfo.height;
+        }
+    }
+
+    /**
+     * Load sound-specific data into a member.
+     */
+    private void loadSoundMember(CastMember member,
+                                  com.dirplayer.director.CastDef.CastMemberDef memberDef) {
+        if (memberDef.sound != null) {
+            member.sampleRate = memberDef.sound.getSampleRate();
+            member.channels = memberDef.sound.getChannels();
+            member.sampleCount = memberDef.sound.getSampleCount();
+        }
+    }
+
+    /**
+     * Load script-specific data into a member.
+     */
+    private void loadScriptMember(CastMember member,
+                                   com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        ScriptType scriptType = specificData.getScriptType();
+        if (scriptType != null) {
+            member.scriptType = scriptType.ordinal();
+        }
+    }
+
+    /**
+     * Load palette-specific data into a member.
+     */
+    private void loadPaletteMember(CastMember member,
+                                    com.dirplayer.director.CastDef.CastMemberDef memberDef) {
+        if (memberDef.palette != null && memberDef.palette.colors != null) {
+            // Convert palette colors to PaletteMember format
+            java.util.List<int[]> colorList = memberDef.palette.colors;
+            PaletteMember paletteMember = new PaletteMember(colorList.size());
+            for (int i = 0; i < colorList.size(); i++) {
+                int[] rgb = colorList.get(i);
+                if (rgb.length >= 3) {
+                    paletteMember.setColor(i, rgb[0], rgb[1], rgb[2]);
+                }
+            }
+            member.specificData = paletteMember;
+        }
+    }
+
+    /**
+     * Load shape-specific data into a member.
+     */
+    private void loadShapeMember(CastMember member,
+                                  com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        com.dirplayer.director.ShapeInfo shapeInfo = specificData.getShapeInfo();
+        if (shapeInfo != null) {
+            // Shape info is stored in specificData if needed
+        }
+    }
+
+    /**
+     * Load filmloop-specific data into a member.
+     */
+    private void loadFilmLoopMember(CastMember member,
+                                     com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        com.dirplayer.director.FilmLoopInfo filmLoopInfo = specificData.getFilmLoopInfo();
+        if (filmLoopInfo != null) {
+            // FilmLoop data is processed separately
+        }
+    }
+
+    /**
+     * Create a Script object from a script member.
+     */
+    private Script createScriptFromMember(CastLib cast, int memberNumber, CastMember member,
+                                           com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                           com.dirplayer.director.CastDef castDef) {
+        if (memberDef.script == null || castDef.lctx == null) {
+            return null;
+        }
+
+        try {
+            // Get script type from specific data
+            ScriptType scriptType = ScriptType.Unknown;
+            if (memberDef.chunk.specificData != null) {
+                ScriptType st = memberDef.chunk.specificData.getScriptType();
+                if (st != null) {
+                    scriptType = st;
+                }
+            }
+
+            // Create script from script chunk
+            Script script = new Script(
+                new CastMemberRef(cast.number, memberNumber),
+                member.name,
+                memberDef.script,
+                scriptType
+            );
+
+            return script;
+        } catch (Exception e) {
+            logger.warn("Failed to create script: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Load fonts from cast members into the font manager.
+     */
+    public void loadFontsIntoManager(com.dirplayer.player.FontManager fontManager) {
+        if (fontManager == null) {
+            return;
+        }
+
+        for (CastLib cast : casts) {
+            for (CastMember member : cast.members.values()) {
+                if (member.getMemberType() == MemberType.Font) {
+                    // Font members would be loaded here
+                    // For now, most Director content uses system fonts
+                    logger.debug("Found font member: {} in cast {}", member.name, cast.number);
+                }
+            }
+        }
+    }
 }
