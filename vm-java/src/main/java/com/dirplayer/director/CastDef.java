@@ -64,53 +64,55 @@ public class CastDef {
             }
         }
 
-        // Load cast members
+        // Load cast members - directly read CASt chunks by section ID (like Rust does)
+        logger.debug("CastDef.from: loading {} memberIds", memberIds.size());
+
+        int skippedZero = 0;
+        int chunkLoadFailed = 0;
+
         for (int i = 0; i < memberIds.size(); i++) {
-            int memberId = memberIds.get(i);
-            if (memberId == 0) continue;
-
-            int slotNumber = minMember + i;
-
-            // Find the CASt chunk for this member
-            KeyTableChunk.KeyTableEntry memberEntry = null;
-            for (KeyTableChunk.KeyTableEntry entry : keyTable.entries) {
-                if (entry.sectionId == memberId && entry.fourcc == Utils.FOURCC("CASt")) {
-                    memberEntry = entry;
-                    break;
-                }
+            int sectionId = memberIds.get(i);
+            if (sectionId <= 0) {
+                skippedZero++;
+                continue;
             }
 
-            if (memberEntry != null) {
-                Chunk chunk = DirectorFile.getChunk(reader, chunkContainer, rifx, Utils.FOURCC("CASt"), memberId);
-                if (chunk != null && chunk.asCastMember() != null) {
-                    CastMemberDef memberDef = new CastMemberDef();
-                    memberDef.chunk = chunk.asCastMember();
-                    memberDef.number = slotNumber;
+            int memberId = minMember + i;
 
-                    // Load associated script if this is a script member
-                    if (castDef.lctx != null) {
-                        for (ScriptContextChunk.ScriptContextMapEntry mapEntry : castDef.lctx.sectionMap) {
-                            if (mapEntry.sectionId == memberId) {
-                                // This member has a script
-                                Chunk scriptChunk = DirectorFile.getChunk(reader, chunkContainer, rifx,
-                                    Utils.FOURCC("Lscr"), mapEntry.sectionId);
-                                if (scriptChunk != null && scriptChunk.asScript() != null) {
-                                    memberDef.script = scriptChunk.asScript();
-                                }
-                                break;
-                            }
+            // Directly read the CASt chunk by section ID (don't look up in keyTable first)
+            Chunk chunk = DirectorFile.getChunk(reader, chunkContainer, rifx, Utils.FOURCC("CASt"), sectionId);
+            if (chunk == null || chunk.asCastMember() == null) {
+                chunkLoadFailed++;
+                continue;
+            }
+
+            CastMemberDef memberDef = new CastMemberDef();
+            memberDef.chunk = chunk.asCastMember();
+            memberDef.number = memberId;
+
+            // Load associated script if this is a script member
+            if (castDef.lctx != null) {
+                for (ScriptContextChunk.ScriptContextMapEntry mapEntry : castDef.lctx.sectionMap) {
+                    if (mapEntry.sectionId == sectionId) {
+                        // This member has a script
+                        Chunk scriptChunk = DirectorFile.getChunk(reader, chunkContainer, rifx,
+                            Utils.FOURCC("Lscr"), mapEntry.sectionId);
+                        if (scriptChunk != null && scriptChunk.asScript() != null) {
+                            memberDef.script = scriptChunk.asScript();
                         }
+                        break;
                     }
-
-                    // Load media data based on member type
-                    loadMemberMedia(memberDef, memberId, reader, chunkContainer, rifx, keyTable);
-
-                    castDef.members.put(slotNumber, memberDef);
                 }
             }
+
+            // Load media data based on member type - use sectionId to find children in keyTable
+            loadMemberMedia(memberDef, sectionId, reader, chunkContainer, rifx, keyTable);
+
+            castDef.members.put(memberId, memberDef);
         }
 
-        logger.debug("Cast {} loaded with {} members", name, castDef.members.size());
+        logger.debug("Cast {} loaded: {} members (skippedZero={}, chunkLoadFailed={})",
+            name, castDef.members.size(), skippedZero, chunkLoadFailed);
         return castDef;
     }
 

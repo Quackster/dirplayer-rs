@@ -186,6 +186,293 @@ public class CastLib {
         return result;
     }
 
+    /**
+     * Preload this cast library from its external file.
+     * Port of Rust CastLib::preload method.
+     */
+    public void preload(NetManager netManager,
+                        com.dirplayer.player.bitmap.BitmapManager bitmapManager,
+                        java.util.Map<String, com.dirplayer.director.DirectorFile> dirCache) {
+        if (fileName == null || fileName.isEmpty()) {
+            return;
+        }
+
+        // Check cache first
+        if (dirCache.containsKey(fileName)) {
+            loadFromDirFile(dirCache.get(fileName), fileName, bitmapManager);
+            return;
+        }
+
+        logger.info("Loading cast {}", fileName);
+        state = CastLibState.Loading;
+
+        int taskId = netManager.preloadNetThing(fileName);
+        if (!netManager.isTaskDone(taskId)) {
+            netManager.awaitTask(taskId);
+        }
+
+        NetTask task = netManager.getTask(taskId);
+        NetTask.NetResult result = netManager.getTaskResult(taskId);
+
+        if (task != null && result != null) {
+            onCastPreloadResult(result, task.resolvedUrl, bitmapManager, dirCache);
+        } else {
+            logger.warn("Failed to preload cast {}: task or result is null", fileName);
+            state = CastLibState.None;
+        }
+    }
+
+    /**
+     * Handle the result of a cast preload operation.
+     */
+    private void onCastPreloadResult(NetTask.NetResult result,
+                                      java.net.URI resolvedUrl,
+                                      com.dirplayer.player.bitmap.BitmapManager bitmapManager,
+                                      java.util.Map<String, com.dirplayer.director.DirectorFile> dirCache) {
+        String loadFileName = resolvedUrl.toString();
+
+        if (result.isOk()) {
+            try {
+                byte[] castBytes = result.getData();
+                String baseUrl = getBaseUrl(resolvedUrl);
+
+                com.dirplayer.director.DirectorFile castFile =
+                    com.dirplayer.director.DirectorFile.readBytes(castBytes, loadFileName, baseUrl);
+
+                dirCache.put(loadFileName, castFile);
+                loadFromDirFile(castFile, loadFileName, bitmapManager);
+                return;
+            } catch (Exception e) {
+                logger.warn("Could not parse {}: {}", loadFileName, e.getMessage());
+            }
+        } else {
+            logger.warn("Fetching {} failed", loadFileName);
+        }
+
+        state = CastLibState.None;
+    }
+
+    /**
+     * Load this cast from a DirectorFile.
+     */
+    private void loadFromDirFile(com.dirplayer.director.DirectorFile file,
+                                  String loadFileName,
+                                  com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        clear();
+
+        this.fileName = loadFileName;
+        this.state = CastLibState.Loaded;
+
+        if (name == null || name.isEmpty()) {
+            name = getBasenameNoExtension(loadFileName);
+        }
+
+        if (!file.casts.isEmpty()) {
+            com.dirplayer.director.CastDef castDef = file.casts.get(0);
+            applyCastDef(file, castDef, bitmapManager);
+        }
+
+        logger.debug("Loaded cast {}: {} members, {} scripts", loadFileName, members.size(), scripts.size());
+    }
+
+    /**
+     * Apply a cast definition to this cast library.
+     */
+    public void applyCastDef(com.dirplayer.director.DirectorFile dirFile,
+                              com.dirplayer.director.CastDef castDef,
+                              com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        this.dirVersion = dirFile.version;
+
+        // Load members from cast definition
+        for (java.util.Map.Entry<Integer, com.dirplayer.director.CastDef.CastMemberDef> entry :
+                castDef.members.entrySet()) {
+            int memberId = entry.getKey();
+            com.dirplayer.director.CastDef.CastMemberDef memberDef = entry.getValue();
+
+            CastMember member = createMemberFromDef(memberId, memberDef, castDef, bitmapManager);
+            if (member != null) {
+                insertMember(memberId, member);
+
+                // Create script if this is a script member
+                if (member.getMemberType() == com.dirplayer.director.MemberType.Script &&
+                    castDef.lctx != null) {
+                    Script script = createScriptFromMember(memberId, member, memberDef, castDef);
+                    if (script != null) {
+                        scripts.put(memberId, script);
+                    }
+                }
+            }
+        }
+
+        logger.debug("Applied cast def to cast {}: {} members, {} scripts",
+            number, members.size(), scripts.size());
+    }
+
+    /**
+     * Create a CastMember from a CastMemberDef.
+     */
+    private CastMember createMemberFromDef(int memberNumber,
+                                            com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                            com.dirplayer.director.CastDef castDef,
+                                            com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        if (memberDef.chunk == null) {
+            return null;
+        }
+
+        CastMember member = new CastMember();
+        member.number = memberNumber;
+        member.memberRef = new CastMemberRef(this.number, memberNumber);
+        member.memberType = memberDef.chunk.memberType;
+        member.type = memberDef.chunk.memberType;
+        member.isLoaded = true;
+
+        // Set name from member info
+        if (memberDef.chunk.memberInfo != null) {
+            member.name = memberDef.chunk.memberInfo.name;
+        }
+
+        // Load type-specific data
+        com.dirplayer.director.chunks.CastMemberSpecificData specificData = memberDef.chunk.specificData;
+
+        switch (memberDef.chunk.memberType) {
+            case Bitmap:
+                loadBitmapMember(member, memberDef, specificData, bitmapManager);
+                break;
+            case Text:
+            case RTE:
+            case Button:
+                loadTextMember(member, memberDef, specificData);
+                break;
+            case Sound:
+                loadSoundMember(member, memberDef);
+                break;
+            case Script:
+                loadScriptMember(member, specificData);
+                break;
+            default:
+                break;
+        }
+
+        return member;
+    }
+
+    private void loadBitmapMember(CastMember member,
+                                   com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                   com.dirplayer.director.chunks.CastMemberSpecificData specificData,
+                                   com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        com.dirplayer.director.BitmapInfo info = specificData != null ? specificData.getBitmapInfo() : null;
+        if (info != null) {
+            member.bitmapWidth = info.width;
+            member.bitmapHeight = info.height;
+            member.bitDepth = info.bitDepth;
+            member.regPointX = info.regX;
+            member.regPointY = info.regY;
+            member.paletteRef = info.paletteId;
+        }
+
+        if (memberDef.bitmap != null && bitmapManager != null && info != null) {
+            try {
+                com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
+                    info.width, info.height, info.bitDepth, info.bitDepth, 0,
+                    com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
+                        com.dirplayer.player.bitmap.BuiltInPalette.SystemWin));
+
+                if (memberDef.bitmap.data != null && memberDef.bitmap.data.length > 0) {
+                    bitmap = com.dirplayer.player.bitmap.BitmapDecoder.decompressBitmap(
+                        memberDef.bitmap.data, info, 0, 0);
+                }
+
+                int bitmapId = bitmapManager.addBitmap(bitmap);
+                member.bitmap = new com.dirplayer.player.bitmap.BitmapRef(
+                    bitmapId, bitmap.getWidth(), bitmap.getHeight(), info.bitDepth);
+            } catch (Exception e) {
+                logger.warn("Failed to decode bitmap: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void loadTextMember(CastMember member,
+                                 com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                 com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        if (memberDef.text != null) {
+            member.text = memberDef.text.text;
+        }
+        com.dirplayer.director.FieldInfo fieldInfo = specificData != null ? specificData.getFieldInfo() : null;
+        if (fieldInfo != null) {
+            member.textWidth = fieldInfo.width;
+            member.textHeight = fieldInfo.height;
+        }
+    }
+
+    private void loadSoundMember(CastMember member,
+                                  com.dirplayer.director.CastDef.CastMemberDef memberDef) {
+        if (memberDef.sound != null) {
+            member.sampleRate = memberDef.sound.getSampleRate();
+            member.channels = memberDef.sound.getChannels();
+            member.sampleCount = memberDef.sound.getSampleCount();
+        }
+    }
+
+    private void loadScriptMember(CastMember member,
+                                   com.dirplayer.director.chunks.CastMemberSpecificData specificData) {
+        if (specificData != null) {
+            ScriptType scriptType = specificData.getScriptType();
+            if (scriptType != null) {
+                member.scriptType = scriptType.ordinal();
+            }
+        }
+    }
+
+    private Script createScriptFromMember(int memberNumber, CastMember member,
+                                           com.dirplayer.director.CastDef.CastMemberDef memberDef,
+                                           com.dirplayer.director.CastDef castDef) {
+        if (memberDef.script == null || castDef.lctx == null) {
+            return null;
+        }
+
+        try {
+            ScriptType scriptType = ScriptType.Unknown;
+            if (memberDef.chunk.specificData != null) {
+                ScriptType st = memberDef.chunk.specificData.getScriptType();
+                if (st != null) {
+                    scriptType = st;
+                }
+            }
+
+            return new Script(
+                new CastMemberRef(this.number, memberNumber),
+                member.name,
+                memberDef.script,
+                scriptType
+            );
+        } catch (Exception e) {
+            logger.warn("Failed to create script: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get base URL from a URI.
+     */
+    private static String getBaseUrl(java.net.URI uri) {
+        String uriStr = uri.toString();
+        int lastSlash = uriStr.lastIndexOf('/');
+        if (lastSlash > 0) {
+            return uriStr.substring(0, lastSlash + 1);
+        }
+        return uriStr;
+    }
+
+    /**
+     * Get basename without extension from a path.
+     */
+    private static String getBasenameNoExtension(String path) {
+        int lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+        String basename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+        int lastDot = basename.lastIndexOf('.');
+        return lastDot > 0 ? basename.substring(0, lastDot) : basename;
+    }
+
     // Legacy compatibility methods
     public CastMember getMember(int memberNum) {
         return members.get(memberNum);

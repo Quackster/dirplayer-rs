@@ -395,13 +395,43 @@ public class CastManager {
     }
 
     /**
+     * Load cast libraries and members from a DirectorFile, with external cast preloading.
+     * Port of Rust load_from_dir method.
+     */
+    public void loadFromDir(com.dirplayer.director.DirectorFile dirFile,
+                            NetManager netManager,
+                            com.dirplayer.player.bitmap.BitmapManager bitmapManager,
+                            java.util.Map<String, com.dirplayer.director.DirectorFile> dirCache) {
+        loadFromDirInternal(dirFile, bitmapManager, netManager);
+
+        // Preload external casts based on preload mode
+        if (netManager != null && dirCache != null) {
+            preloadCasts(CastPreloadReason.MovieLoaded, netManager, bitmapManager, dirCache);
+        }
+    }
+
+    /**
      * Load cast libraries and members from a DirectorFile.
      * Port of Rust load_from_dir method.
      */
     public void loadFromDir(com.dirplayer.director.DirectorFile dirFile,
                             com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
+        loadFromDirInternal(dirFile, bitmapManager, null);
+    }
+
+    /**
+     * Internal method to load cast libraries.
+     */
+    private void loadFromDirInternal(com.dirplayer.director.DirectorFile dirFile,
+                                      com.dirplayer.player.bitmap.BitmapManager bitmapManager,
+                                      NetManager netManager) {
         if (dirFile == null) {
             return;
+        }
+
+        // Set base path on net manager for resolving relative URLs
+        if (netManager != null && dirFile.basePath != null) {
+            netManager.setBasePath(dirFile.basePath.toString());
         }
 
         List<CastLib> loadedCasts = new ArrayList<>();
@@ -419,10 +449,15 @@ public class CastManager {
                 }
             }
 
+            // Normalize cast lib path
+            String castFileName = normalizeCastLibPath(
+                netManager != null ? netManager.basePath : null,
+                castEntry.filePath);
+
             // Create CastLib
             CastLib cast = new CastLib();
             cast.name = castEntry.name;
-            cast.fileName = castEntry.filePath != null ? castEntry.filePath : "";
+            cast.fileName = castFileName;
             cast.number = index + 1;  // 1-indexed
             cast.isExternal = castDef == null;
             cast.state = castDef != null ? CastLib.CastLibState.Loaded : CastLib.CastLibState.None;
@@ -686,6 +721,111 @@ public class CastManager {
             logger.warn("Failed to create script: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Preload external casts based on their preload mode.
+     * Port of Rust CastManager::preload_casts method.
+     */
+    public void preloadCasts(CastPreloadReason reason,
+                              NetManager netManager,
+                              com.dirplayer.player.bitmap.BitmapManager bitmapManager,
+                              java.util.Map<String, com.dirplayer.director.DirectorFile> dirCache) {
+        for (CastLib cast : casts) {
+            if (cast.isExternal &&
+                cast.state == CastLib.CastLibState.None &&
+                cast.fileName != null &&
+                !cast.fileName.isEmpty()) {
+
+                logger.debug("Cast File {} - Preload Mode: {}", cast.fileName, cast.preloadMode);
+
+                switch (cast.preloadMode) {
+                    case 0:
+                        // Preload: When Needed - don't preload now
+                        break;
+                    case 1:
+                        // Preload: After frame one
+                        if (reason == CastPreloadReason.AfterFrameOne) {
+                            cast.preload(netManager, bitmapManager, dirCache);
+                            clearMovieScriptCache();
+                        }
+                        break;
+                    case 2:
+                        // Preload: Before frame one
+                        if (reason == CastPreloadReason.MovieLoaded) {
+                            cast.preload(netManager, bitmapManager, dirCache);
+                            clearMovieScriptCache();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Normalize a cast library file path.
+     * Port of Rust normalize_cast_lib_path function.
+     *
+     * This function extracts the base filename from absolute paths
+     * (e.g., "D:\LINGO\Work\fuse_client.cst" -> "fuse_client.cct")
+     * and resolves it relative to the base path.
+     */
+    private static String normalizeCastLibPath(String basePath, String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return "";
+        }
+
+        // Normalize slashes
+        String normalized = filePath.replace("\\", "/");
+
+        // Split on both slashes and colons to get filename components
+        String[] parts = normalized.split("[/:]");
+        String fileBaseName = parts.length > 0 ? parts[parts.length - 1] : "";
+
+        if (fileBaseName.isEmpty()) {
+            return "";
+        }
+
+        // Change extension from .cst to .cct (compressed cast)
+        String castFileName;
+        int dotIndex = fileBaseName.lastIndexOf('.');
+        if (dotIndex > 0) {
+            castFileName = fileBaseName.substring(0, dotIndex) + ".cct";
+        } else {
+            castFileName = fileBaseName + ".cct";
+        }
+
+        // Make ASCII-safe (remove non-ASCII characters)
+        castFileName = asciiSafe(castFileName);
+
+        // If no base path, return just the filename
+        if (basePath == null || basePath.isEmpty()) {
+            return castFileName;
+        }
+
+        // Resolve relative to base path
+        try {
+            java.net.URI baseUri = new java.net.URI(basePath);
+            java.net.URI resolved = baseUri.resolve(castFileName);
+            return resolved.toString();
+        } catch (Exception e) {
+            return castFileName;
+        }
+    }
+
+    /**
+     * Make a string ASCII-safe by removing non-ASCII characters.
+     */
+    private static String asciiSafe(String input) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : input.toCharArray()) {
+            if (c < 128) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     /**

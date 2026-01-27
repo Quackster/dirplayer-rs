@@ -44,6 +44,9 @@ public class NetManager {
     // Tasks tagged as text retrieval tasks
     private final Map<Integer, Boolean> textTasks;
 
+    // When true, execute network tasks synchronously (for testing)
+    private boolean synchronousMode = false;
+
     public NetManager() {
         this.basePath = null;
         this.basePathUri = null;
@@ -58,6 +61,21 @@ public class NetManager {
         this.taskLocalPaths = new ConcurrentHashMap<>();
         this.pendingTasks = new HashMap<>();
         this.textTasks = new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Enable or disable synchronous mode.
+     * When enabled, network requests are executed immediately (useful for testing).
+     */
+    public void setSynchronousMode(boolean enabled) {
+        this.synchronousMode = enabled;
+    }
+
+    /**
+     * Check if synchronous mode is enabled.
+     */
+    public boolean isSynchronousMode() {
+        return synchronousMode;
     }
 
     /**
@@ -125,6 +143,44 @@ public class NetManager {
     }
 
     /**
+     * Wait for a task to complete (for synchronous testing).
+     * In synchronous mode, tasks complete immediately so this is a no-op.
+     * In async mode, this blocks until the task completes (with timeout).
+     */
+    public void awaitTask(int taskId) {
+        awaitTask(taskId, 30000); // Default 30 second timeout
+    }
+
+    /**
+     * Wait for a task to complete with specified timeout.
+     */
+    public void awaitTask(int taskId, long timeoutMs) {
+        if (isTaskDone(taskId)) {
+            return;
+        }
+
+        // For synchronous mode, task should already be done
+        if (synchronousMode) {
+            return;
+        }
+
+        // Poll until done or timeout
+        long startTime = System.currentTimeMillis();
+        while (!isTaskDone(taskId)) {
+            if (System.currentTimeMillis() - startTime > timeoutMs) {
+                logger.warn("Task {} timed out after {}ms", taskId, timeoutMs);
+                return;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    /**
      * Get the result of a task.
      */
     public NetTask.NetResult getTaskResult(Integer taskId) {
@@ -174,8 +230,10 @@ public class NetManager {
         // The external handler should call provideNetTaskData() when the fetch completes
         pendingTasks.put(taskId, true);
 
-        // For synchronous environments or testing, you can uncomment:
-        // executeSynchronously(taskId, task, isFileUrl, resolvedUrl);
+        // For synchronous environments or testing, execute immediately if enabled
+        if (synchronousMode) {
+            executeSynchronously(taskId, task, isFileUrl, resolvedUrl);
+        }
 
         return taskId;
     }
@@ -195,6 +253,11 @@ public class NetManager {
 
         // Mark task as pending for external handling
         pendingTasks.put(taskId, true);
+
+        // For synchronous environments or testing, execute immediately if enabled
+        if (synchronousMode) {
+            executeSynchronously(taskId, task, false, resolvedUrl);
+        }
 
         return taskId;
     }
