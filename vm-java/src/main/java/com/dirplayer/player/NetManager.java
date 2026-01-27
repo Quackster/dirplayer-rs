@@ -224,7 +224,8 @@ public class NetManager {
         taskStates.put(taskId, new NetTask.NetTaskState());
 
         String resolvedUrlStr = resolvedUrl.toString();
-        boolean isFileUrl = resolvedUrlStr.startsWith("file://");
+        // Check for file:// or file:/ (Windows generates file:/C:/... with single slash)
+        boolean isFileUrl = "file".equals(resolvedUrl.getScheme());
 
         // Mark task as pending for external handling (e.g., by JavaScript in TeaVM)
         // The external handler should call provideNetTaskData() when the fetch completes
@@ -310,22 +311,38 @@ public class NetManager {
      */
     private NetTask.NetResult handleFileUrlSync(URI resolvedUrl) {
         try {
+            logger.debug("handleFileUrlSync: {}", resolvedUrl);
             String path = resolvedUrl.getPath();
+            if (path == null || path.isEmpty()) {
+                // Try getSchemeSpecificPart for URIs like file:C:/path
+                path = resolvedUrl.getSchemeSpecificPart();
+            }
+            logger.debug("handleFileUrlSync path before normalize: {}", path);
+
             // On Windows, remove leading slash from paths like /C:/...
-            if (path.length() > 2 && path.charAt(0) == '/' && path.charAt(2) == ':') {
+            if (path != null && path.length() > 2 && path.charAt(0) == '/' && path.charAt(2) == ':') {
                 path = path.substring(1);
+            }
+
+            logger.debug("handleFileUrlSync path after normalize: {}", path);
+
+            if (path == null || path.isEmpty()) {
+                logger.warn("Cannot extract path from file URL: {}", resolvedUrl);
+                return NetTask.NetResult.error(4);
             }
 
             Path filePath = Paths.get(path);
             if (Files.exists(filePath)) {
+                logger.info("Reading file: {}", filePath);
                 byte[] data = Files.readAllBytes(filePath);
+                logger.info("Read {} bytes from file", data.length);
                 return NetTask.NetResult.ok(data);
             } else {
-                logger.warn("File not found: {}", path);
+                logger.warn("File not found: {}", filePath);
                 return NetTask.NetResult.error(4);
             }
         } catch (Exception e) {
-            logger.error("Error reading file: {}", e.getMessage(), e);
+            logger.error("Error reading file from URL {}: {}", resolvedUrl, e.getMessage(), e);
             return NetTask.NetResult.error(4);
         }
     }
@@ -336,6 +353,11 @@ public class NetManager {
     private NetTask.NetResult fetchNetTask(NetTask task) {
         String resolvedUrlStr = task.resolvedUrl.toString();
         logger.debug("execute_task #{} url: {} resolved: {}", task.id, task.url, resolvedUrlStr);
+
+        // Safeguard: if a file:// URL reaches here, delegate to handleFileUrlSync
+        if ("file".equals(task.resolvedUrl.getScheme())) {
+            return handleFileUrlSync(task.resolvedUrl);
+        }
 
         try {
             URL url = task.resolvedUrl.toURL();
@@ -498,15 +520,19 @@ public class NetManager {
         try {
             URI parsedUri = new URI(slashNorm);
 
-            // If it has a host, use it as-is
-            if (parsedUri.getHost() != null) {
+            // If it has a scheme (http, https, file, etc.), use it as-is
+            if (parsedUri.getScheme() != null) {
                 return parsedUri;
             }
 
-            // Check if it's an absolute path
-            Path parsedPath = Paths.get(slashNorm);
-            if (parsedPath.isAbsolute()) {
-                return new URI("file:///" + slashNorm);
+            // Check if it's an absolute path (no scheme)
+            try {
+                Path parsedPath = Paths.get(slashNorm);
+                if (parsedPath.isAbsolute()) {
+                    return parsedPath.toUri();
+                }
+            } catch (Exception pathEx) {
+                // Not a valid path, continue with URI resolution
             }
 
             // Resolve against base path

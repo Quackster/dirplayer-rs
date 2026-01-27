@@ -286,6 +286,48 @@ public class SwingPlayer extends JFrame {
             // Update window title
             setTitle(TITLE + " - " + fileName);
 
+            // Initialize sprites for frame 1 (matches Rust behavior)
+            player.beginAllSprites();
+
+            // Debug: print diagnostic info
+            System.out.println("=== DIAGNOSTIC INFO ===");
+            System.out.println("Frame: " + player.getMovie().currentFrame);
+            System.out.println("Total frames: " + player.getMovie().score.totalFrames);
+            System.out.println("Sprite spans: " + player.getMovie().score.spriteSpans.size());
+            System.out.println("Channels: " + player.getMovie().score.channels.size());
+            System.out.println("Channel init data: " + player.getMovie().score.channelInitializationData.size());
+
+            // Check sorted channels for frame 1
+            java.util.List<Integer> sortedChannels = player.getMovie().score.getSortedChannelNumbers(1);
+            System.out.println("Sorted channels for frame 1: " + sortedChannels);
+
+            // Check first few channels
+            for (int i = 0; i < Math.min(10, player.getMovie().score.channels.size()); i++) {
+                var channel = player.getMovie().score.channels.get(i);
+                var sprite = channel.sprite;
+                System.out.println("Channel " + channel.number + ": memberRef=" +
+                    (sprite.memberRef != null ? sprite.memberRef.getCastLib() + ":" + sprite.memberRef.getCastMember() : "null") +
+                    " visible=" + sprite.visible + " entered=" + sprite.entered +
+                    " loc=(" + sprite.locH + "," + sprite.locV + ") size=" + sprite.width + "x" + sprite.height);
+            }
+
+            // Check cast members
+            System.out.println("Cast libraries: " + player.getMovie().castManager.casts.size());
+            for (var cast : player.getMovie().castManager.casts) {
+                System.out.println("  Cast " + cast.number + " (" + cast.name + "): " + cast.members.size() + " members, state=" + cast.state);
+                // Check first few bitmap members
+                int bitmapCount = 0;
+                for (var member : cast.members.values()) {
+                    if (member.memberType == com.dirplayer.director.MemberType.Bitmap && bitmapCount < 3) {
+                        System.out.println("    Bitmap member " + member.number + ": " +
+                            member.bitmapWidth + "x" + member.bitmapHeight +
+                            " bitmap=" + (member.bitmap != null ? member.bitmap.bitmapId : "null"));
+                        bitmapCount++;
+                    }
+                }
+            }
+            System.out.println("=== END DIAGNOSTIC ===");
+
             // Render first frame
             renderFrame();
 
@@ -323,6 +365,10 @@ public class SwingPlayer extends JFrame {
             }
 
             setTitle(TITLE + " - " + url);
+
+            // Initialize sprites for frame 1 (matches Rust behavior)
+            player.beginAllSprites();
+
             renderFrame();
             debugPanel.forceFullUpdate(player);
             updateControls();

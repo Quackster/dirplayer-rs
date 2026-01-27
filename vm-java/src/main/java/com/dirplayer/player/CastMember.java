@@ -119,8 +119,11 @@ public class CastMember {
     // In a full implementation these would return proper typed objects
 
     public int getImageRef() {
-        // For bitmap members, this would be the bitmap manager reference
-        return memberRef.hashCode();  // Placeholder
+        // Return the bitmap ID from the bitmap reference
+        if (bitmap != null) {
+            return bitmap.bitmapId;
+        }
+        return -1;
     }
 
     public int getRegPointX() {

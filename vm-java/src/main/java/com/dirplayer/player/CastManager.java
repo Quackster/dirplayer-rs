@@ -571,12 +571,13 @@ public class CastManager {
 
     /**
      * Load bitmap-specific data into a member.
+     * Matches Rust behavior: always creates a bitmap reference, using placeholder if data is missing.
      */
     private void loadBitmapMember(CastMember member,
                                    com.dirplayer.director.CastDef.CastMemberDef memberDef,
                                    com.dirplayer.director.chunks.CastMemberSpecificData specificData,
                                    com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
-        com.dirplayer.director.BitmapInfo info = specificData.getBitmapInfo();
+        com.dirplayer.director.BitmapInfo info = specificData != null ? specificData.getBitmapInfo() : null;
         if (info != null) {
             member.bitmapWidth = info.width;
             member.bitmapHeight = info.height;
@@ -586,25 +587,47 @@ public class CastManager {
             member.paletteRef = info.paletteId;
         }
 
-        // Load bitmap data if available
-        if (memberDef.bitmap != null && bitmapManager != null && info != null) {
-            try {
-                com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
-                    info.width, info.height, info.bitDepth, info.bitDepth, 0,
-                    com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
-                        com.dirplayer.player.bitmap.BuiltInPalette.SystemWin));
+        if (bitmapManager == null) {
+            return;
+        }
 
+        // Load bitmap data if available, otherwise create placeholder (matching Rust behavior)
+        try {
+            com.dirplayer.player.bitmap.Bitmap bitmap = null;
+
+            if (memberDef.bitmap != null && memberDef.bitmap.data != null &&
+                memberDef.bitmap.data.length > 0 && info != null) {
                 // Decode bitmap data using decompressBitmap
-                if (memberDef.bitmap.data != null && memberDef.bitmap.data.length > 0) {
-                    bitmap = com.dirplayer.player.bitmap.BitmapDecoder.decompressBitmap(
-                        memberDef.bitmap.data, info, 0, 0);
-                }
-
-                int bitmapId = bitmapManager.addBitmap(bitmap);
-                member.bitmap = new com.dirplayer.player.bitmap.BitmapRef(bitmapId, bitmap.getWidth(), bitmap.getHeight(), info.bitDepth);
-            } catch (Exception e) {
-                logger.warn("Failed to decode bitmap: {}", e.getMessage());
+                bitmap = com.dirplayer.player.bitmap.BitmapDecoder.decompressBitmap(
+                    memberDef.bitmap.data, info, 0, 0);
+                logger.debug("Decoded bitmap member {}: {}x{} {} bytes",
+                    member.number, bitmap.getWidth(), bitmap.getHeight(), memberDef.bitmap.data.length);
+            } else {
+                // No bitmap data - create placeholder (matching Rust behavior)
+                int width = info != null ? Math.max(1, info.width) : 1;
+                int height = info != null ? Math.max(1, info.height) : 1;
+                int bitDepth = info != null ? info.bitDepth : 8;
+                bitmap = new com.dirplayer.player.bitmap.Bitmap(
+                    width, height, bitDepth, bitDepth, 0,
+                    com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
+                        com.dirplayer.player.bitmap.BuiltInPalette.GrayScale));
+                logger.debug("Created placeholder bitmap for member {}: {}x{} (no BITD data)",
+                    member.number, width, height);
             }
+
+            int bitmapId = bitmapManager.addBitmap(bitmap);
+            int bitDepth = info != null ? info.bitDepth : 8;
+            member.bitmap = new com.dirplayer.player.bitmap.BitmapRef(
+                bitmapId, bitmap.getWidth(), bitmap.getHeight(), bitDepth);
+        } catch (Exception e) {
+            logger.warn("Failed to decode bitmap for member {}: {}", member.number, e.getMessage());
+            // Create placeholder on failure (matching Rust behavior)
+            com.dirplayer.player.bitmap.Bitmap placeholder = new com.dirplayer.player.bitmap.Bitmap(
+                1, 1, 8, 8, 0,
+                com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
+                    com.dirplayer.player.bitmap.BuiltInPalette.GrayScale));
+            int bitmapId = bitmapManager.addBitmap(placeholder);
+            member.bitmap = new com.dirplayer.player.bitmap.BitmapRef(bitmapId, 1, 1, 8);
         }
     }
 
