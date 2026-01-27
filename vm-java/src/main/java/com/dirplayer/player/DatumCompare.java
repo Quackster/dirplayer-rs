@@ -98,6 +98,25 @@ public class DatumCompare {
         if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) < 0;
         }
+        // String/Int comparison - try to parse string as number
+        if (left.getType() == DatumType.String && right.isNumber()) {
+            try {
+                double leftVal = Double.parseDouble(left.stringValue());
+                return leftVal < right.floatValue();
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return left.stringValue().compareToIgnoreCase(String.valueOf(right.intValue())) < 0;
+            }
+        }
+        if (left.isNumber() && right.getType() == DatumType.String) {
+            try {
+                double rightVal = Double.parseDouble(right.stringValue());
+                return left.floatValue() < rightVal;
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return String.valueOf(left.intValue()).compareToIgnoreCase(right.stringValue()) < 0;
+            }
+        }
         throw new ScriptError("Cannot compare " + left.getType() + " with " + right.getType());
     }
 
@@ -117,6 +136,25 @@ public class DatumCompare {
         }
         if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) > 0;
+        }
+        // String/Int comparison - try to parse string as number
+        if (left.getType() == DatumType.String && right.isNumber()) {
+            try {
+                double leftVal = Double.parseDouble(left.stringValue());
+                return leftVal > right.floatValue();
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return left.stringValue().compareToIgnoreCase(String.valueOf(right.intValue())) > 0;
+            }
+        }
+        if (left.isNumber() && right.getType() == DatumType.String) {
+            try {
+                double rightVal = Double.parseDouble(right.stringValue());
+                return left.floatValue() > rightVal;
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return String.valueOf(left.intValue()).compareToIgnoreCase(right.stringValue()) > 0;
+            }
         }
         throw new ScriptError("Cannot compare " + left.getType() + " with " + right.getType());
     }

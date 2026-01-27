@@ -119,6 +119,9 @@ public class StringDatumHandlers {
                 return getChunkProp(player, datumRef, args);
             case "split":
                 return split(player, datumRef, args);
+            case "setat":
+                // setAt on strings is not supported - throw error like Rust does
+                throw new ScriptError("Cannot setAt of type string (must be list, proplist, point, or rect)");
             default:
                 throw new ScriptError("No handler " + handlerName + " for string datum");
         }

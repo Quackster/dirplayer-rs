@@ -340,8 +340,8 @@ public class BytecodeHandlerManager {
                 return callSyncHandler(player, opcode, ctx);
             }
         } catch (ScriptError e) {
-            // Dump execution history on error
-            dumpExecutionHistoryOnError(e.getMessage());
+            // Dump execution history on error (disabled for cleaner output)
+            // dumpExecutionHistoryOnError(e.getMessage());
             throw e;
         }
     }

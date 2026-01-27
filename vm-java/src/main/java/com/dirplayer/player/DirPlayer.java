@@ -229,6 +229,10 @@ public class DirPlayer {
         hasPlayerFrameChanged = false;
         hasFrameChangedInGo = false;
         goDirection = 0;
+
+        // Initialize default globals (actorList, PI, etc.)
+        initializeGlobals();
+
         logger.info("Player reset");
     }
 
@@ -560,11 +564,53 @@ public class DirPlayer {
 
     /**
      * Initialize default global variables.
+     * Port of Rust initialize_globals().
      */
     public void initializeGlobals() {
-        // Initialize standard Lingo globals
-        // These would include things like TRUE, FALSE, PI, etc.
-        // For now this is a stub
+        // Initialize the actorList as a global variable (empty list)
+        int actorListDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofList(
+            com.dirplayer.director.lingo.DatumType.List, new java.util.ArrayList<>(), false));
+        globals.put("actorList", actorListDatum);
+
+        // Mathematical constant
+        int piDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofFloat(Math.PI));
+        globals.put("PI", piDatum);
+
+        // Special values
+        int voidDatum = allocDatum(com.dirplayer.director.lingo.Datum.VOID);
+        globals.put("VOID", voidDatum);
+
+        int emptyDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString(""));
+        globals.put("EMPTY", emptyDatum);
+
+        // String constants
+        int returnDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString("\r"));
+        globals.put("RETURN", returnDatum);
+
+        int quoteDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString("\""));
+        globals.put("QUOTE", quoteDatum);
+
+        int tabDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString("\t"));
+        globals.put("TAB", tabDatum);
+
+        // Boolean-like values (Director uses integers for TRUE/FALSE)
+        int trueDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofInt(1));
+        globals.put("TRUE", trueDatum);
+
+        int falseDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofInt(0));
+        globals.put("FALSE", falseDatum);
+
+        // Space constant
+        int spaceDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString(" "));
+        globals.put("SPACE", spaceDatum);
+
+        // Backspace constant
+        int backspaceDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString("\b"));
+        globals.put("BACKSPACE", backspaceDatum);
+
+        // Enter constant (same as RETURN in Director)
+        int enterDatum = allocDatum(com.dirplayer.director.lingo.Datum.ofString("\r"));
+        globals.put("ENTER", enterDatum);
     }
 
     public String formatDatum(com.dirplayer.director.lingo.Datum datum) {
@@ -823,6 +869,7 @@ public class DirPlayer {
 
         // Delegate to type-specific handlers
         com.dirplayer.director.lingo.DatumType type = datum.getType();
+
         switch (type) {
             case List:
             case ArgList:

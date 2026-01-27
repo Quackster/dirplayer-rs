@@ -42,6 +42,20 @@ public class ScreenshotTest {
             player.netManager.setSynchronousMode(true);
             player.netManager.setBasePath(basePath);
 
+            // Set external parameters that Habbo client expects
+            player.externalParams.put("client.starting", "loading");
+            player.externalParams.put("connection.info.host", "localhost");
+            player.externalParams.put("connection.info.port", "30000");
+            player.externalParams.put("site.url", "http://localhost/");
+            player.externalParams.put("url.prefix", basePath);
+            player.externalParams.put("external.texts.txt", basePath + "external_texts.txt");
+            player.externalParams.put("external.variables.txt", basePath + "external_variables.txt");
+            player.externalParams.put("external.override.texts.txt", "");
+            player.externalParams.put("external.override.variables.txt", "");
+            player.externalParams.put("has.identity", "1");
+            player.externalParams.put("client.allow.cross.domain", "1");
+            System.out.println("External params set: " + player.externalParams.size());
+
             // Download the movie
             System.out.println("Downloading from: " + TEST_MOVIE_URL);
             byte[] data = downloadUrl(TEST_MOVIE_URL);
@@ -119,6 +133,10 @@ public class ScreenshotTest {
                 // Print current frame
                 System.out.println("Frame " + i + ": current=" + movie.currentFrame);
             }
+
+            // Print sprite debug after tick loop
+            System.out.println("\n=== Sprite Status After Tick Loop ===");
+            printSpriteDebug(player);
 
             System.out.println("\nScreenshots saved to: " + outputPath.toAbsolutePath());
             System.out.println("Done!");

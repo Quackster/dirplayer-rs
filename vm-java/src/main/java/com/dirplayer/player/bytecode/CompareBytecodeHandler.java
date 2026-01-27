@@ -173,6 +173,23 @@ public class CompareBytecodeHandler {
             return true;
         } else if (left.isSymbol() && right.isSymbol()) {
             return left.stringValue().equalsIgnoreCase(right.stringValue());
+        } else if (left.isString() && right.isNumber()) {
+            // Try to parse string as number
+            try {
+                return Double.parseDouble(left.stringValue()) == right.floatValue();
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        } else if (left.isNumber() && right.isString()) {
+            try {
+                return left.floatValue() == Double.parseDouble(right.stringValue());
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        } else if (left.isVoid() && right.isInt()) {
+            return right.intValue() == 0;
+        } else if (left.isInt() && right.isVoid()) {
+            return left.intValue() == 0;
         } else {
             return false;
         }
@@ -183,6 +200,22 @@ public class CompareBytecodeHandler {
             return left.floatValue() > right.floatValue();
         } else if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) > 0;
+        } else if (left.isString() && right.isNumber()) {
+            // Try to parse string as number
+            try {
+                double leftVal = Double.parseDouble(left.stringValue());
+                return leftVal > right.floatValue();
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return left.stringValue().compareToIgnoreCase(String.valueOf(right.intValue())) > 0;
+            }
+        } else if (left.isNumber() && right.isString()) {
+            try {
+                double rightVal = Double.parseDouble(right.stringValue());
+                return left.floatValue() > rightVal;
+            } catch (NumberFormatException e) {
+                return String.valueOf(left.intValue()).compareToIgnoreCase(right.stringValue()) > 0;
+            }
         } else {
             throw new ScriptError("Cannot compare " + left.typeStr() + " and " + right.typeStr());
         }
@@ -193,6 +226,22 @@ public class CompareBytecodeHandler {
             return left.floatValue() < right.floatValue();
         } else if (left.isString() && right.isString()) {
             return left.stringValue().compareToIgnoreCase(right.stringValue()) < 0;
+        } else if (left.isString() && right.isNumber()) {
+            // Try to parse string as number
+            try {
+                double leftVal = Double.parseDouble(left.stringValue());
+                return leftVal < right.floatValue();
+            } catch (NumberFormatException e) {
+                // Fall back to string comparison
+                return left.stringValue().compareToIgnoreCase(String.valueOf(right.intValue())) < 0;
+            }
+        } else if (left.isNumber() && right.isString()) {
+            try {
+                double rightVal = Double.parseDouble(right.stringValue());
+                return left.floatValue() < rightVal;
+            } catch (NumberFormatException e) {
+                return String.valueOf(left.intValue()).compareToIgnoreCase(right.stringValue()) < 0;
+            }
         } else {
             throw new ScriptError("Cannot compare " + left.typeStr() + " and " + right.typeStr());
         }

@@ -79,6 +79,9 @@ public class FlowControlBytecodeHandler {
         int nameId = (int) bytecode.obj;
         String name = player.getName(ctx, nameId);
 
+        // Debug: trace handler calls (disabled for cleaner output)
+        // System.out.println("[TRACE] ExtCall: " + name);
+
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int argListDatumRef = scope.stack.pop();
         Datum argListDatum = player.getDatum(argListDatumRef);
