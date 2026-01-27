@@ -297,35 +297,90 @@ public class SwingPlayer extends JFrame {
             System.out.println("Channels: " + player.getMovie().score.channels.size());
             System.out.println("Channel init data: " + player.getMovie().score.channelInitializationData.size());
 
+            // Print sprite spans
+            for (var span : player.getMovie().score.spriteSpans) {
+                System.out.println("  Span: channel=" + span.channelNumber + " frames " + span.startFrame + "-" + span.endFrame);
+            }
+
+            // Print channel init data
+            for (var entry : player.getMovie().score.channelInitializationData) {
+                System.out.println("  ChannelInitData: frameIdx=" + entry.frameIndex + " channelIdx=" + entry.channelIndex +
+                    " castLib=" + entry.data.castLib + " castMember=" + entry.data.castMember +
+                    " pos=(" + entry.data.posX + "," + entry.data.posY + ") size=" + entry.data.width + "x" + entry.data.height);
+            }
+
             // Check sorted channels for frame 1
             java.util.List<Integer> sortedChannels = player.getMovie().score.getSortedChannelNumbers(1);
             System.out.println("Sorted channels for frame 1: " + sortedChannels);
 
-            // Check first few channels
+            // Check first few channels after beginAllSprites
             for (int i = 0; i < Math.min(10, player.getMovie().score.channels.size()); i++) {
                 var channel = player.getMovie().score.channels.get(i);
                 var sprite = channel.sprite;
                 System.out.println("Channel " + channel.number + ": memberRef=" +
                     (sprite.memberRef != null ? sprite.memberRef.getCastLib() + ":" + sprite.memberRef.getCastMember() : "null") +
-                    " visible=" + sprite.visible + " entered=" + sprite.entered +
+                    " visible=" + sprite.visible + " entered=" + sprite.entered + " puppet=" + sprite.puppet +
                     " loc=(" + sprite.locH + "," + sprite.locV + ") size=" + sprite.width + "x" + sprite.height);
             }
 
             // Check cast members
             System.out.println("Cast libraries: " + player.getMovie().castManager.casts.size());
             for (var cast : player.getMovie().castManager.casts) {
-                System.out.println("  Cast " + cast.number + " (" + cast.name + "): " + cast.members.size() + " members, state=" + cast.state);
-                // Check first few bitmap members
-                int bitmapCount = 0;
+                if (cast.members.size() > 0) {
+                    System.out.println("  Cast " + cast.number + " (" + cast.name + "): " + cast.members.size() + " members, state=" + cast.state);
+                }
+            }
+
+            // TEST: Manually set up a sprite to verify rendering works
+            // Find the first bitmap member and display it
+            com.dirplayer.player.CastMember testBitmap = null;
+            com.dirplayer.player.CastMemberRef testRef = null;
+            for (var cast : player.getMovie().castManager.casts) {
                 for (var member : cast.members.values()) {
-                    if (member.memberType == com.dirplayer.director.MemberType.Bitmap && bitmapCount < 3) {
-                        System.out.println("    Bitmap member " + member.number + ": " +
-                            member.bitmapWidth + "x" + member.bitmapHeight +
-                            " bitmap=" + (member.bitmap != null ? member.bitmap.bitmapId : "null"));
-                        bitmapCount++;
+                    if (member.memberType == com.dirplayer.director.MemberType.Bitmap && member.bitmap != null) {
+                        testBitmap = member;
+                        testRef = new com.dirplayer.player.CastMemberRef(cast.number, member.number);
+                        System.out.println("TEST: Using bitmap member " + cast.number + ":" + member.number +
+                            " (" + member.name + ") " + member.bitmapWidth + "x" + member.bitmapHeight);
+                        break;
+                    }
+                }
+                if (testBitmap != null) break;
+            }
+
+            if (testBitmap != null && testRef != null) {
+                // Set up sprite 1 to show this bitmap
+                var sprite = player.getMovie().score.getSprite((short) 1);
+                if (sprite != null) {
+                    sprite.puppet = true;  // Make it puppeted so it renders
+                    sprite.visible = true;
+                    sprite.memberRef = testRef;
+                    sprite.locH = 100 + testBitmap.regPointX;
+                    sprite.locV = 100 + testBitmap.regPointY;
+                    sprite.width = testBitmap.bitmapWidth;
+                    sprite.height = testBitmap.bitmapHeight;
+                    sprite.ink = 36;  // Background transparent
+                    sprite.blend = 100;
+                    System.out.println("TEST: Set sprite 1 to show bitmap at (100,100)");
+                    System.out.println("TEST: sprite.puppet=" + sprite.puppet + " visible=" + sprite.visible +
+                        " memberRef=" + sprite.memberRef.getCastLib() + ":" + sprite.memberRef.getCastMember() +
+                        " isValid=" + sprite.memberRef.isValid());
+
+                    // Check if it now appears in sorted channels
+                    java.util.List<Integer> sortedAfter = player.getMovie().score.getSortedChannelNumbers(1);
+                    System.out.println("TEST: Sorted channels after setup: " + sortedAfter);
+
+                    // Check the bitmap itself
+                    var bitmap = player.getBitmapManager().getBitmap(testBitmap.bitmap.bitmapId);
+                    if (bitmap != null) {
+                        System.out.println("TEST: Bitmap found in manager: " + bitmap.getWidth() + "x" + bitmap.getHeight() +
+                            " data.length=" + bitmap.data.length);
+                    } else {
+                        System.out.println("TEST: ERROR - Bitmap NOT found in manager!");
                     }
                 }
             }
+
             System.out.println("=== END DIAGNOSTIC ===");
 
             // Render first frame
