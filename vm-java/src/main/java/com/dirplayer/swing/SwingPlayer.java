@@ -61,6 +61,77 @@ public class SwingPlayer extends JFrame {
         controls = new SwingPlayerControls(this);
         debugPanel = new SwingDebugPanel(this);
         soundManager = new SwingSoundManager(player);
+
+        // Wire up EventDispatcher callbacks for script execution
+        setupEventDispatcher();
+    }
+
+    /**
+     * Set up EventDispatcher callbacks to connect it to DirPlayer script execution.
+     */
+    private void setupEventDispatcher() {
+        // Provide player access to EventDispatcher
+        player.eventDispatcher.setPlayerSupplier(() -> player);
+
+        // Handler invoker - calls script handlers via DirPlayer
+        player.eventDispatcher.setHandlerInvoker(invocation -> {
+            try {
+                // Get receiver as ScriptInstanceRef if provided
+                com.dirplayer.player.script.ScriptInstanceRef receiver = invocation.instanceRef;
+
+                // Call the script handler
+                int result = player.callScriptHandler(
+                    receiver,
+                    invocation.handlerRef.scriptRef,
+                    invocation.handlerRef.handlerName,
+                    invocation.args
+                );
+
+                // Check if the scope passed the event
+                int scopeRef = player.currentScopeRef();
+                boolean passed = false;
+                if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
+                    // The scope has been popped but we want the return value
+                    // Check if passed was set during execution
+                    // For now, assume not passed unless explicitly set
+                }
+
+                // Return result
+                return passed ?
+                    com.dirplayer.player.events.EventResult.passed() :
+                    com.dirplayer.player.events.EventResult.withResult(result);
+            } catch (com.dirplayer.player.ScriptError e) {
+                // Handler not found is normal - just pass to next
+                if (e.getMessage() != null && e.getMessage().contains("Handler not found")) {
+                    return com.dirplayer.player.events.EventResult.passed();
+                }
+                System.err.println("Script error in handler: " + e.getMessage());
+                return com.dirplayer.player.events.EventResult.passed();
+            }
+        });
+
+        // Datum handler invoker - calls handlers on datum objects
+        player.eventDispatcher.setDatumHandlerInvoker(invocation -> {
+            try {
+                int result = player.callDatumHandler(
+                    invocation.receiverRef,
+                    invocation.handlerName,
+                    invocation.args
+                );
+                return com.dirplayer.player.events.EventResult.withResult(result);
+            } catch (com.dirplayer.player.ScriptError e) {
+                // HandlerNotFound is expected for missing handlers
+                return com.dirplayer.player.events.EventResult.passed();
+            }
+        });
+
+        // Error handler
+        player.eventDispatcher.setErrorHandler(err -> {
+            System.err.println("Script error: " + err.getMessage());
+            if (err.getCause() != null) {
+                err.getCause().printStackTrace();
+            }
+        });
     }
 
     private void setupLayout() {
@@ -289,99 +360,19 @@ public class SwingPlayer extends JFrame {
             // Initialize sprites for frame 1 (matches Rust behavior)
             player.beginAllSprites();
 
-            // Debug: print diagnostic info
-            System.out.println("=== DIAGNOSTIC INFO ===");
-            System.out.println("Frame: " + player.getMovie().currentFrame);
-            System.out.println("Total frames: " + player.getMovie().score.totalFrames);
-            System.out.println("Sprite spans: " + player.getMovie().score.spriteSpans.size());
-            System.out.println("Channels: " + player.getMovie().score.channels.size());
-            System.out.println("Channel init data: " + player.getMovie().score.channelInitializationData.size());
-
-            // Print sprite spans
-            for (var span : player.getMovie().score.spriteSpans) {
-                System.out.println("  Span: channel=" + span.channelNumber + " frames " + span.startFrame + "-" + span.endFrame);
+            // Dispatch startMovie event (matches Rust behavior)
+            try {
+                player.eventDispatcher.invokeGlobalEvent("startMovie", new java.util.ArrayList<>());
+            } catch (Exception e) {
+                System.err.println("startMovie error: " + e.getMessage());
             }
 
-            // Print channel init data
-            for (var entry : player.getMovie().score.channelInitializationData) {
-                System.out.println("  ChannelInitData: frameIdx=" + entry.frameIndex + " channelIdx=" + entry.channelIndex +
-                    " castLib=" + entry.data.castLib + " castMember=" + entry.data.castMember +
-                    " pos=(" + entry.data.posX + "," + entry.data.posY + ") size=" + entry.data.width + "x" + entry.data.height);
+            // Dispatch beginSprite for initial sprites
+            try {
+                player.eventDispatcher.dispatchBeginSpriteEvent("beginSprite", new java.util.ArrayList<>());
+            } catch (Exception e) {
+                System.err.println("beginSprite error: " + e.getMessage());
             }
-
-            // Check sorted channels for frame 1
-            java.util.List<Integer> sortedChannels = player.getMovie().score.getSortedChannelNumbers(1);
-            System.out.println("Sorted channels for frame 1: " + sortedChannels);
-
-            // Check first few channels after beginAllSprites
-            for (int i = 0; i < Math.min(10, player.getMovie().score.channels.size()); i++) {
-                var channel = player.getMovie().score.channels.get(i);
-                var sprite = channel.sprite;
-                System.out.println("Channel " + channel.number + ": memberRef=" +
-                    (sprite.memberRef != null ? sprite.memberRef.getCastLib() + ":" + sprite.memberRef.getCastMember() : "null") +
-                    " visible=" + sprite.visible + " entered=" + sprite.entered + " puppet=" + sprite.puppet +
-                    " loc=(" + sprite.locH + "," + sprite.locV + ") size=" + sprite.width + "x" + sprite.height);
-            }
-
-            // Check cast members
-            System.out.println("Cast libraries: " + player.getMovie().castManager.casts.size());
-            for (var cast : player.getMovie().castManager.casts) {
-                if (cast.members.size() > 0) {
-                    System.out.println("  Cast " + cast.number + " (" + cast.name + "): " + cast.members.size() + " members, state=" + cast.state);
-                }
-            }
-
-            // TEST: Manually set up a sprite to verify rendering works
-            // Find the first bitmap member and display it
-            com.dirplayer.player.CastMember testBitmap = null;
-            com.dirplayer.player.CastMemberRef testRef = null;
-            for (var cast : player.getMovie().castManager.casts) {
-                for (var member : cast.members.values()) {
-                    if (member.memberType == com.dirplayer.director.MemberType.Bitmap && member.bitmap != null) {
-                        testBitmap = member;
-                        testRef = new com.dirplayer.player.CastMemberRef(cast.number, member.number);
-                        System.out.println("TEST: Using bitmap member " + cast.number + ":" + member.number +
-                            " (" + member.name + ") " + member.bitmapWidth + "x" + member.bitmapHeight);
-                        break;
-                    }
-                }
-                if (testBitmap != null) break;
-            }
-
-            if (testBitmap != null && testRef != null) {
-                // Set up sprite 1 to show this bitmap
-                var sprite = player.getMovie().score.getSprite((short) 1);
-                if (sprite != null) {
-                    sprite.puppet = true;  // Make it puppeted so it renders
-                    sprite.visible = true;
-                    sprite.memberRef = testRef;
-                    sprite.locH = 100 + testBitmap.regPointX;
-                    sprite.locV = 100 + testBitmap.regPointY;
-                    sprite.width = testBitmap.bitmapWidth;
-                    sprite.height = testBitmap.bitmapHeight;
-                    sprite.ink = 36;  // Background transparent
-                    sprite.blend = 100;
-                    System.out.println("TEST: Set sprite 1 to show bitmap at (100,100)");
-                    System.out.println("TEST: sprite.puppet=" + sprite.puppet + " visible=" + sprite.visible +
-                        " memberRef=" + sprite.memberRef.getCastLib() + ":" + sprite.memberRef.getCastMember() +
-                        " isValid=" + sprite.memberRef.isValid());
-
-                    // Check if it now appears in sorted channels
-                    java.util.List<Integer> sortedAfter = player.getMovie().score.getSortedChannelNumbers(1);
-                    System.out.println("TEST: Sorted channels after setup: " + sortedAfter);
-
-                    // Check the bitmap itself
-                    var bitmap = player.getBitmapManager().getBitmap(testBitmap.bitmap.bitmapId);
-                    if (bitmap != null) {
-                        System.out.println("TEST: Bitmap found in manager: " + bitmap.getWidth() + "x" + bitmap.getHeight() +
-                            " data.length=" + bitmap.data.length);
-                    } else {
-                        System.out.println("TEST: ERROR - Bitmap NOT found in manager!");
-                    }
-                }
-            }
-
-            System.out.println("=== END DIAGNOSTIC ===");
 
             // Render first frame
             renderFrame();

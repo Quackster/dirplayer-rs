@@ -222,9 +222,13 @@ public class DirPlayer {
         isScriptPaused = false;
         nextFrame = null;
         scopes.clear();
+        scopeCount = 0;
         globals.clear();
         currentBreakpoint = null;
         stepMode = StepMode.None;
+        hasPlayerFrameChanged = false;
+        hasFrameChangedInGo = false;
+        goDirection = 0;
         logger.info("Player reset");
     }
 
@@ -1308,16 +1312,18 @@ public class DirPlayer {
         }
 
         int scopeRef = scopeCount;
-        ScriptScope scope = scopes.get(scopeRef);
-        if (scope == null) {
-            scope = new ScriptScope();
-            if (scopeRef < scopes.size()) {
+        ScriptScope scope;
+        if (scopeRef < scopes.size()) {
+            scope = scopes.get(scopeRef);
+            if (scope == null) {
+                scope = new ScriptScope();
                 scopes.set(scopeRef, scope);
             } else {
-                scopes.add(scope);
+                scope.reset();
             }
         } else {
-            scope.reset();
+            scope = new ScriptScope();
+            scopes.add(scope);
         }
         scopeCount++;
         return scopeRef;
@@ -1581,6 +1587,7 @@ public class DirPlayer {
     /**
      * Main tick method for playback loop.
      * Called each frame during playback.
+     * Port of Rust execute_frame_update + run_frame_loop logic.
      */
     public void tick() {
         if (!isPlaying || isScriptPaused) {
@@ -1588,43 +1595,158 @@ public class DirPlayer {
         }
 
         try {
-            // Begin frame processing
-            isInFrameUpdate = true;
+            // Execute frame update (runs every frame)
+            executeFrameUpdate();
 
-            // Update timeouts - check for any that should trigger
-            for (TimeoutManager.Timeout timeout : timeoutManager.timeouts.values()) {
-                if (timeout.shouldTrigger()) {
-                    timeout.reset();
+            // Frame advancement logic
+            if (!hasPlayerFrameChanged) {
+                // Dispatch exitFrame to all behaviors when frame hasn't changed via go()
+                eventDispatcher.dispatchEventToAllBehaviors("exitFrame", new java.util.ArrayList<>());
+
+                // Check if frame changed during exitFrame
+                if (!hasFrameChangedInGo) {
+                    // End sprites that are exiting
+                    endExitingSprites();
+
+                    // Advance the frame
+                    advanceFrame();
+                    hasPlayerFrameChanged = false;
+                } else {
+                    hasFrameChangedInGo = false;
                 }
+            } else {
+                // Frame was changed by a go() call - dispatch exitFrame to frame/movie scripts only
+                try {
+                    eventDispatcher.invokeFrameAndMovieScripts("exitFrame", new java.util.ArrayList<>());
+                } catch (ScriptError e) {
+                    logger.error("exitFrame error: {}", e.getMessage());
+                }
+
+                // End exiting sprites
+                endExitingSprites();
+
+                // Advance the frame
+                advanceFrame();
+                hasPlayerFrameChanged = false;
             }
 
-            // Dispatch prepareFrame event
-            inPrepareFrame = true;
-            eventDispatcher.dispatchGlobalEvent("prepareFrame", new java.util.ArrayList<>());
-            inPrepareFrame = false;
+            // Clear frame script instance for new frame
+            movie.frameScriptInstance = null;
 
-            // Initialize sprites for current frame
+            // Initialize sprites for new frame
             beginAllSprites();
 
-            // Dispatch enterFrame event
-            inEnterFrame = true;
-            eventDispatcher.dispatchGlobalEvent("enterFrame", new java.util.ArrayList<>());
-            inEnterFrame = false;
+            // Apply tween modifiers
+            movie.score.applyTweenModifiers(movie.currentFrame);
 
-            // Dispatch step frame events (idle, timeouts, etc)
-            eventDispatcher.dispatchGlobalEvent("stepFrame", new java.util.ArrayList<>());
+            // Update filmloop frames
+            advanceFilmloopFrames();
 
-            // Dispatch exitFrame event
-            eventDispatcher.dispatchGlobalEvent("exitFrame", new java.util.ArrayList<>());
-
-            // Advance to next frame
-            advanceFrame();
-
-            isInFrameUpdate = false;
+            // Dispatch beginSprite to new sprites
+            try {
+                eventDispatcher.dispatchBeginSpriteEvent("beginSprite", new java.util.ArrayList<>());
+            } catch (ScriptError e) {
+                logger.error("beginSprite error: {}", e.getMessage());
+            }
 
         } catch (Exception e) {
             isInFrameUpdate = false;
             logger.error("Tick error: {}", e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Execute frame update - runs every frame.
+     * Port of Rust MovieHandlers::execute_frame_update.
+     */
+    private void executeFrameUpdate() {
+        // Prevent re-entrant calls
+        if (isInFrameUpdate || hasPlayerFrameChanged) {
+            return;
+        }
+
+        isInFrameUpdate = true;
+
+        try {
+            // Apply tween modifiers for current frame
+            movie.score.applyTweenModifiers(movie.currentFrame);
+
+            // 1. Send stepFrame to actorList
+            Integer actorListRef = globals.get("actorList");
+            if (actorListRef != null) {
+                com.dirplayer.director.lingo.Datum actorListDatum = getDatum(actorListRef);
+                if (actorListDatum != null && actorListDatum.isList()) {
+                    try {
+                        java.util.List<Integer> items = actorListDatum.toList();
+                        for (Integer actorRef : items) {
+                            try {
+                                callDatumHandler(actorRef, "stepFrame", new java.util.ArrayList<>());
+                            } catch (ScriptError e) {
+                                // Handler not found is normal
+                                if (!e.getMessage().contains("Handler not found")) {
+                                    logger.warn("stepFrame error: {}", e.getMessage());
+                                }
+                            }
+                        }
+                    } catch (ScriptError e) {
+                        // Ignore list access errors
+                    }
+                }
+            }
+
+            // 2. Dispatch prepareFrame to timeout targets
+            eventDispatcher.dispatchSystemEventToTimeouts("prepareFrame", new java.util.ArrayList<>());
+
+            // 3. Dispatch prepareFrame to all behaviors
+            inPrepareFrame = true;
+            eventDispatcher.dispatchEventToAllBehaviors("prepareFrame", new java.util.ArrayList<>());
+            inPrepareFrame = false;
+
+            // 4. Dispatch enterFrame to all behaviors
+            inEnterFrame = true;
+            eventDispatcher.dispatchEventToAllBehaviors("enterFrame", new java.util.ArrayList<>());
+            inEnterFrame = false;
+
+        } finally {
+            isInFrameUpdate = false;
+        }
+    }
+
+    /**
+     * End sprites that are exiting the current frame.
+     */
+    private void endExitingSprites() {
+        java.util.List<Integer> exitingSpriteNums = new java.util.ArrayList<>();
+
+        for (com.dirplayer.player.score.SpriteChannel channel : movie.score.channels) {
+            if (channel.sprite != null && channel.sprite.entered && !channel.sprite.exited) {
+                // Check if sprite should exit (not in active span for next frame)
+                int nextFrame = getNextFrame();
+                boolean stillActive = false;
+                for (var span : movie.score.spriteSpans) {
+                    if (span.channelNumber == channel.number &&
+                        com.dirplayer.player.score.Score.isSpanInFrame(span, nextFrame)) {
+                        stillActive = true;
+                        break;
+                    }
+                }
+                if (!stillActive) {
+                    exitingSpriteNums.add(channel.number);
+                }
+            }
+        }
+
+        if (!exitingSpriteNums.isEmpty()) {
+            eventDispatcher.dispatchEndSpriteEvent(exitingSpriteNums);
+
+            // Mark sprites as exited
+            for (Integer spriteNum : exitingSpriteNums) {
+                Sprite sprite = movie.score.getSprite(spriteNum.shortValue());
+                if (sprite != null) {
+                    sprite.exited = true;
+                }
+            }
         }
     }
 

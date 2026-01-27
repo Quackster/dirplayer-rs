@@ -48,6 +48,28 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
+// Fat jar task for running the Swing player
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+    manifest {
+        attributes 'Main-Class': 'com.dirplayer.swing.SwingPlayer'
+    }
+}
+
+// Task to run the Swing player
+tasks.register('runSwing', JavaExec) {
+    group = 'application'
+    description = 'Runs the Swing-based desktop player'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.dirplayer.swing.SwingPlayer'
+}
+
 // TeaVM configuration for WebAssembly output
 teavm {
     js {

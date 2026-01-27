@@ -99,30 +99,25 @@ public class Renderer {
 
         logger.debug("STAGE RENDER: frame {} channels {}", frameNum, sortedChannelNumbers);
 
-        logger.info("RENDER: Processing {} channels for frame {}", sortedChannelNumbers.size(), frameNum);
         for (int channelNum : sortedChannelNumbers) {
             Sprite sprite = score.getSprite((short) channelNum);
             if (sprite == null) {
-                logger.info("RENDER: channel {} - sprite is null", channelNum);
                 continue;
             }
 
             CastMemberRef memberRef = sprite.getMember();
             if (memberRef == null) {
-                logger.info("RENDER: channel {} - memberRef is null", channelNum);
                 continue;
             }
 
             CastMember member = movie.getCastManager().findMemberByRef(memberRef);
             if (member == null) {
-                logger.info("RENDER: channel {} - member not found for {}:{}", channelNum, memberRef.getCastLib(), memberRef.getCastMember());
                 continue;
             }
 
-            logger.info("RENDER: channel {} - rendering member {}:{} type {} at ({},{}) size {}x{}",
+            logger.debug("  STAGE channel {}: member {}:{} type {}",
                 channelNum, memberRef.getCastLib(), memberRef.getCastMember(),
-                member.getMemberType(), sprite.getLocH(), sprite.getLocV(),
-                sprite.getWidth(), sprite.getHeight());
+                member.getMemberType());
 
             renderSprite(player, bitmap, sprite, member, palettes, offsetX, offsetY);
         }
@@ -166,14 +161,10 @@ public class Renderer {
     private static void renderBitmapSprite(DirPlayer player, Bitmap destBitmap, Sprite sprite,
                                           CastMember member, PaletteMap palettes) {
         int imageRef = member.getImageRef();
-        logger.info("  renderBitmapSprite: imageRef={}", imageRef);
         Bitmap srcBitmap = player.getBitmapManager().getBitmap(imageRef);
         if (srcBitmap == null) {
-            logger.info("  renderBitmapSprite: srcBitmap is NULL");
             return;
         }
-        logger.info("  renderBitmapSprite: srcBitmap {}x{} bitDepth={}",
-            srcBitmap.getWidth(), srcBitmap.getHeight(), srcBitmap.bitDepth);
 
         IntRect spriteRect = getConcreteSpriteRect(player, sprite);
         IntRect srcRect = IntRect.from(0, 0, srcBitmap.getWidth(), srcBitmap.getHeight());
