@@ -124,6 +124,22 @@ public class LingoToken {
         return isOneOf(TokenType.CHAR, TokenType.WORD, TokenType.ITEM, TokenType.LINE);
     }
 
+    /**
+     * Check if this token can be a property name in "the X of Y" expressions.
+     * This includes identifiers, chunk types, and certain keywords that can be property names.
+     */
+    public boolean canBePropertyName() {
+        return isOneOf(
+            TokenType.IDENTIFIER,
+            // Chunk types (char, word, item, line)
+            TokenType.CHAR, TokenType.WORD, TokenType.ITEM, TokenType.LINE,
+            // Other keywords that can be property names
+            TokenType.RECT, TokenType.POINT, TokenType.COLOR,
+            TokenType.MEMBER, TokenType.SPRITE,
+            TokenType.TRUE, TokenType.FALSE, TokenType.VOID
+        );
+    }
+
     @Override
     public String toString() {
         return "Token{" + type + ", \"" + value + "\", pos=" + position + "}";

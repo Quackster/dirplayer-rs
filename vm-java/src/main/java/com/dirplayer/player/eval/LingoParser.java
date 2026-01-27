@@ -89,7 +89,7 @@ public class LingoParser {
         }
 
         // Parse identifier as potential handler call
-        LingoExpr expr = parseAssignment();
+        LingoExpr expr = parseCommandAssignment();
 
         // If it's just an identifier, treat as handler call with no args
         if (expr instanceof LingoExpr.Identifier && isAtEnd()) {
@@ -98,6 +98,51 @@ public class LingoParser {
         }
 
         return expr;
+    }
+
+    /**
+     * Parse assignment in command context - treats '=' as assignment at top level.
+     * This differs from parseExpression which uses '=' for comparison.
+     */
+    private LingoExpr parseCommandAssignment() throws ScriptError {
+        LingoExpr expr = parsePostfix();
+
+        // In command context, top-level '=' is assignment
+        if (match(LingoToken.TokenType.EQUALS)) {
+            LingoExpr value = parseOrExpr();
+            return new LingoExpr.Assignment(expr, value);
+        }
+
+        // If not assignment, continue with full expression parsing from or_expr level
+        // But we already have the left side from parsePostfix, so continue from there
+        return continueExpressionFrom(expr);
+    }
+
+    /**
+     * Continue expression parsing from a given left-hand expression.
+     * Used when we've already parsed the left side and need to continue.
+     */
+    private LingoExpr continueExpressionFrom(LingoExpr left) throws ScriptError {
+        // Continue with or_expr level
+        while (match(LingoToken.TokenType.OR)) {
+            LingoExpr right = parseAndExpr();
+            left = new LingoExpr.Or(left, right);
+        }
+
+        // Check for 'and' (should have been handled but just in case)
+        if (check(LingoToken.TokenType.AND)) {
+            left = continueAndFrom(left);
+        }
+
+        return left;
+    }
+
+    private LingoExpr continueAndFrom(LingoExpr left) throws ScriptError {
+        while (match(LingoToken.TokenType.AND)) {
+            LingoExpr right = parseNotExpr();
+            left = new LingoExpr.And(left, right);
+        }
+        return left;
     }
 
     // ============ Expression Parsing ============
@@ -354,13 +399,13 @@ public class LingoParser {
 
     private LingoExpr parseTheExpr() throws ScriptError {
         // "the" propertyName ["of" expression]
-        if (!check(LingoToken.TokenType.IDENTIFIER) && !peek().isChunkType()) {
+        if (!peek().canBePropertyName()) {
             throw error("Expected property name after 'the'");
         }
 
         StringBuilder propName = new StringBuilder();
         // Allow multi-word properties like "the long time"
-        while (check(LingoToken.TokenType.IDENTIFIER) || peek().isChunkType()) {
+        while (peek().canBePropertyName()) {
             if (peek().type == LingoToken.TokenType.OF) break;
             if (propName.length() > 0) propName.append(" ");
             propName.append(advance().value);
@@ -399,12 +444,15 @@ public class LingoParser {
     }
 
     private LingoExpr parseSpriteRef() throws ScriptError {
-        // sprite(expr) or sprite expr
+        // sprite(expr) or sprite expr or sprite the X
         LingoExpr spriteExpr;
 
         if (match(LingoToken.TokenType.LPAREN)) {
             spriteExpr = parseExpression();
             consume(LingoToken.TokenType.RPAREN, "Expected ')' after sprite expression");
+        } else if (check(LingoToken.TokenType.THE)) {
+            // Handle "sprite the currentSpriteNum" form
+            spriteExpr = parsePrimary(); // This will call parseTheExpr()
         } else {
             spriteExpr = parsePrimary();
         }
@@ -546,8 +594,57 @@ public class LingoParser {
     private LingoExpr parsePutStatement() throws ScriptError {
         consume(LingoToken.TokenType.PUT, "Expected 'put'");
 
+        // Handle "put" alone (no arguments) -> HandlerCall
+        if (isAtEnd()) {
+            return new LingoExpr.HandlerCall("put", new ArrayList<>());
+        }
+
+        // Handle "put()" or "put(...)" with parentheses
+        if (check(LingoToken.TokenType.LPAREN)) {
+            advance(); // consume '('
+
+            // "put()" with no args is an error
+            if (check(LingoToken.TokenType.RPAREN)) {
+                throw error("put() requires at least one argument");
+            }
+
+            // Parse first argument
+            LingoExpr first = parseExpression();
+
+            // Check if there are more arguments
+            if (match(LingoToken.TokenType.COMMA)) {
+                // Multiple args -> HandlerCall("put", args)
+                List<LingoExpr> args = new ArrayList<>();
+                args.add(first);
+                do {
+                    args.add(parseExpression());
+                } while (match(LingoToken.TokenType.COMMA));
+                consume(LingoToken.TokenType.RPAREN, "Expected ')' after arguments");
+                return new LingoExpr.HandlerCall("put", args);
+            }
+
+            // Single arg in parens -> PutDisplay
+            consume(LingoToken.TokenType.RPAREN, "Expected ')' after expression");
+
+            // Check for into/before/after
+            if (match(LingoToken.TokenType.INTO)) {
+                LingoExpr target = parsePostfix();
+                return new LingoExpr.PutInto(first, target);
+            } else if (match(LingoToken.TokenType.BEFORE)) {
+                LingoExpr target = parsePostfix();
+                return new LingoExpr.PutBefore(first, target);
+            } else if (match(LingoToken.TokenType.AFTER)) {
+                LingoExpr target = parsePostfix();
+                return new LingoExpr.PutAfter(first, target);
+            }
+
+            return new LingoExpr.PutDisplay(first);
+        }
+
+        // Handle "put expr" without parentheses
         LingoExpr value = parseExpression();
 
+        // Check for into/before/after
         if (match(LingoToken.TokenType.INTO)) {
             LingoExpr target = parsePostfix();
             return new LingoExpr.PutInto(value, target);
@@ -557,6 +654,26 @@ public class LingoParser {
         } else if (match(LingoToken.TokenType.AFTER)) {
             LingoExpr target = parsePostfix();
             return new LingoExpr.PutAfter(value, target);
+        }
+
+        // Check for comma-separated args -> HandlerCall
+        if (match(LingoToken.TokenType.COMMA)) {
+            List<LingoExpr> args = new ArrayList<>();
+            args.add(value);
+            do {
+                args.add(parseExpression());
+            } while (match(LingoToken.TokenType.COMMA));
+
+            // After comma-separated args, we should be at end
+            if (!isAtEnd()) {
+                throw error("Unexpected token after put arguments");
+            }
+            return new LingoExpr.HandlerCall("put", args);
+        }
+
+        // Check for space-separated args (error case) - "put 1 2 3"
+        if (!isAtEnd()) {
+            throw error("Unexpected token after put expression - use commas to separate arguments");
         }
 
         // Just "put value" - display to message window

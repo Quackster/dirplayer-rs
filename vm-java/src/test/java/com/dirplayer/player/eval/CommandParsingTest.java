@@ -2,10 +2,7 @@ package com.dirplayer.player.eval;
 
 import com.dirplayer.player.ScriptError;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.List;
 
 /**
  * Tests for Lingo command parsing.
@@ -37,19 +34,19 @@ public class CommandParsingTest {
     }
 
     @Test
-    @Disabled("Java parser treats put(1, 2, 3) as PutDisplay of a list, not HandlerCall - matches expression parsing")
     void testGlobalHandlerMultiArgs() throws ScriptError {
-        // put(1, 2, 3) is a handler call in Rust grammar
-        // In Java, the parser goes to parsePutStatement which parses expression after "put"
+        // put(1, 2, 3) is a handler call
         LingoExpr ast = parseCommand("put(1, 2, 3)");
         assertInstanceOf(LingoExpr.HandlerCall.class, ast);
         LingoExpr.HandlerCall call = (LingoExpr.HandlerCall) ast;
         assertEquals("put", call.handlerName);
         assertEquals(3, call.args.size());
+        assertEquals(1, ((LingoExpr.IntLiteral) call.args.get(0)).value);
+        assertEquals(2, ((LingoExpr.IntLiteral) call.args.get(1)).value);
+        assertEquals(3, ((LingoExpr.IntLiteral) call.args.get(2)).value);
     }
 
     @Test
-    @Disabled("Java parser treats 'put' alone as identifier command, not specifically parsed - requires isAtEnd check in parsePutStatement")
     void testCommandNoArgs() throws ScriptError {
         LingoExpr ast = parseCommand("put");
         assertInstanceOf(LingoExpr.HandlerCall.class, ast);
@@ -69,7 +66,6 @@ public class CommandParsingTest {
     }
 
     @Test
-    @Disabled("Java parser doesn't distinguish 'put 1, 2, 3' as multi-arg handler call vs expression")
     void testCommandMultiArgs() throws ScriptError {
         LingoExpr ast = parseCommand("put 1, 2, 3");
         assertInstanceOf(LingoExpr.HandlerCall.class, ast);
@@ -79,23 +75,20 @@ public class CommandParsingTest {
     }
 
     @Test
-    @Disabled("Java parser behavior differs - 'put 1 2 3' may parse as put with expression")
     void testCommandMultiArgsInline() {
-        // "put 1 2 3" should fail in Rust
+        // "put 1 2 3" should fail - space-separated args without commas
         assertThrows(ScriptError.class, () -> parseCommand("put 1 2 3"));
     }
 
     @Test
-    @Disabled("Java parser behavior differs - 'put 1 2, 3' may parse differently")
     void testCommandMultiArgsMixed() {
-        // "put 1 2, 3" should fail in Rust
+        // "put 1 2, 3" should fail - mixed spacing
         assertThrows(ScriptError.class, () -> parseCommand("put 1 2, 3"));
     }
 
     // ============ Assignment Tests ============
 
     @Test
-    @Disabled("Java parser parseCommand doesn't differentiate assignment context from comparison - '=' is parsed as Eq in expression")
     void testTopLevelAssignment() throws ScriptError {
         LingoExpr ast = parseCommand("obj = 1");
         assertInstanceOf(LingoExpr.Assignment.class, ast);
@@ -109,7 +102,6 @@ public class CommandParsingTest {
     }
 
     @Test
-    @Disabled("Java parser parseCommand doesn't differentiate assignment context from comparison")
     void testDeepAssignment() throws ScriptError {
         LingoExpr ast = parseCommand("obj.prop = 1");
         assertInstanceOf(LingoExpr.Assignment.class, ast);
@@ -305,7 +297,6 @@ public class CommandParsingTest {
     }
 
     @Test
-    @Disabled("Complex nested 'the' expression with sprite - requires parser enhancement for 'sprite the X' form")
     void testPutDisplaySpriteWithTheProperty() throws ScriptError {
         // put the rect of sprite the currentSpriteNum
         LingoExpr ast = parseCommand("put the rect of sprite the currentSpriteNum");
