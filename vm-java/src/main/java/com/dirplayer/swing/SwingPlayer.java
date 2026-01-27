@@ -257,8 +257,20 @@ public class SwingPlayer extends JFrame {
             String fileName = file.getName();
             URL basePath = file.getParentFile().toURI().toURL();
 
+            // Enable synchronous mode for desktop loading (fetches external casts immediately)
+            player.netManager.setSynchronousMode(true);
+            player.netManager.setBasePath(basePath.toString());
+
             DirectorFile dirFile = DirectorFile.readBytes(data, fileName, basePath.toString());
             player.loadFromDirectorFile(dirFile);
+
+            // Preload external casts (both phases)
+            // MovieLoaded phase (preload mode 2 = before frame one)
+            player.movie.castManager.loadFromDir(dirFile, player.netManager, player.bitmapManager, player.dirCache);
+            // AfterFrameOne phase (preload mode 1 = after frame one) - fuse_client uses this
+            player.movie.castManager.preloadCasts(
+                com.dirplayer.player.CastManager.CastPreloadReason.AfterFrameOne,
+                player.netManager, player.bitmapManager, player.dirCache);
 
             // Update frame rate from movie
             Movie movie = player.getMovie();
@@ -276,6 +288,9 @@ public class SwingPlayer extends JFrame {
 
             // Render first frame
             renderFrame();
+
+            // Force debug panel to refresh
+            debugPanel.forceFullUpdate(player);
             updateControls();
 
             System.out.println("Loaded: " + fileName);
@@ -292,6 +307,10 @@ public class SwingPlayer extends JFrame {
     public void loadUrl(String url) {
         try {
             stop();
+
+            // Enable synchronous mode for desktop loading
+            player.netManager.setSynchronousMode(true);
+
             player.loadMovieFromFile(url, false);
 
             Movie movie = player.getMovie();
@@ -305,6 +324,7 @@ public class SwingPlayer extends JFrame {
 
             setTitle(TITLE + " - " + url);
             renderFrame();
+            debugPanel.forceFullUpdate(player);
             updateControls();
 
         } catch (Exception e) {

@@ -47,6 +47,13 @@ public class SwingDebugPanel extends JPanel {
     // Console tab
     private JTextArea consoleText;
 
+    // Tracking state to avoid unnecessary rebuilds
+    private int lastCastCount = -1;
+    private int lastChannelCount = -1;
+    private int lastFrame = -1;
+    private long lastUpdateTime = 0;
+    private static final long UPDATE_INTERVAL_MS = 100; // Only update every 100ms
+
     public SwingDebugPanel(SwingPlayer swingPlayer) {
         this.swingPlayer = swingPlayer;
 
@@ -228,20 +235,62 @@ public class SwingDebugPanel extends JPanel {
     }
 
     public void update(DirPlayer player) {
+        // Throttle updates to avoid rebuilding UI every frame
+        long now = System.currentTimeMillis();
+        if (now - lastUpdateTime < UPDATE_INTERVAL_MS) {
+            return;
+        }
+        lastUpdateTime = now;
+
+        // Only update visible tabs
+        int selectedTab = tabbedPane.getSelectedIndex();
+        switch (selectedTab) {
+            case 0: // Channels
+                updateChannelsTab(player);
+                break;
+            case 1: // Cast
+                updateCastTab(player);
+                break;
+            case 2: // Variables
+                updateVariablesTab(player);
+                break;
+            // Other tabs don't need constant updates
+        }
+    }
+
+    /**
+     * Force a full update of all tabs (call when movie loads).
+     */
+    public void forceFullUpdate(DirPlayer player) {
+        lastCastCount = -1;
+        lastChannelCount = -1;
+        lastFrame = -1;
+        lastUpdateTime = 0;
         updateChannelsTab(player);
         updateCastTab(player);
         updateVariablesTab(player);
     }
 
     private void updateChannelsTab(DirPlayer player) {
-        channelListModel.clear();
-
-        if (player == null) return;
+        if (player == null) {
+            if (channelListModel.size() > 0) {
+                channelListModel.clear();
+            }
+            return;
+        }
 
         Movie movie = player.getMovie();
-        if (movie == null || movie.score == null) return;
+        if (movie == null || movie.score == null) {
+            if (channelListModel.size() > 0) {
+                channelListModel.clear();
+            }
+            return;
+        }
 
         Score score = movie.score;
+
+        // Check if channel count changed - if not, update in place
+        boolean sizeChanged = score.channels.size() != channelListModel.size();
 
         for (int i = 0; i < score.channels.size(); i++) {
             SpriteChannel channel = score.channels.get(i);
@@ -263,25 +312,62 @@ public class SwingDebugPanel extends JPanel {
                 sb.append("(empty)");
             }
 
-            channelListModel.addElement(sb.toString());
+            String newValue = sb.toString();
+            if (sizeChanged) {
+                if (i < channelListModel.size()) {
+                    channelListModel.set(i, newValue);
+                } else {
+                    channelListModel.addElement(newValue);
+                }
+            } else {
+                // Update only if different
+                if (!newValue.equals(channelListModel.get(i))) {
+                    channelListModel.set(i, newValue);
+                }
+            }
+        }
+
+        // Remove extra entries if list shrunk
+        while (channelListModel.size() > score.channels.size()) {
+            channelListModel.remove(channelListModel.size() - 1);
         }
     }
 
     private void updateCastTab(DirPlayer player) {
-        castRootNode.removeAllChildren();
-
         if (player == null) {
-            castTreeModel.reload();
+            if (lastCastCount != 0) {
+                castRootNode.removeAllChildren();
+                castTreeModel.reload();
+                lastCastCount = 0;
+            }
             return;
         }
 
         Movie movie = player.getMovie();
         if (movie == null || movie.castManager == null) {
-            castTreeModel.reload();
+            if (lastCastCount != 0) {
+                castRootNode.removeAllChildren();
+                castTreeModel.reload();
+                lastCastCount = 0;
+            }
             return;
         }
 
+        // Calculate total member count to detect changes
         List<CastLib> casts = movie.castManager.casts;
+        int totalMembers = 0;
+        for (CastLib castLib : casts) {
+            totalMembers += castLib.members.size();
+        }
+
+        // Only rebuild if cast structure changed
+        if (totalMembers == lastCastCount && casts.size() == castRootNode.getChildCount()) {
+            return;
+        }
+        lastCastCount = totalMembers;
+
+        castRootNode.removeAllChildren();
+
         for (int i = 0; i < casts.size(); i++) {
             CastLib castLib = casts.get(i);
 
