@@ -89,10 +89,28 @@ public class DcrFileLoadTest {
             System.out.println();
         }
 
-        // Cast libraries info
+        // Cast entries (from cast list - includes external casts)
+        if (dirFile.castEntries != null && !dirFile.castEntries.isEmpty()) {
+            System.out.println("--- Cast Entries (from MCsL) ---");
+            System.out.println("Number of Cast Entries: " + dirFile.castEntries.size());
+
+            for (int i = 0; i < dirFile.castEntries.size(); i++) {
+                var entry = dirFile.castEntries.get(i);
+                String castName = entry.name != null && !entry.name.isEmpty() ? entry.name : "(unnamed)";
+                String filePath = entry.filePath != null && !entry.filePath.isEmpty() ? entry.filePath : "(internal)";
+                boolean isExternal = entry.filePath != null && !entry.filePath.isEmpty();
+
+                System.out.println("  Cast " + (i + 1) + ": \"" + castName + "\"");
+                System.out.println("    File: " + filePath + (isExternal ? " [EXTERNAL - needs loading]" : ""));
+                System.out.println("    Member range: " + entry.minMember + " to " + entry.maxMember);
+            }
+            System.out.println();
+        }
+
+        // Cast libraries info (loaded internal casts)
         if (dirFile.casts != null && !dirFile.casts.isEmpty()) {
-            System.out.println("--- Cast Libraries ---");
-            System.out.println("Number of Cast Libraries: " + dirFile.casts.size());
+            System.out.println("--- Loaded Cast Libraries ---");
+            System.out.println("Number of Loaded Casts: " + dirFile.casts.size());
 
             int totalMembers = 0;
             for (int i = 0; i < dirFile.casts.size(); i++) {

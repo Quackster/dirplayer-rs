@@ -432,6 +432,10 @@ public class CastManager {
             if (castDef != null) {
                 applyCastDef(cast, dirFile, castDef, bitmapManager);
                 clearMovieScriptCache();
+            } else if (cast.fileName != null && !cast.fileName.isEmpty()) {
+                // External cast file needs to be loaded
+                logger.warn("External cast library '{}' references file '{}' which needs to be loaded separately",
+                    cast.name.isEmpty() ? "Cast " + cast.number : cast.name, cast.fileName);
             }
 
             loadedCasts.add(cast);
