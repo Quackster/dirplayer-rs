@@ -29,6 +29,7 @@ public class CastLib {
     public int preloadMode;
     public boolean capitalX;
     public int dirVersion;
+    public com.dirplayer.director.lingo.ScriptContext scriptContext;  // Holds names from lnam
 
     /**
      * Cast library state enum.
@@ -50,6 +51,7 @@ public class CastLib {
         this.preloadMode = 0;
         this.capitalX = false;
         this.dirVersion = 0;
+        this.scriptContext = new com.dirplayer.director.lingo.ScriptContext();
     }
 
     public CastLib(int number, String name) {
@@ -283,7 +285,17 @@ public class CastLib {
                               com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
         this.dirVersion = dirFile.version;
 
+        // Populate scriptContext with names from lnam
+        if (castDef.lnam != null && castDef.lnam.names != null) {
+            this.scriptContext.names.clear();
+            this.scriptContext.names.addAll(castDef.lnam.names);
+        }
+
         // Load members from cast definition
+        int scriptMembers = 0;
+        int scriptsCreated = 0;
+        boolean hasLctx = castDef.lctx != null;
+
         for (java.util.Map.Entry<Integer, com.dirplayer.director.CastDef.CastMemberDef> entry :
                 castDef.members.entrySet()) {
             int memberId = entry.getKey();
@@ -294,14 +306,22 @@ public class CastLib {
                 insertMember(memberId, member);
 
                 // Create script if this is a script member
-                if (member.getMemberType() == com.dirplayer.director.MemberType.Script &&
-                    castDef.lctx != null) {
-                    Script script = createScriptFromMember(memberId, member, memberDef, castDef);
-                    if (script != null) {
-                        scripts.put(memberId, script);
+                if (member.getMemberType() == com.dirplayer.director.MemberType.Script) {
+                    scriptMembers++;
+                    if (castDef.lctx != null) {
+                        Script script = createScriptFromMember(memberId, member, memberDef, castDef);
+                        if (script != null) {
+                            scripts.put(memberId, script);
+                            scriptsCreated++;
+                        }
                     }
                 }
             }
+        }
+
+        if (scriptMembers > 0) {
+            logger.info("Cast {}: {} script members, {} scripts created, hasLctx={}",
+                name, scriptMembers, scriptsCreated, hasLctx);
         }
 
         logger.debug("Applied cast def to cast {}: {} members, {} scripts",
@@ -426,7 +446,12 @@ public class CastLib {
     private Script createScriptFromMember(int memberNumber, CastMember member,
                                            com.dirplayer.director.CastDef.CastMemberDef memberDef,
                                            com.dirplayer.director.CastDef castDef) {
-        if (memberDef.script == null || castDef.lctx == null) {
+        if (memberDef.script == null) {
+            // Script chunk not loaded for this member
+            return null;
+        }
+        if (castDef.lctx == null) {
+            logger.warn("Cannot create script for member {}: no lctx", memberNumber);
             return null;
         }
 
@@ -439,12 +464,26 @@ public class CastLib {
                 }
             }
 
-            return new Script(
+            Script script = new Script(
                 new CastMemberRef(this.number, memberNumber),
                 member.name,
                 memberDef.script,
                 scriptType
             );
+
+            // Populate handlers map from script chunk using lnam names
+            if (castDef.lnam != null && memberDef.script.handlers != null) {
+                java.util.List<String> names = castDef.lnam.names;
+                for (com.dirplayer.director.chunks.HandlerDef handler : memberDef.script.handlers) {
+                    if (handler.nameId >= 0 && handler.nameId < names.size()) {
+                        String handlerName = names.get(handler.nameId);
+                        script.handlers.put(handlerName.toLowerCase(), handler);
+                        script.handlerNames.add(handlerName);
+                    }
+                }
+            }
+
+            return script;
         } catch (Exception e) {
             logger.warn("Failed to create script: {}", e.getMessage());
             return null;

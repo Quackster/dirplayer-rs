@@ -79,33 +79,25 @@ public class SwingPlayer extends JFrame {
                 // Get receiver as ScriptInstanceRef if provided
                 com.dirplayer.player.script.ScriptInstanceRef receiver = invocation.instanceRef;
 
-                // Call the script handler
-                int result = player.callScriptHandler(
+                // Call the script handler and get full result
+                com.dirplayer.player.ScopeResult result = player.callScriptHandlerWithResult(
                     receiver,
                     invocation.handlerRef.scriptRef,
                     invocation.handlerRef.handlerName,
                     invocation.args
                 );
 
-                // Check if the scope passed the event
-                int scopeRef = player.currentScopeRef();
-                boolean passed = false;
-                if (scopeRef >= 0 && scopeRef < player.scopes.size()) {
-                    // The scope has been popped but we want the return value
-                    // Check if passed was set during execution
-                    // For now, assume not passed unless explicitly set
-                }
-
-                // Return result
-                return passed ?
+                // Return result with proper passed flag
+                return result.passed ?
                     com.dirplayer.player.events.EventResult.passed() :
-                    com.dirplayer.player.events.EventResult.withResult(result);
+                    com.dirplayer.player.events.EventResult.withResult(result.returnValue);
             } catch (com.dirplayer.player.ScriptError e) {
                 // Handler not found is normal - just pass to next
                 if (e.getMessage() != null && e.getMessage().contains("Handler not found")) {
                     return com.dirplayer.player.events.EventResult.passed();
                 }
                 System.err.println("Script error in handler: " + e.getMessage());
+                e.printStackTrace();
                 return com.dirplayer.player.events.EventResult.passed();
             }
         });

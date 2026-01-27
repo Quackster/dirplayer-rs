@@ -90,17 +90,21 @@ public class CastDef {
             memberDef.chunk = chunk.asCastMember();
             memberDef.number = memberId;
 
-            // Load associated script if this is a script member
-            if (castDef.lctx != null) {
-                for (ScriptContextChunk.ScriptContextMapEntry mapEntry : castDef.lctx.sectionMap) {
-                    if (mapEntry.sectionId == sectionId) {
-                        // This member has a script
+            // Load associated script using the member's scriptId
+            // The scriptId is an index (1-based) into the lctx.sectionMap
+            if (castDef.lctx != null && memberDef.chunk.memberInfo != null &&
+                memberDef.chunk.memberInfo.header != null) {
+                int scriptId = memberDef.chunk.memberInfo.header.scriptId;
+                if (scriptId > 0 && scriptId <= castDef.lctx.sectionMap.size()) {
+                    // scriptId is 1-based, so subtract 1 to get index
+                    ScriptContextChunk.ScriptContextMapEntry mapEntry =
+                        castDef.lctx.sectionMap.get(scriptId - 1);
+                    if (mapEntry.sectionId > 0) {
                         Chunk scriptChunk = DirectorFile.getChunk(reader, chunkContainer, rifx,
                             Utils.FOURCC("Lscr"), mapEntry.sectionId);
                         if (scriptChunk != null && scriptChunk.asScript() != null) {
                             memberDef.script = scriptChunk.asScript();
                         }
-                        break;
                     }
                 }
             }

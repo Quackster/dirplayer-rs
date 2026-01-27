@@ -488,6 +488,12 @@ public class CastManager {
                                com.dirplayer.player.bitmap.BitmapManager bitmapManager) {
         cast.dirVersion = dirFile.version;
 
+        // Populate scriptContext with names from lnam
+        if (castDef.lnam != null && castDef.lnam.names != null) {
+            cast.scriptContext.names.clear();
+            cast.scriptContext.names.addAll(castDef.lnam.names);
+        }
+
         // Load each member from the cast definition
         for (java.util.Map.Entry<Integer, com.dirplayer.director.CastDef.CastMemberDef> entry : castDef.members.entrySet()) {
             int memberNumber = entry.getKey();
@@ -738,6 +744,18 @@ public class CastManager {
                 memberDef.script,
                 scriptType
             );
+
+            // Populate handlers map from script chunk using lnam names
+            if (castDef.lnam != null && memberDef.script.handlers != null) {
+                java.util.List<String> names = castDef.lnam.names;
+                for (com.dirplayer.director.chunks.HandlerDef handler : memberDef.script.handlers) {
+                    if (handler.nameId >= 0 && handler.nameId < names.size()) {
+                        String handlerName = names.get(handler.nameId);
+                        script.handlers.put(handlerName.toLowerCase(), handler);
+                        script.handlerNames.add(handlerName);
+                    }
+                }
+            }
 
             return script;
         } catch (Exception e) {

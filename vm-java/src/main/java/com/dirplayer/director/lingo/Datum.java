@@ -434,7 +434,9 @@ public class Datum {
     }
 
     public boolean isList() {
-        return type == DatumType.List;
+        return type == DatumType.List ||
+               type == DatumType.ArgList ||
+               type == DatumType.ArgListNoRet;
     }
 
     public boolean isVoid() {

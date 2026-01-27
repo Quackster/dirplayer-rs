@@ -70,6 +70,14 @@ tasks.register('runSwing', JavaExec) {
     mainClass = 'com.dirplayer.swing.SwingPlayer'
 }
 
+// Task to run the screenshot test
+tasks.register('runScreenshotTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the screenshot test for Sulake logo verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.dirplayer.swing.ScreenshotTest'
+}
+
 // TeaVM configuration for WebAssembly output
 teavm {
     js {

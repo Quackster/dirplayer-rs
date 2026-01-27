@@ -759,12 +759,21 @@ public class DirPlayer {
                 return allocDatum(com.dirplayer.director.lingo.Datum.ofPropList(props, false));
             }
             default:
-                // Delegate to movie properties
-                com.dirplayer.director.lingo.Datum datum = movie.getProperty(propName);
-                if (datum != null) {
-                    return allocDatum(datum);
+                // Delegate to movie properties, then check globals
+                try {
+                    com.dirplayer.director.lingo.Datum datum = movie.getProperty(propName);
+                    if (datum != null) {
+                        return allocDatum(datum);
+                    }
+                } catch (ScriptError e) {
+                    // Property not found in movie, check globals
                 }
-                throw new ScriptError("Unknown movie property: " + propName);
+                // Check globals as fallback
+                if (globals.containsKey(propName)) {
+                    return globals.get(propName);
+                }
+                // Return void for unknown properties (like Director does)
+                return allocDatum(com.dirplayer.director.lingo.Datum.ofVoid());
         }
     }
 
@@ -794,7 +803,13 @@ public class DirPlayer {
                 }
                 break;
             default:
-                movie.setProperty(propName, value);
+                // Try to set as movie property, if unknown treat as global
+                try {
+                    movie.setProperty(propName, value);
+                } catch (ScriptError e) {
+                    // Store as global variable
+                    globals.put(propName, allocDatum(value.clone()));
+                }
         }
     }
 
@@ -906,7 +921,7 @@ public class DirPlayer {
     }
 
     /**
-     * Call a script handler.
+     * Call a script handler (returns just the return value for compatibility).
      * @param receiver The receiver script instance (or null)
      * @param scriptRef The script member reference
      * @param handlerName The handler name
@@ -914,6 +929,22 @@ public class DirPlayer {
      * @return The result datum reference
      */
     public int callScriptHandler(com.dirplayer.player.script.ScriptInstanceRef receiver,
+                                  CastMemberRef scriptRef, String handlerName,
+                                  java.util.List<Integer> args) throws ScriptError {
+        ScopeResult result = callScriptHandlerWithResult(receiver, scriptRef, handlerName, args);
+        return result.returnValue;
+    }
+
+    /**
+     * Call a script handler and return full result with passed flag.
+     * Port of Rust player_call_script_handler.
+     * @param receiver The receiver script instance (or null)
+     * @param scriptRef The script member reference
+     * @param handlerName The handler name
+     * @param args The arguments
+     * @return The ScopeResult containing return value and passed flag
+     */
+    public ScopeResult callScriptHandlerWithResult(com.dirplayer.player.script.ScriptInstanceRef receiver,
                                   CastMemberRef scriptRef, String handlerName,
                                   java.util.List<Integer> args) throws ScriptError {
         // Get the script
@@ -939,9 +970,11 @@ public class DirPlayer {
         com.dirplayer.player.bytecode.BytecodeHandlerContext ctx =
             new com.dirplayer.player.bytecode.BytecodeHandlerContext(
                 scopeRef, 0, 0, scriptRef.castLib, scriptRef.castMember, handler, script.chunk);
-        // Script context would come from cast loading - using script's chunk context if available
-        // For now we pass null - names will be looked up via fallback
-        ctx.scriptContext = null;
+        // Get script context from the cast library
+        CastLib cast = movie.castManager.getCastOrNull(scriptRef.castLib);
+        if (cast != null && cast.scriptContext != null) {
+            ctx.scriptContext = cast.scriptContext;
+        }
 
         // Set up arguments as local variables
         for (int i = 0; i < args.size() && i < handler.argumentNameIds.size(); i++) {
@@ -964,9 +997,10 @@ public class DirPlayer {
                         // bytecodeIndex was already set by the jump instruction
                         break;
                     case STOP:
-                        // Return from handler
+                        // Capture result before popping scope
+                        ScopeResult stopResult = new ScopeResult(scope.returnValue, scope.passed);
                         popScope();
-                        return scope.returnValue;
+                        return stopResult;
                 }
             }
         } catch (ScriptError e) {
@@ -974,9 +1008,10 @@ public class DirPlayer {
             throw e;
         }
 
-        // Pop scope
+        // Capture result before popping scope
+        ScopeResult finalResult = new ScopeResult(scope.returnValue, scope.passed);
         popScope();
-        return scope.returnValue;
+        return finalResult;
     }
 
     public void setBasePath(String path) {
@@ -1416,6 +1451,12 @@ public class DirPlayer {
             }
         }
 
+        // Attach behaviors to sprites (port of Rust's behavior attachment logic)
+        attachBehaviorsToSprites();
+
+        // Handle frame script (channel 0 behavior)
+        attachFrameScript();
+
         // Handle filmloop sprites
         java.util.Set<CastMemberRef> processedFilmLoops = new java.util.HashSet<>();
         for (com.dirplayer.player.score.SpriteChannel channel : movie.score.channels) {
@@ -1436,6 +1477,163 @@ public class DirPlayer {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Create a behavior script instance.
+     * Port of Rust Score::create_behavior.
+     * @return Integer ID of the script instance, or null if script not found
+     */
+    private Integer createBehavior(int castLib, int castMember, Integer defaultCastLib) {
+        // Try to find the script in the specified cast
+        CastMemberRef scriptRef = new CastMemberRef(castLib, castMember);
+        com.dirplayer.player.script.Script script = movie.castManager.getScriptByRef(scriptRef);
+
+        // If not found and we have a default cast lib, try that
+        if (script == null && defaultCastLib != null) {
+            scriptRef = new CastMemberRef(defaultCastLib, castMember);
+            script = movie.castManager.getScriptByRef(scriptRef);
+        }
+
+        if (script == null) {
+            return null;
+        }
+
+        // Create a script instance
+        com.dirplayer.player.script.ScriptInstance instance = new com.dirplayer.player.script.ScriptInstance();
+        instance.script = scriptRef;
+        instance.ancestor = 0;
+        instance.beginSpriteCalled = false;
+
+        // Allocate and store the instance
+        int instanceId = allocator.allocScriptInstance(instance);
+
+        return instanceId;
+    }
+
+    /**
+     * Attach behaviors to sprites based on frame intervals and sprite details.
+     * Port of Rust Score::begin_sprites behavior attachment section.
+     */
+    private void attachBehaviorsToSprites() {
+        int frameNum = movie.currentFrame;
+
+        // Get active spans for this frame
+        java.util.List<com.dirplayer.player.score.ScoreSpriteSpan> activeSpans =
+            movie.score.spriteSpans.stream()
+                .filter(span -> com.dirplayer.player.score.Score.isSpanInFrame(span, frameNum))
+                .collect(java.util.stream.Collectors.toList());
+
+        // For each active span, check if it has behavior scripts
+        for (com.dirplayer.player.score.ScoreSpriteSpan span : activeSpans) {
+            Sprite sprite = movie.score.getSprite((short) span.channelNumber);
+            if (sprite == null || !sprite.entered) {
+                continue;
+            }
+
+            // Skip if behaviors already attached
+            if (!sprite.scriptInstanceList.isEmpty()) {
+                continue;
+            }
+
+            // Attach behaviors from span scripts (if any)
+            if (span.scripts != null) {
+                for (com.dirplayer.player.score.ScoreBehaviorReference behaviorRef : span.scripts) {
+                    Integer instanceId = createBehavior(
+                        behaviorRef.castLib,
+                        behaviorRef.castMember,
+                        1  // Default to cast 1 for main movie
+                    );
+
+                    if (instanceId != null) {
+                        sprite.scriptInstanceList.add(instanceId);
+                        logger.debug("Attached behavior {}/{} to sprite {}",
+                            behaviorRef.castLib, behaviorRef.castMember, span.channelNumber);
+                    }
+                }
+            }
+        }
+
+        // Attach behaviors from sprite details (D6+ mechanism)
+        // This uses the spriteListIdx from the channel initialization data
+        for (com.dirplayer.player.score.SpriteChannel channel : movie.score.channels) {
+            Sprite sprite = channel.sprite;
+            if (sprite == null || !sprite.entered) {
+                continue;
+            }
+
+            // Skip if behaviors already attached from spans
+            if (!sprite.scriptInstanceList.isEmpty()) {
+                continue;
+            }
+
+            // Find the initialization data for this sprite's channel at current frame
+            int channelNumber = channel.number;
+            int spriteListIdx = 0;
+            for (com.dirplayer.director.chunks.ScoreFrameData.FrameChannelEntry entry : movie.score.channelInitializationData) {
+                int entryChannelNum = com.dirplayer.player.score.KeyframeUtils.getChannelNumberFromIndex(entry.channelIndex);
+                if (entryChannelNum == channelNumber && entry.frameIndex + 1 <= frameNum) {
+                    // Get spriteListIdx from data
+                    spriteListIdx = entry.data.getSpriteListIdx();
+                }
+            }
+
+            if (spriteListIdx <= 0) {
+                continue;
+            }
+
+            // Look up sprite detail by spriteListIdx
+            com.dirplayer.director.chunks.ScoreChunk.SpriteDetailInfo detailInfo =
+                movie.score.spriteDetails.get(spriteListIdx);
+            if (detailInfo == null || detailInfo.behaviors == null || detailInfo.behaviors.isEmpty()) {
+                continue;
+            }
+
+            for (com.dirplayer.director.chunks.ScoreChunk.SpriteBehavior behavior : detailInfo.behaviors) {
+                Integer instanceId = createBehavior(
+                    behavior.castLib,
+                    behavior.castMember,
+                    1  // Default to cast 1
+                );
+
+                if (instanceId != null) {
+                    sprite.scriptInstanceList.add(instanceId);
+                    logger.debug("Attached detail behavior {}/{} to sprite {}",
+                        behavior.castLib, behavior.castMember, channel.number);
+                }
+            }
+        }
+    }
+
+    /**
+     * Attach the frame script (channel 0 behavior) if present.
+     */
+    private void attachFrameScript() {
+        com.dirplayer.player.score.ScoreBehaviorReference frameScript =
+            movie.score.getScriptInFrame(movie.currentFrame);
+
+        if (frameScript == null) {
+            movie.frameScriptMember = null;
+            movie.frameScriptInstance = null;
+            return;
+        }
+
+        // Check if we already have a frame script instance
+        if (movie.frameScriptInstance != null) {
+            return;
+        }
+
+        CastMemberRef scriptRef = new CastMemberRef(frameScript.castLib, frameScript.castMember);
+
+        // Create frame script instance
+        Integer instanceId = createBehavior(frameScript.castLib, frameScript.castMember, 1);
+
+        if (instanceId != null) {
+            movie.frameScriptMember = scriptRef;
+            movie.frameScriptInstance = instanceId;
+            logger.debug("Attached frame script {}/{} instance {}",
+                frameScript.castLib, frameScript.castMember, instanceId);
         }
     }
 
@@ -1489,8 +1687,22 @@ public class DirPlayer {
      * @param err The error that occurred
      */
     public void onScriptError(ScriptError err) {
-        logger.warn("[!!] play failed with error: {}", err.getMessage());
-        stop();
+        logger.warn("[!!] Script error: {}", err.getMessage());
+        if (err.getCause() != null) {
+            err.getCause().printStackTrace();
+        }
+
+        // Print current scope info for debugging
+        if (scopeCount > 0) {
+            ScriptScope scope = scopes.get(scopeCount - 1);
+            if (scope != null && scope.scriptMemberRef != null) {
+                logger.warn("  In script: {}, handler ID: {}, bytecode index: {}",
+                    scope.scriptMemberRef, scope.handlerNameId, scope.bytecodeIndex);
+            }
+        }
+
+        // Don't stop on script errors during development - just log them
+        // stop();
 
         // Dispatch debug update with full call stack
         // JsApi.dispatchDebugUpdate(this);
