@@ -732,8 +732,20 @@ public class EventDispatcher {
         EndSpriteData data = new EndSpriteData();
 
         // Get appropriate score based on scoreRef
-        var score = player.movie.score;
-        // Note: For filmloop, would need to get the filmloop's score
+        com.dirplayer.player.score.Score score;
+        if (scoreRef instanceof ScoreRef.FilmLoop) {
+            ScoreRef.FilmLoop filmLoop = (ScoreRef.FilmLoop) scoreRef;
+            var member = player.movie.castManager.findMemberByRef(filmLoop.memberRef);
+            if (member != null && member.specificData instanceof com.dirplayer.player.cast.FilmLoopMember) {
+                com.dirplayer.player.cast.FilmLoopMember flMember =
+                    (com.dirplayer.player.cast.FilmLoopMember) member.specificData;
+                score = flMember.getScore();
+            } else {
+                score = player.movie.score;
+            }
+        } else {
+            score = player.movie.score;
+        }
 
         for (var channel : score.channels) {
             if (!spriteNums.contains(channel.number)) {

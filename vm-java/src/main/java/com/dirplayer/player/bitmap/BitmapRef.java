@@ -49,6 +49,13 @@ public class BitmapRef {
         return height;
     }
 
+    /**
+     * Check if bitmap is loaded (has valid dimensions).
+     */
+    public boolean isLoaded() {
+        return width > 0 && height > 0;
+    }
+
     @Override
     public String toString() {
         return "bitmap(" + bitmapId + ", " + width + "x" + height + ", " + bitDepth + "bpp)";

@@ -359,6 +359,34 @@ public class Datum {
     }
 
     /**
+     * Create a cast lib reference datum.
+     */
+    public static Datum ofCastLibRef(int castLibNum) {
+        Datum d = new Datum(DatumType.CastLibRef);
+        d.intValue = castLibNum;
+        return d;
+    }
+
+    /**
+     * Create a cast member reference datum.
+     */
+    public static Datum ofCastMemberRef(CastMemberRef ref) {
+        Datum d = new Datum(DatumType.CastMemberRef);
+        d.castMemberRef = ref;
+        return d;
+    }
+
+    /**
+     * Create a proplist datum from PropListPair list.
+     */
+    public static Datum ofPropListPairs(List<PropListPair> pairs, boolean sorted) {
+        Datum d = new Datum(DatumType.PropList);
+        d.propListValue = pairs;
+        d.sorted = sorted;
+        return d;
+    }
+
+    /**
      * Create a string chunk datum.
      */
     public static Datum ofStringChunk(int sourceRef, StringChunkExpr chunkExpr, String resolvedValue) {
@@ -447,6 +475,10 @@ public class Datum {
 
     public boolean isScriptInstanceRef() {
         return type == DatumType.ScriptInstanceRef;
+    }
+
+    public boolean isScriptRef() {
+        return type == DatumType.ScriptRef;
     }
 
     public boolean isCastMemberRef() {
@@ -709,6 +741,16 @@ public class Datum {
             throw new ScriptError("Cannot convert datum to script instance ref");
         }
         return new ScriptInstanceRef(scriptInstanceRef);
+    }
+
+    /**
+     * Convert to script reference (CastMemberRef).
+     */
+    public CastMemberRef toScriptRef() throws ScriptError {
+        if (type != DatumType.ScriptRef) {
+            throw new ScriptError("Cannot convert datum to script ref");
+        }
+        return castMemberRef;
     }
 
     /**

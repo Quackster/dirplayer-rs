@@ -157,9 +157,11 @@ public class TextMemberHandlers {
             case "height":
                 return player.allocDatum(Datum.ofInt(calculateTextHeight(textData)));
 
-            case "image":
-                // TODO: Generate bitmap from text
-                return 0; // Void
+            case "image": {
+                int width = textData.width > 0 ? textData.width : 100;
+                int height = calculateTextHeight(textData);
+                return generateTextImage(player, textData, width, height);
+            }
 
             default:
                 throw new ScriptError("Cannot get castMember property " + prop + " for text");
@@ -272,5 +274,76 @@ public class TextMemberHandlers {
         int lineHeight = textData.fixedLineSpace > 0 ? textData.fixedLineSpace
             : (textData.fontSize > 0 ? textData.fontSize + 4 : 16);
         return lineCount * lineHeight + textData.topSpacing;
+    }
+
+    /**
+     * Generate a bitmap image from text using the font manager.
+     */
+    private static int generateTextImage(DirPlayer player, TextMember textData, int width, int height) throws ScriptError {
+        // Create a new bitmap for the text
+        com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
+            width, height, 32, 8, 0,
+            com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(com.dirplayer.player.bitmap.BuiltInPalette.SystemWin)
+        );
+
+        // Fill with transparent background
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = (y * width + x) * 4;
+                if (index + 3 < bitmap.getData().length) {
+                    bitmap.getData()[index] = 0;     // R
+                    bitmap.getData()[index + 1] = 0; // G
+                    bitmap.getData()[index + 2] = 0; // B
+                    bitmap.getData()[index + 3] = 0; // A (transparent)
+                }
+            }
+        }
+
+        // Try to get the font for rendering text
+        String fontName = textData.font != null && !textData.font.isEmpty() ? textData.font : "system";
+        com.dirplayer.player.FontManager.BitmapFont font = null;
+
+        if (player.fontManager != null) {
+            font = player.fontManager.getFont(fontName);
+
+            if (font == null) {
+                font = player.fontManager.getSystemFont();
+            }
+        }
+
+        // If we have a font, render the text
+        if (font != null && textData.text != null && !textData.text.isEmpty()) {
+            com.dirplayer.player.bitmap.Bitmap fontBitmap = player.bitmapManager.getBitmap(font.bitmapRef);
+            if (fontBitmap != null) {
+                com.dirplayer.player.bitmap.PaletteMap palettes = player.movie.castManager.palettes();
+
+                com.dirplayer.rendering.CopyPixelsParams params = new com.dirplayer.rendering.CopyPixelsParams();
+                params.blend = 100;
+                params.ink = 36;
+                params.color = bitmap.getFgColorRef();
+                params.bgColor = com.dirplayer.player.ColorRef.paletteIndex(0);
+                params.maskImage = null;
+                params.isTextRendering = true;
+                params.rotation = 0.0f;
+                params.sprite = null;
+                params.originalDstRect = null;
+
+                bitmap.drawText(
+                    textData.text,
+                    font,
+                    fontBitmap,
+                    0,
+                    textData.topSpacing,
+                    params,
+                    palettes,
+                    textData.fixedLineSpace,
+                    textData.topSpacing
+                );
+            }
+        }
+
+        // Store the bitmap and return a reference
+        int bitmapRef = player.bitmapManager.addBitmap(bitmap);
+        return player.allocDatum(Datum.ofBitmapRef(bitmapRef));
     }
 }

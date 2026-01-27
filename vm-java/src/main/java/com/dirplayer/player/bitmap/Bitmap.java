@@ -53,6 +53,13 @@ public class Bitmap {
         this.wasTrimmed = false;
     }
 
+    /**
+     * Convenience constructor for simple 32-bit bitmap.
+     */
+    public Bitmap(int width, int height) {
+        this(width, height, 32, 32, 8, PaletteRef.ofBuiltIn(BuiltInPalette.SystemWin));
+    }
+
     public int getPixel(int x, int y) {
         if (x < 0 || x >= width || y < 0 || y >= height) {
             return 0;

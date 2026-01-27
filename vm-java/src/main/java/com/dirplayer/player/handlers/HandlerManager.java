@@ -15,7 +15,7 @@ import com.dirplayer.player.handlers.datum.PointHandlers;
 import com.dirplayer.player.handlers.datum.PropListHandlers;
 import com.dirplayer.player.handlers.datum.ScriptInstanceHandlers;
 import com.dirplayer.player.script.ScriptInstanceRef;
-import com.dirplayer.director.chunks.MemberType;
+import com.dirplayer.director.MemberType;
 
 import com.dirplayer.SimpleLogger;
 
@@ -824,9 +824,11 @@ public class HandlerManager {
         } else if (value.isSpriteRef()) {
             // Get script instances from sprite
             int spriteNum = value.toSpriteRef();
-            com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNum);
+            com.dirplayer.player.Sprite sprite = player.movie.score.getSprite((short) spriteNum);
             if (sprite != null && sprite.scriptInstanceList != null) {
-                instanceRefs.addAll(sprite.scriptInstanceList);
+                for (int instanceId : sprite.scriptInstanceList) {
+                    instanceRefs.add(new ScriptInstanceRef(instanceId));
+                }
             }
         } else if (value.isInt()) {
             // Integer is allowed but ignored (e.g., for empty slots)
@@ -1864,7 +1866,7 @@ public class HandlerManager {
         }
         int spriteNumber = player.getDatum(args.get(0)).intValue();
         boolean isPuppet = player.getDatum(args.get(1)).intValue() == 1;
-        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNumber);
+        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite((short) spriteNumber);
         if (sprite != null) {
             sprite.puppet = isPuppet;
         }
@@ -2055,9 +2057,10 @@ public class HandlerManager {
         String timeoutName = player.getDatum(args.get(0)).stringValue();
 
         // Look up existing timeout by name
-        com.dirplayer.player.TimeoutManager.TimeoutInstance existingTimeout = player.timeoutManager.getTimeout(timeoutName);
+        com.dirplayer.player.TimeoutManager.Timeout existingTimeout = player.timeoutManager.get(timeoutName);
         if (existingTimeout != null) {
-            return player.allocDatum(Datum.ofTimeoutInstance(existingTimeout));
+            // Return the timeout name as a symbol for now
+            return player.allocDatum(Datum.ofSymbol(timeoutName));
         }
 
         // If not found, create a new timeout (requires #new call in Lingo typically)
@@ -2078,12 +2081,14 @@ public class HandlerManager {
             bitDepth = player.getDatum(args.get(2)).intValue();
         }
 
-        // Create a new bitmap
-        com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(width, height);
-        bitmap.depth = bitDepth;
+        // Create a new bitmap with specified depth
+        com.dirplayer.player.bitmap.Bitmap bitmap = new com.dirplayer.player.bitmap.Bitmap(
+            width, height, bitDepth, bitDepth, bitDepth == 32 ? 8 : 0,
+            com.dirplayer.player.bitmap.PaletteRef.ofBuiltIn(
+                com.dirplayer.player.bitmap.BuiltInPalette.SystemWin));
 
         // Allocate and return as bitmap ref
-        int bitmapId = player.allocBitmap(bitmap);
+        int bitmapId = player.bitmapManager.addBitmap(bitmap);
         return player.allocDatum(Datum.ofBitmapRef(bitmapId));
     }
 
@@ -2095,15 +2100,10 @@ public class HandlerManager {
         String xtraName = player.getDatum(args.get(0)).stringValue();
 
         // Look up xtra by name
-        com.dirplayer.player.xtra.XtraInstance xtraInstance = player.getXtra(xtraName);
-        if (xtraInstance != null) {
-            return player.allocDatum(Datum.ofXtraInstance(xtraInstance));
-        }
-
-        // Create a new xtra instance
-        xtraInstance = player.createXtra(xtraName);
-        if (xtraInstance != null) {
-            return player.allocDatum(Datum.ofXtraInstance(xtraInstance));
+        com.dirplayer.player.xtra.XtraManager.Xtra xtra = player.xtraManager.getXtra(xtraName);
+        if (xtra != null) {
+            // Return an xtra reference datum
+            return player.allocDatum(Datum.ofXtra(xtraName));
         }
 
         throw new ScriptError("Xtra not found: " + xtraName);
@@ -2160,12 +2160,15 @@ public class HandlerManager {
         String message = player.getDatum(args.get(1)).symbolValue();
         List<Integer> remainingArgs = args.size() > 2 ? args.subList(2, args.size()) : new ArrayList<>();
 
-        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite(spriteNum);
+        com.dirplayer.player.Sprite sprite = player.movie.score.getSprite((short) spriteNum);
         if (sprite == null) {
             throw new ScriptError("sendSprite: sprite " + spriteNum + " not found");
         }
 
-        List<ScriptInstanceRef> receivers = new ArrayList<>(sprite.scriptInstanceList);
+        List<ScriptInstanceRef> receivers = new ArrayList<>();
+        for (int instanceId : sprite.scriptInstanceList) {
+            receivers.add(new ScriptInstanceRef(instanceId));
+        }
 
         boolean handledBySprite = false;
         for (ScriptInstanceRef receiver : receivers) {
@@ -2206,7 +2209,10 @@ public class HandlerManager {
             List<Integer> remainingArgs = args.size() > 1 ? args.subList(1, args.size()) : new ArrayList<>();
 
             // Collect receivers from stage score
-            List<ScriptInstanceRef> receivers = player.movie.score.getActiveScriptInstanceList();
+            List<ScriptInstanceRef> receivers = new ArrayList<>();
+            for (int instanceId : player.movie.score.getActiveScriptInstanceList()) {
+                receivers.add(new ScriptInstanceRef(instanceId));
+            }
 
             boolean handledBySprite = false;
             for (ScriptInstanceRef receiver : receivers) {
@@ -2234,13 +2240,11 @@ public class HandlerManager {
     }
 
     public static int updateStage(DirPlayer player, List<Integer> args) throws ScriptError {
-        // Trigger synchronous render if we're in a safe state
-        if (player.isYieldSafe()) {
-            logger.debug("updateStage: performing synchronous render");
-            player.renderStage();
-        } else {
-            logger.debug("updateStage: skipped render, not in yield-safe state");
-        }
+        // In the Java port, actual rendering happens in JsApi.tick() which is called from JavaScript.
+        // updateStage in Director Lingo triggers an immediate screen update, but in a browser
+        // environment we can't do true synchronous rendering.
+        // The JsApi tick loop will handle the actual rendering on the next frame.
+        logger.debug("updateStage: render will happen on next JsApi tick");
         return 0; // Void
     }
 

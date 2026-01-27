@@ -37,11 +37,11 @@ public class Stage {
             }
             case "sourceRect": {
                 // sourceRect is the original movie rect before any scaling
-                // This represents the original dimensions from the DCR/DXR file
-                int width = player.movie.sourceRect != null ? player.movie.sourceRect.width() : player.movie.rect.width();
-                int height = player.movie.sourceRect != null ? player.movie.sourceRect.height() : player.movie.rect.height();
-                int left = player.movie.sourceRect != null ? player.movie.sourceRect.left : 0;
-                int top = player.movie.sourceRect != null ? player.movie.sourceRect.top : 0;
+                // For now, use movie.rect as the source rect
+                int width = player.movie.rect.width();
+                int height = player.movie.rect.height();
+                int left = player.movie.rect.left;
+                int top = player.movie.rect.top;
                 int[] refs = new int[] {
                     player.allocDatum(Datum.ofInt(left)),
                     player.allocDatum(Datum.ofInt(top)),

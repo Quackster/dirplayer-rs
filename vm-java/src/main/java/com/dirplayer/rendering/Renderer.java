@@ -324,7 +324,7 @@ public class Renderer {
         int height = Math.max(1, initialRect.height());
 
         Bitmap filmloopBitmap = new Bitmap(width, height);
-        filmloopBitmap.depth = 32;
+        filmloopBitmap.bitDepth = 32;
         filmloopBitmap.useAlpha = true;
         // Clear to fully transparent
         java.util.Arrays.fill(filmloopBitmap.data, (byte)0);

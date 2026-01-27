@@ -293,12 +293,7 @@ public class FieldMemberHandlers {
         com.dirplayer.player.FontManager.BitmapFont font = null;
 
         if (player.fontManager != null) {
-            font = player.fontManager.getFontWithCast(
-                fontName,
-                player.movie.castManager,
-                field.fontSize > 0 ? field.fontSize : 12,
-                null
-            );
+            font = player.fontManager.getFont(fontName);
 
             if (font == null) {
                 font = player.fontManager.getSystemFont();
@@ -309,7 +304,7 @@ public class FieldMemberHandlers {
         if (font != null && field.text != null && !field.text.isEmpty()) {
             com.dirplayer.player.bitmap.Bitmap fontBitmap = player.bitmapManager.getBitmap(font.bitmapRef);
             if (fontBitmap != null) {
-                java.util.List<int[][]> palettes = player.movie.castManager.palettes();
+                com.dirplayer.player.bitmap.PaletteMap palettes = player.movie.castManager.palettes();
 
                 com.dirplayer.rendering.CopyPixelsParams params = new com.dirplayer.rendering.CopyPixelsParams();
                 params.blend = 100;
@@ -318,7 +313,7 @@ public class FieldMemberHandlers {
                 params.bgColor = com.dirplayer.player.ColorRef.paletteIndex(0);
                 params.maskImage = null;
                 params.isTextRendering = true;
-                params.rotation = 0.0;
+                params.rotation = 0.0f;
                 params.sprite = null;
                 params.originalDstRect = null;
 

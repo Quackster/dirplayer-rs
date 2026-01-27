@@ -6,7 +6,7 @@ import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
 import com.dirplayer.player.Sprite;
 import com.dirplayer.player.score.Channel;
-import com.dirplayer.player.IntRect;
+import com.dirplayer.rendering.IntRect;
 import com.dirplayer.player.rendering.RenderingUtils;
 
 import java.util.List;

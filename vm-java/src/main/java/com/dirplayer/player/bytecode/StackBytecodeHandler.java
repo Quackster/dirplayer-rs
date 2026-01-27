@@ -12,6 +12,7 @@ import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.script.Script;
 import com.dirplayer.player.script.ScriptInstance;
 import com.dirplayer.player.handlers.datum.ScriptHandlers;
+import com.dirplayer.SimpleLogger;
 import java.util.ArrayList;
 import java.util.List;
 

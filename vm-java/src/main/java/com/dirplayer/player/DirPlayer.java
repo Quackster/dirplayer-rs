@@ -102,6 +102,7 @@ public class DirPlayer {
     public boolean isGettingPropertyDescriptions;
     public boolean isInitializingBehaviorProps;
     public Integer lastInitializedFrame;
+    public int currentCursor;  // Current cursor type
 
     // Storage
     public Map<Integer, XmlDocument> xmlDocuments;
@@ -366,7 +367,7 @@ public class DirPlayer {
                 String fileName = basePath.contains("/") ?
                     basePath.substring(basePath.lastIndexOf('/') + 1) : basePath;
                 com.dirplayer.director.DirectorFile dirFile =
-                    com.dirplayer.director.DirectorFile.fromBytes(data, fileName, basePath);
+                    com.dirplayer.director.DirectorFile.readBytes(data, fileName, basePath);
                 loadFromDirectorFile(dirFile);
             } catch (Exception e) {
                 logger.error("Failed to load movie: {}", e.getMessage());
@@ -379,7 +380,34 @@ public class DirPlayer {
      */
     public void loadFromDirectorFile(com.dirplayer.director.DirectorFile dirFile) {
         try {
-            movie.loadFromFile(dirFile, netManager, bitmapManager, this);
+            if (dirFile == null) {
+                return;
+            }
+
+            // Load cast members from the parsed director file
+            // TODO: Implement cast loading from DirectorFile chunks
+            // movie.castManager.loadFromFile(dirFile, netManager, bitmapManager, this);
+
+            // Load score from the parsed director file
+            // TODO: Implement score loading from DirectorFile chunks
+            // movie.score.loadFromFile(dirFile);
+
+            // Store movie properties from config chunk
+            if (dirFile.config != null) {
+                var config = dirFile.config;
+                movie.rect = new IntRect(config.movieLeft, config.movieTop,
+                    config.movieRight, config.movieBottom);
+                movie.dirVersion = config.directorVersion;
+                // Use stage color from config
+                if (config.d7StageColorIsRgb != 0) {
+                    movie.stageColorR = config.d7StageColorR;
+                    movie.stageColorG = config.d7StageColorG;
+                    movie.stageColorB = config.d7StageColorB;
+                } else {
+                    movie.stageColorRef = ColorRef.fromPaletteIndex(config.preD7StageColor);
+                }
+            }
+
             reset();
         } catch (Exception e) {
             logger.error("Failed to load from director file: {}", e.getMessage());
@@ -472,6 +500,34 @@ public class DirPlayer {
 
     public int allocDatum(com.dirplayer.director.lingo.Datum datum) {
         return allocator.alloc(datum);
+    }
+
+    /**
+     * Get a script instance by ID.
+     */
+    public com.dirplayer.player.script.ScriptInstance getScriptInstance(int id) {
+        return allocator.getScriptInstance(id);
+    }
+
+    /**
+     * Create a new script instance from a script member reference.
+     */
+    public int createScriptInstance(CastMemberRef scriptRef, java.util.List<Integer> constructorArgs) throws ScriptError {
+        // Find the script
+        CastMember member = movie.castManager.findMemberByRef(scriptRef);
+        if (member == null) {
+            throw new ScriptError("Script member not found: " + scriptRef);
+        }
+
+        // Create the instance
+        com.dirplayer.player.script.ScriptInstance instance = new com.dirplayer.player.script.ScriptInstance();
+        instance.script = scriptRef;
+        instance.ancestor = 0;  // 0 = no ancestor
+
+        // Add to allocator
+        int instanceId = allocator.allocScriptInstance(instance);
+
+        return instanceId;
     }
 
     /**
@@ -1047,19 +1103,23 @@ public class DirPlayer {
             logger.warn("Member not found: {} {}", castLib, castMember);
             return;
         }
-        if (member.bitmap != null && member.bitmap.getBitmap() != null) {
-            com.dirplayer.player.bitmap.Bitmap bitmap = member.bitmap.getBitmap();
-            StringBuilder sb = new StringBuilder();
-            sb.append("Bitmap: ").append(bitmap.width).append("x").append(bitmap.height);
-            sb.append(" depth=").append(bitmap.depth);
-            sb.append("\nFirst 64 bytes: ");
-            int maxBytes = Math.min(64, bitmap.data.length);
-            for (int i = 0; i < maxBytes; i++) {
-                sb.append(String.format("%02X ", bitmap.data[i] & 0xFF));
+        if (member.bitmap != null) {
+            com.dirplayer.player.bitmap.Bitmap bitmap = bitmapManager.getBitmap(member.bitmap.bitmapId);
+            if (bitmap != null) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Bitmap: ").append(bitmap.getWidth()).append("x").append(bitmap.getHeight());
+                sb.append(" depth=").append(bitmap.getBitDepth());
+                sb.append("\nFirst 64 bytes: ");
+                int maxBytes = Math.min(64, bitmap.data.length);
+                for (int i = 0; i < maxBytes; i++) {
+                    sb.append(String.format("%02X ", bitmap.data[i] & 0xFF));
+                }
+                logger.info(sb.toString());
+            } else {
+                logger.warn("Bitmap not found in manager: {}", member.bitmap.bitmapId);
             }
-            logger.info(sb.toString());
         } else {
-            logger.warn("Member has no bitmap data");
+            logger.warn("Member has no bitmap reference");
         }
     }
 
