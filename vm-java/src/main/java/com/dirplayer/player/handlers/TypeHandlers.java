@@ -605,28 +605,257 @@ public class TypeHandlers {
     /**
      * value(expr) - Evaluates a string as a Lingo expression.
      * For non-string inputs, returns the input unchanged.
-     * Note: In Java version, we don't have full eval capability, so this is simplified.
+     * Handles numbers, lists, proplists, symbols, and strings.
      */
     public static int value(DirPlayer player, List<Integer> args) throws ScriptError {
         Datum datum = player.getDatum(args.get(0));
         if (datum.isString()) {
-            String s = datum.stringValue();
-            // Try to parse as integer
+            String s = datum.stringValue().trim();
+
+            // Empty string returns VOID
+            if (s.isEmpty()) {
+                return 0; // Void
+            }
+
+            // Try to parse as Lingo expression
             try {
-                int intVal = Integer.parseInt(s.trim());
-                return player.allocDatum(Datum.ofInt(intVal));
-            } catch (NumberFormatException e) {
-                // Try to parse as float
-                try {
-                    double floatVal = Double.parseDouble(s.trim());
-                    return player.allocDatum(Datum.ofFloat(floatVal));
-                } catch (NumberFormatException e2) {
-                    // Return void for unparseable expressions
-                    return 0; // Void
-                }
+                return parseLingoExpression(player, s);
+            } catch (Exception e) {
+                // Return void for unparseable expressions
+                System.err.println("[WARN] value() could not parse: \"" + s + "\" - " + e.getMessage());
+                return 0; // Void
             }
         }
         return args.get(0);
+    }
+
+    /**
+     * Parse a Lingo expression string and return the datum.
+     * Handles: integers, floats, lists, proplists, symbols, strings, VOID
+     */
+    private static int parseLingoExpression(DirPlayer player, String expr) throws ScriptError {
+        expr = expr.trim();
+
+        if (expr.isEmpty()) {
+            return 0; // Void
+        }
+
+        // Check for VOID
+        if (expr.equalsIgnoreCase("VOID")) {
+            return 0; // Void
+        }
+
+        // Check for TRUE/FALSE
+        if (expr.equalsIgnoreCase("TRUE")) {
+            return player.allocDatum(Datum.ofInt(1));
+        }
+        if (expr.equalsIgnoreCase("FALSE")) {
+            return player.allocDatum(Datum.ofInt(0));
+        }
+
+        // Check for symbol (#name)
+        if (expr.startsWith("#")) {
+            String symbolName = expr.substring(1);
+            return player.allocDatum(Datum.ofSymbol(symbolName));
+        }
+
+        // Check for string literal ("text" or 'text')
+        if ((expr.startsWith("\"") && expr.endsWith("\"")) ||
+            (expr.startsWith("'") && expr.endsWith("'"))) {
+            String content = expr.substring(1, expr.length() - 1);
+            return player.allocDatum(Datum.ofString(content));
+        }
+
+        // Check for list or proplist ([...])
+        if (expr.startsWith("[") && expr.endsWith("]")) {
+            return parseListOrPropList(player, expr);
+        }
+
+        // Try to parse as integer
+        try {
+            int intVal = Integer.parseInt(expr);
+            return player.allocDatum(Datum.ofInt(intVal));
+        } catch (NumberFormatException e) {
+            // Not an integer
+        }
+
+        // Try to parse as float
+        try {
+            double floatVal = Double.parseDouble(expr);
+            return player.allocDatum(Datum.ofFloat(floatVal));
+        } catch (NumberFormatException e) {
+            // Not a float
+        }
+
+        // Unknown expression - return void
+        throw new ScriptError("Cannot parse expression: " + expr);
+    }
+
+    /**
+     * Parse a list or proplist expression.
+     */
+    private static int parseListOrPropList(DirPlayer player, String expr) throws ScriptError {
+        // Remove brackets
+        String content = expr.substring(1, expr.length() - 1).trim();
+
+        // Empty list
+        if (content.isEmpty()) {
+            return player.allocDatum(Datum.ofList(
+                com.dirplayer.director.lingo.DatumType.List,
+                new java.util.ArrayList<>(), false));
+        }
+
+        // Empty proplist [:]
+        if (content.equals(":")) {
+            return player.allocDatum(Datum.ofPropList(
+                new java.util.ArrayList<Datum.PropListPair>(), false));
+        }
+
+        // Check if it's a proplist (contains :) or a list
+        boolean isPropList = false;
+        int depth = 0;
+        boolean inString = false;
+        char stringChar = 0;
+
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            if (inString) {
+                if (c == stringChar) {
+                    inString = false;
+                }
+            } else if (c == '"' || c == '\'') {
+                inString = true;
+                stringChar = c;
+            } else if (c == '[') {
+                depth++;
+            } else if (c == ']') {
+                depth--;
+            } else if (c == ':' && depth == 0) {
+                isPropList = true;
+                break;
+            }
+        }
+
+        if (isPropList) {
+            return parsePropList(player, content);
+        } else {
+            return parseList(player, content);
+        }
+    }
+
+    /**
+     * Parse a list content (comma-separated values).
+     */
+    private static int parseList(DirPlayer player, String content) throws ScriptError {
+        java.util.List<String> items = splitListItems(content);
+        java.util.List<Integer> refs = new java.util.ArrayList<>();
+
+        for (String item : items) {
+            refs.add(parseLingoExpression(player, item.trim()));
+        }
+
+        return player.allocDatum(Datum.ofList(
+            com.dirplayer.director.lingo.DatumType.List, refs, false));
+    }
+
+    /**
+     * Parse a proplist content (#key: value pairs).
+     */
+    private static int parsePropList(DirPlayer player, String content) throws ScriptError {
+        java.util.List<String> items = splitListItems(content);
+        java.util.List<Datum.PropListPair> pairs = new java.util.ArrayList<>();
+
+        for (String item : items) {
+            item = item.trim();
+            // Find the : separator
+            int colonIdx = findColonSeparator(item);
+            if (colonIdx == -1) {
+                throw new ScriptError("Invalid proplist item: " + item);
+            }
+
+            String keyPart = item.substring(0, colonIdx).trim();
+            String valuePart = item.substring(colonIdx + 1).trim();
+
+            int keyRef = parseLingoExpression(player, keyPart);
+            int valueRef = parseLingoExpression(player, valuePart);
+
+            pairs.add(new Datum.PropListPair(keyRef, valueRef));
+        }
+
+        return player.allocDatum(Datum.ofPropList(pairs, false));
+    }
+
+    /**
+     * Split list items by comma, respecting nested brackets and strings.
+     */
+    private static java.util.List<String> splitListItems(String content) {
+        java.util.List<String> items = new java.util.ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int depth = 0;
+        boolean inString = false;
+        char stringChar = 0;
+
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+
+            if (inString) {
+                current.append(c);
+                if (c == stringChar) {
+                    inString = false;
+                }
+            } else if (c == '"' || c == '\'') {
+                inString = true;
+                stringChar = c;
+                current.append(c);
+            } else if (c == '[') {
+                depth++;
+                current.append(c);
+            } else if (c == ']') {
+                depth--;
+                current.append(c);
+            } else if (c == ',' && depth == 0) {
+                items.add(current.toString());
+                current = new StringBuilder();
+            } else {
+                current.append(c);
+            }
+        }
+
+        if (current.length() > 0) {
+            items.add(current.toString());
+        }
+
+        return items;
+    }
+
+    /**
+     * Find the colon separator in a proplist item, respecting nested structures.
+     */
+    private static int findColonSeparator(String item) {
+        int depth = 0;
+        boolean inString = false;
+        char stringChar = 0;
+
+        for (int i = 0; i < item.length(); i++) {
+            char c = item.charAt(i);
+
+            if (inString) {
+                if (c == stringChar) {
+                    inString = false;
+                }
+            } else if (c == '"' || c == '\'') {
+                inString = true;
+                stringChar = c;
+            } else if (c == '[') {
+                depth++;
+            } else if (c == ']') {
+                depth--;
+            } else if (c == ':' && depth == 0) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /**
