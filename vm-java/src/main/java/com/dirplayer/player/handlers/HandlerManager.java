@@ -440,6 +440,7 @@ public class HandlerManager {
         }
 
         Datum firstArg = player.getDatum(args.get(0));
+        System.err.println("[DEBUG new] firstArg type=" + firstArg.getType() + ", value=" + player.formatDatum(firstArg));
 
         // Check if it's a script reference or script name
         if (firstArg.isScriptRef() || firstArg.isSymbol() || firstArg.isString()) {
@@ -450,21 +451,26 @@ public class HandlerManager {
                 scriptRef = firstArg.toScriptRef();
             } else if (firstArg.isSymbol() || firstArg.isString()) {
                 String scriptName = firstArg.isSymbol() ? firstArg.symbolValue() : firstArg.stringValue();
+                System.err.println("[DEBUG new] Looking for script: " + scriptName);
                 scriptRef = player.movie.castManager.findMemberRefByName(scriptName);
+                System.err.println("[DEBUG new] Found scriptRef: " + scriptRef);
             }
 
             if (scriptRef != null) {
                 com.dirplayer.player.script.Script script = player.movie.castManager.getScriptByRef(scriptRef);
+                System.err.println("[DEBUG new] script: " + (script != null ? script.name : "null"));
                 if (script != null) {
                     // Create a new script instance
                     List<Integer> constructorArgs = args.size() > 1 ? args.subList(1, args.size()) : new ArrayList<>();
                     int instanceRef = player.createScriptInstance(scriptRef, constructorArgs);
+                    System.err.println("[DEBUG new] Created instance: " + instanceRef);
                     return instanceRef;
                 }
             }
         }
 
         // Fall back to newObject for other types
+        System.err.println("[DEBUG new] Falling back to newObject");
         return TypeHandlers.newObject(player, args);
     }
 

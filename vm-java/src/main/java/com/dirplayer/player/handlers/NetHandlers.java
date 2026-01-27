@@ -31,6 +31,8 @@ public class NetHandlers {
         NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
         boolean isDone = taskState != null && taskState.isDone();
 
+        System.err.println("[DEBUG netDone] taskId=" + taskId + ", isDone=" + isDone);
+
         return player.allocDatum(Datum.ofInt(isDone ? 1 : 0));
     }
 
@@ -44,7 +46,9 @@ public class NetHandlers {
         }
 
         String url = player.getDatum(args.get(0)).stringValue();
+        System.err.println("[DEBUG preloadNetThing] URL: " + url);
         int taskId = player.netManager.preloadNetThing(url);
+        System.err.println("[DEBUG preloadNetThing] TaskId: " + taskId);
 
         return player.allocDatum(Datum.ofInt(taskId));
     }
@@ -68,9 +72,13 @@ public class NetHandlers {
             throw new ScriptError("Cannot decode URL: " + e.getMessage());
         }
 
+        System.err.println("[DEBUG getNetText] URL: " + url);
+
         // Tag the task as a text task for text retrieval
         int taskId = player.netManager.preloadNetThing(url);
         player.netManager.tagTaskAsText(taskId);
+
+        System.err.println("[DEBUG getNetText] TaskId: " + taskId);
 
         return player.allocDatum(Datum.ofInt(taskId));
     }
@@ -204,10 +212,17 @@ public class NetHandlers {
             }
         }
 
+        System.err.println("[DEBUG netTextResult] TaskId: " + taskId);
+
         NetTask.NetTaskState taskState = player.netManager.getTaskState(taskId);
         if (taskState == null) {
+            System.err.println("[DEBUG netTextResult] Task not found!");
             throw new ScriptError("Network task not found");
         }
+
+        System.err.println("[DEBUG netTextResult] TaskState: isDone=" + taskState.isDone() +
+            ", result=" + (taskState.getResult() != null ? "present" : "null") +
+            ", isOk=" + (taskState.getResult() != null && taskState.getResult().isOk()));
 
         boolean isOk = taskState.isDone() &&
                        taskState.getResult() != null &&
@@ -216,8 +231,10 @@ public class NetHandlers {
         String text;
         if (isOk) {
             text = taskState.getResult().getDataAsString();
+            System.err.println("[DEBUG netTextResult] Text length: " + text.length());
         } else {
             text = "";
+            System.err.println("[DEBUG netTextResult] Returning empty (not ok)");
         }
 
         return player.allocDatum(Datum.ofString(text));

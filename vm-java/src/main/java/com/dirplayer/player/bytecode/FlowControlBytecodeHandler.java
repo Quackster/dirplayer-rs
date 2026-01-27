@@ -31,7 +31,9 @@ public class FlowControlBytecodeHandler {
         int position = bytecode.pos;
         int offset = (int) bytecode.obj;
 
-        if (CompareBytecodeHandler.datumIsZero(datum, player)) {
+        boolean isZero = CompareBytecodeHandler.datumIsZero(datum, player);
+
+        if (isZero) {
             HandlerDef handler = player.getCurrentHandlerDef(ctx);
             int destPos = position + offset;
             Integer newBytecodeIndex = handler.bytecodeIndexMap.get(destPos);
@@ -80,7 +82,7 @@ public class FlowControlBytecodeHandler {
         String name = player.getName(ctx, nameId);
 
         // Debug: trace handler calls (disabled for cleaner output)
-        // System.out.println("[TRACE] ExtCall: " + name);
+        // System.err.println("[TRACE] ExtCall: " + name);
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int argListDatumRef = scope.stack.pop();
@@ -99,6 +101,17 @@ public class FlowControlBytecodeHandler {
                 scope.returnValue = argRefList.get(0);
             }
             return HandlerExecutionResult.STOP;
+        }
+
+        // Debug: Track convertToPropList calls
+        if (name.equalsIgnoreCase("converttoproplist")) {
+            System.err.println("[DEBUG extCall convertToPropList] Args count: " + argRefList.size());
+            for (int i = 0; i < argRefList.size(); i++) {
+                Datum argDatum = player.getDatum(argRefList.get(i));
+                System.err.println("[DEBUG extCall convertToPropList] Arg " + i + ": type=" + argDatum.getType() + ", value=\"" + player.formatDatum(argDatum) + "\"");
+            }
+            System.err.println("[DEBUG extCall convertToPropList] Script member: " + scope.scriptMemberRef);
+            new Exception("convertToPropList call trace").printStackTrace(System.err);
         }
 
         // Try to find handler in movie scripts first (like Rust player_call_global_handler)
@@ -253,6 +266,26 @@ public class FlowControlBytecodeHandler {
         List<Integer> args = argList.subList(1, argList.size());
 
         String handlerName = player.getName(ctx, (int) player.getCtxCurrentBytecode(ctx).obj);
+
+        // Debug: Track objCalls to trace empty string issues
+        if (handlerName.equalsIgnoreCase("setat") || handlerName.equalsIgnoreCase("converttoproplist")) {
+            Datum objDatum = player.getDatum(objRef);
+            System.err.println("[DEBUG objCall " + handlerName + "] Object type: " + objDatum.getType());
+            System.err.println("[DEBUG objCall " + handlerName + "] Object value: " + player.formatDatum(objDatum));
+            System.err.println("[DEBUG objCall " + handlerName + "] Args count: " + args.size());
+            for (int i = 0; i < args.size(); i++) {
+                Datum argDatum = player.getDatum(args.get(i));
+                System.err.println("[DEBUG objCall " + handlerName + "] Arg " + i + ": type=" + argDatum.getType() + ", value=" + player.formatDatum(argDatum));
+            }
+            // Print current script/handler context
+            ScriptScope scope2 = player.scopes.get(ctx.scopeRef);
+            System.err.println("[DEBUG objCall " + handlerName + "] Script member: " + scope2.scriptMemberRef);
+            System.err.println("[DEBUG objCall " + handlerName + "] Handler nameId: " + scope2.handlerNameId);
+            // Print stack trace to see call chain
+            if (handlerName.equalsIgnoreCase("converttoproplist")) {
+                new Exception("convertToPropList call trace").printStackTrace(System.err);
+            }
+        }
 
         // Call object handler
         int result = player.callDatumHandler(objRef, handlerName, args);

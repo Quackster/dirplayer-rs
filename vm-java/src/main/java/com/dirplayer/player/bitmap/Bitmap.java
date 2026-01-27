@@ -867,6 +867,7 @@ public class Bitmap {
     private int[] applyInkEffect(int ink, int srcR, int srcG, int srcB, int srcA,
                                   int dstR, int dstG, int dstB, int blend,
                                   int[] fgColor, int[] bgColor) {
+        // In Director, blend is the opacity percentage: blend=100 is fully opaque, blend=0 is fully transparent
         float alpha = blend / 100.0f;
 
         switch (ink) {

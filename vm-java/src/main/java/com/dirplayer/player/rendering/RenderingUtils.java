@@ -249,6 +249,7 @@ public final class RenderingUtils {
 
     /**
      * Get the concrete sprite rect for rendering.
+     * Port of Rust get_concrete_sprite_rect with full dimension handling.
      *
      * @param player The player
      * @param sprite The sprite
@@ -257,27 +258,117 @@ public final class RenderingUtils {
     public static IntRect getConcreteSpriteRect(DirPlayer player, Sprite sprite) {
         int locH = sprite.getLocH();
         int locV = sprite.getLocV();
-        int width = sprite.getWidth();
-        int height = sprite.getHeight();
+        int spriteWidth = sprite.getWidth();
+        int spriteHeight = sprite.getHeight();
 
-        // Get registration point from member if available
+        // Get member for registration point and natural dimensions
         CastMemberRef memberRef = sprite.getMember();
-        int regX = width / 2;
-        int regY = height / 2;
-
-        if (memberRef != null) {
-            CastMember member = player.getMovie().getCastManager().findMemberByRef(memberRef);
-            if (member != null && member.getMemberType() == MemberType.Bitmap) {
-                regX = member.getRegPointX();
-                regY = member.getRegPointY();
-            }
+        if (memberRef == null) {
+            return IntRect.fromSize(locH, locV, spriteWidth, spriteHeight);
         }
 
+        CastMember member = player.getMovie().getCastManager().findMemberByRef(memberRef);
+        if (member == null) {
+            return IntRect.fromSize(locH, locV, spriteWidth, spriteHeight);
+        }
+
+        if (member.getMemberType() == MemberType.Bitmap) {
+            // Get bitmap for natural dimensions
+            Bitmap bitmap = player.getBitmapManager().getBitmap(member.getImageRef());
+            if (bitmap == null) {
+                return IntRect.from(locH, locV, spriteWidth, spriteHeight);
+            }
+
+            int regX = member.getRegPointX();
+            int regY = member.getRegPointY();
+            int bitmapWidth = member.bitmapWidth > 0 ? member.bitmapWidth : bitmap.getWidth();
+            int bitmapHeight = member.bitmapHeight > 0 ? member.bitmapHeight : bitmap.getHeight();
+
+            int drawX = locH - regX;
+            int drawY = locV - regY;
+
+            int finalWidth;
+            int finalHeight;
+
+            // Match Rust logic: use bitmap dimensions when they are larger than sprite in both axes
+            // or when sprite dimensions are 0
+            if ((bitmapWidth > spriteWidth && bitmapHeight > spriteHeight) ||
+                (spriteWidth == 0 && spriteHeight == 0)) {
+                // Use bitmap's natural dimensions
+                finalWidth = bitmapWidth;
+                finalHeight = bitmapHeight;
+
+                // Handle flip adjustments
+                if (sprite.isFlipH() && regX != bitmapWidth / 2) {
+                    drawX = locH - (bitmapWidth - regX);
+                }
+                if (sprite.isFlipV() && regY != bitmapHeight / 2) {
+                    drawY = locV - (bitmapHeight - regY);
+                }
+            } else if (bitmapWidth < spriteWidth && bitmapHeight < spriteHeight) {
+                // Bitmap smaller than sprite - use bitmap dimensions
+                finalWidth = bitmapWidth;
+                finalHeight = bitmapHeight;
+
+                if (sprite.isFlipH() && regX != bitmapWidth / 2) {
+                    drawX = locH - (bitmapWidth - regX);
+                }
+                if (sprite.isFlipV() && regY != bitmapHeight / 2) {
+                    drawY = locV - (bitmapHeight - regY);
+                }
+            } else {
+                // Use sprite dimensions with scaling
+                finalWidth = spriteWidth;
+                finalHeight = spriteHeight;
+
+                // Scale registration point if bitmap has valid dimensions
+                if (bitmapWidth > 0 && bitmapHeight > 0) {
+                    double scaleX = (double) spriteWidth / bitmapWidth;
+                    double scaleY = (double) spriteHeight / bitmapHeight;
+                    int scaledRegX = (int) Math.round(regX * scaleX);
+                    int scaledRegY = (int) Math.round(regY * scaleY);
+                    drawX = locH - scaledRegX;
+                    drawY = locV - scaledRegY;
+
+                    if (sprite.isFlipH() && scaledRegX != spriteWidth / 2) {
+                        drawX = locH - (spriteWidth - scaledRegX);
+                    }
+                    if (sprite.isFlipV() && scaledRegY != spriteHeight / 2) {
+                        drawY = locV - (spriteHeight - scaledRegY);
+                    }
+                } else {
+                    if (sprite.isFlipH() && regX != spriteWidth / 2) {
+                        drawX = locH - (spriteWidth - regX);
+                    }
+                    if (sprite.isFlipV() && regY != spriteHeight / 2) {
+                        drawY = locV - (spriteHeight - regY);
+                    }
+                }
+            }
+
+            return IntRect.from(drawX, drawY, drawX + finalWidth, drawY + finalHeight);
+        } else if (member.getMemberType() == MemberType.Shape) {
+            int regX = member.getRegPointX();
+            int regY = member.getRegPointY();
+            return IntRect.from(
+                locH - regX,
+                locV - regY,
+                spriteWidth + locH - regX,
+                spriteHeight + locV - regY
+            );
+        } else if (member.getMemberType() == MemberType.Text || member.getMemberType() == MemberType.RTE) {
+            int textWidth = member.textWidth > 0 ? member.textWidth : spriteWidth;
+            return IntRect.fromSize(locH, locV, textWidth, 12);
+        }
+
+        // Default fallback
+        int regX = spriteWidth / 2;
+        int regY = spriteHeight / 2;
         return IntRect.from(
             locH - regX,
             locV - regY,
-            locH - regX + width,
-            locV - regY + height
+            locH - regX + spriteWidth,
+            locV - regY + spriteHeight
         );
     }
 

@@ -120,8 +120,9 @@ public class StringDatumHandlers {
             case "split":
                 return split(player, datumRef, args);
             case "setat":
-                // setAt on strings is not supported - throw error like Rust does
-                throw new ScriptError("Cannot setAt of type string (must be list, proplist, point, or rect)");
+                // setAt on strings is not supported - throw error
+                // This prevents infinite loops when scripts incorrectly try to use strings as lists
+                throw new ScriptError("Cannot setAt on string (expected list, proplist, point, or rect)");
             default:
                 throw new ScriptError("No handler " + handlerName + " for string datum");
         }
