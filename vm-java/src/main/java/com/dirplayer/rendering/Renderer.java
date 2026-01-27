@@ -367,24 +367,54 @@ public class Renderer {
 
     /**
      * Get the concrete sprite rect for rendering.
+     * Follows Rust logic: if sprite dimensions are 0 or smaller than bitmap, use bitmap dimensions.
      */
     public static IntRect getConcreteSpriteRect(DirPlayer player, Sprite sprite) {
         int locH = sprite.getLocH();
         int locV = sprite.getLocV();
-        int width = sprite.getWidth();
-        int height = sprite.getHeight();
+        int spriteWidth = sprite.getWidth();
+        int spriteHeight = sprite.getHeight();
 
-        // Get registration point from member if available
+        // Get registration point and bitmap dimensions from member if available
         CastMemberRef memberRef = sprite.getMember();
-        int regX = width / 2;
-        int regY = height / 2;
+        int regX = spriteWidth / 2;
+        int regY = spriteHeight / 2;
+        int bitmapWidth = 0;
+        int bitmapHeight = 0;
 
         if (memberRef != null) {
             CastMember member = player.getMovie().getCastManager().findMemberByRef(memberRef);
             if (member != null && member.getMemberType() == MemberType.Bitmap) {
                 regX = member.getRegPointX();
                 regY = member.getRegPointY();
+
+                // Get bitmap dimensions
+                Bitmap srcBitmap = player.getBitmapManager().getBitmap(member.getImageRef());
+                if (srcBitmap != null) {
+                    bitmapWidth = srcBitmap.getWidth();
+                    bitmapHeight = srcBitmap.getHeight();
+                }
             }
+        }
+
+        // Use bitmap dimensions if sprite dimensions are 0 or smaller
+        // (like Rust does when sprite dimensions don't match bitmap)
+        int width = spriteWidth;
+        int height = spriteHeight;
+
+        if (bitmapWidth > 0 && bitmapHeight > 0) {
+            // If sprite has no size or bitmap is larger, use bitmap dimensions
+            if ((spriteWidth == 0 && spriteHeight == 0) ||
+                (!sprite.hasSizeChanged() && (bitmapWidth + bitmapHeight) > (spriteWidth + spriteHeight))) {
+                width = bitmapWidth;
+                height = bitmapHeight;
+            }
+        }
+
+        // If still 0, default to registration point as center
+        if (width == 0 && height == 0) {
+            regX = 0;
+            regY = 0;
         }
 
         return IntRect.from(

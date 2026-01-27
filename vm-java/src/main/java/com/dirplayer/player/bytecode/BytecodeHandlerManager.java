@@ -17,9 +17,17 @@ public class BytecodeHandlerManager {
 
     // Execution history for debugging
     private static final int EXECUTION_HISTORY_SIZE = 100;
-    private static ExecutionHistoryEntry[] executionHistory = new ExecutionHistoryEntry[EXECUTION_HISTORY_SIZE];
+    private static ExecutionHistoryEntry[] executionHistory;
     private static int historyWriteIndex = 0;
     private static int historyCount = 0;
+
+    // Pre-allocate history entries to avoid GC pressure
+    static {
+        executionHistory = new ExecutionHistoryEntry[EXECUTION_HISTORY_SIZE];
+        for (int i = 0; i < EXECUTION_HISTORY_SIZE; i++) {
+            executionHistory[i] = new ExecutionHistoryEntry();
+        }
+    }
 
     // Expression tracker for tracing
     private static StackExpressionTracker expressionTracker = new StackExpressionTracker();
@@ -47,7 +55,8 @@ public class BytecodeHandlerManager {
         int scriptCastLib,
         int scriptCastMember
     ) {
-        ExecutionHistoryEntry entry = new ExecutionHistoryEntry();
+        // Reuse pre-allocated entry instead of creating new one
+        ExecutionHistoryEntry entry = executionHistory[historyWriteIndex];
         entry.opcode = opcodeValue;
         entry.bytecodePos = bytecodePos;
         entry.operand = operand;
@@ -55,7 +64,6 @@ public class BytecodeHandlerManager {
         entry.scriptCastLib = scriptCastLib;
         entry.scriptCastMember = scriptCastMember;
 
-        executionHistory[historyWriteIndex] = entry;
         historyWriteIndex = (historyWriteIndex + 1) % EXECUTION_HISTORY_SIZE;
         if (historyCount < EXECUTION_HISTORY_SIZE) {
             historyCount++;

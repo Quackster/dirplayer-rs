@@ -641,8 +641,10 @@ public class DirPlayer {
     // --- Bytecode helper methods ---
 
     public com.dirplayer.director.chunks.Bytecode getCtxCurrentBytecode(com.dirplayer.player.bytecode.BytecodeHandlerContext ctx) {
-        if (ctx.handler != null && ctx.handler.bytecodeArray != null && ctx.bytecodeIndex < ctx.handler.bytecodeArray.size()) {
-            return ctx.handler.bytecodeArray.get(ctx.bytecodeIndex);
+        // Use scope's bytecodeIndex, not ctx.bytecodeIndex - the scope tracks the current execution position
+        ScriptScope scope = scopes.get(ctx.scopeRef);
+        if (ctx.handler != null && ctx.handler.bytecodeArray != null && scope.bytecodeIndex < ctx.handler.bytecodeArray.size()) {
+            return ctx.handler.bytecodeArray.get(scope.bytecodeIndex);
         }
         return null;
     }
@@ -984,8 +986,16 @@ public class DirPlayer {
         }
 
         try {
-            // Execute bytecode loop
+            // Execute bytecode loop with execution limit to prevent infinite loops
+            int executionCount = 0;
+            int maxExecutions = 1000000; // 1 million bytecodes per handler call
+
             while (scope.bytecodeIndex < handler.bytecodeArray.size()) {
+                executionCount++;
+                if (executionCount > maxExecutions) {
+                    throw new ScriptError("Maximum bytecode executions exceeded (infinite loop?) in handler: " + handlerName);
+                }
+
                 com.dirplayer.player.bytecode.HandlerExecutionResult result =
                     com.dirplayer.player.bytecode.BytecodeHandlerManager.executeBytecode(this, ctx);
 

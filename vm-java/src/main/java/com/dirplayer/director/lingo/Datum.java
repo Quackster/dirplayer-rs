@@ -538,6 +538,8 @@ public class Datum {
                 return spriteRef;
             case CastMemberRef:
                 return castMemberRef != null ? castMemberRef.castMember : 0;
+            case CastLibRef:
+                return intValue;  // CastLibRef stores cast lib number in intValue
             case Symbol:
             case PaletteRef:
             case Void:

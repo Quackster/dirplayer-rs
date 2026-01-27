@@ -744,6 +744,8 @@ public class HandlerManager {
                 return frameReady(player, args);
             case "marker":
                 return marker(player, args);
+            case "go":
+                return go(player, args);
 
             default:
                 // Format args for error message
@@ -2261,11 +2263,27 @@ public class HandlerManager {
             String labelName = arg.isString() ? arg.stringValue() : arg.symbolValue();
             String labelNameLower = labelName.toLowerCase();
 
-            for (FrameLabel fl : player.movie.score.frameLabels) {
-                if (fl.label.toLowerCase().equals(labelNameLower)) {
-                    player.nextFrame = fl.frameNum;
+            // Handle special symbols
+            switch (labelNameLower) {
+                case "next":
+                    player.nextFrame = player.movie.currentFrame + 1;
                     break;
-                }
+                case "previous":
+                    player.nextFrame = Math.max(1, player.movie.currentFrame - 1);
+                    break;
+                case "loop":
+                    // Stay on current frame
+                    player.nextFrame = player.movie.currentFrame;
+                    break;
+                default:
+                    // Look up frame label
+                    for (FrameLabel fl : player.movie.score.frameLabels) {
+                        if (fl.label.toLowerCase().equals(labelNameLower)) {
+                            player.nextFrame = fl.frameNum;
+                            break;
+                        }
+                    }
+                    break;
             }
         }
 

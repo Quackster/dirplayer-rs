@@ -6,6 +6,7 @@ import com.dirplayer.director.lingo.LingoConstants;
 import com.dirplayer.director.lingo.StringChunkType;
 import com.dirplayer.director.lingo.StringChunkExpr;
 import com.dirplayer.director.chunks.HandlerDef;
+import com.dirplayer.player.CastLib;
 import com.dirplayer.player.CastMemberRef;
 import com.dirplayer.player.DirPlayer;
 import com.dirplayer.player.ScriptError;
@@ -632,6 +633,17 @@ public class GetSetBytecodeHandler {
             case XmlRef:
                 return XmlHandlers.getProp(player, objDatumRef, propName);
 
+            case CastLibRef: {
+                int castLibNum = objDatum.intValue();
+                CastLib castLib = player.movie.castManager.getCastOrNull(castLibNum);
+                if (castLib != null) {
+                    Datum result = castLib.getProperty(propName);
+                    return player.allocDatum(result);
+                } else {
+                    throw new ScriptError("Cannot get property from invalid cast library " + castLibNum);
+                }
+            }
+
             default:
                 throw new ScriptError("Cannot get property '" + propName + "' from " + objType);
         }
@@ -732,6 +744,17 @@ public class GetSetBytecodeHandler {
             case CastMemberRef:
                 player.setMemberProp(objDatum.toCastMemberRef(), propName, value);
                 break;
+
+            case CastLibRef: {
+                int castLibNum = objDatum.intValue();
+                CastLib castLib = player.movie.castManager.getCastOrNull(castLibNum);
+                if (castLib != null) {
+                    castLib.setProperty(propName, value);
+                } else {
+                    throw new ScriptError("Cannot set property on invalid cast library " + castLibNum);
+                }
+                break;
+            }
 
             case XmlRef:
                 XmlHandlers.setProp(player, objDatumRef, propName, valueRef);

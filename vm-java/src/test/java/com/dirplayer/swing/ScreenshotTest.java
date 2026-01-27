@@ -67,9 +67,21 @@ public class ScreenshotTest {
             // Set up event dispatcher callbacks (simplified for testing)
             setupEventDispatcher(player);
 
+            // Dispatch prepareMovie (runs before startMovie in Director)
+            try {
+                System.out.println("\n=== Dispatching prepareMovie ===");
+                player.eventDispatcher.invokeGlobalEvent("prepareMovie", new java.util.ArrayList<>());
+                System.out.println("prepareMovie completed successfully");
+            } catch (Exception e) {
+                System.err.println("prepareMovie error: " + e.getMessage());
+                e.printStackTrace();
+            }
+
             // Dispatch startMovie
             try {
+                System.out.println("\n=== Dispatching startMovie ===");
                 player.eventDispatcher.invokeGlobalEvent("startMovie", new java.util.ArrayList<>());
+                System.out.println("startMovie completed successfully");
             } catch (Exception e) {
                 System.err.println("startMovie error: " + e.getMessage());
             }
@@ -271,14 +283,36 @@ public class ScreenshotTest {
         }
 
         // Check for movie scripts
-        System.out.println("\nMovie scripts:");
+        System.out.println("\nMovie scripts (with handler NAMES):");
         for (var script : player.getMovie().castManager.getMovieScripts()) {
             System.out.println("  " + (script.name != null ? script.name : "(unnamed)"));
-            if (script.chunk != null && script.chunk.handlers != null) {
-                for (var handler : script.chunk.handlers) {
-                    System.out.println("    - handler ID " + handler.nameId);
+            // Print actual handler names from the handlers map
+            if (script.handlers != null && !script.handlers.isEmpty()) {
+                for (var entry : script.handlers.entrySet()) {
+                    System.out.println("    - " + entry.getKey() + " (nameId=" + entry.getValue().nameId + ")");
                 }
+            } else {
+                System.out.println("    (no handlers in map)");
             }
+
+            // Print the lnam names if available from CastLib (IMPORTANT for debugging)
+            var cast = player.getMovie().castManager.getCastOrNull(script.memberRef.castLib);
+            if (cast != null && cast.scriptContext != null && cast.scriptContext.names != null) {
+                System.out.println("    Cast " + cast.number + " lctx/lnam names (first 15):");
+                var names = cast.scriptContext.names;
+                for (int i = 0; i < Math.min(15, names.size()); i++) {
+                    System.out.println("      [" + i + "] = \"" + names.get(i) + "\"");
+                }
+                if (names.size() > 15) {
+                    System.out.println("      ... and " + (names.size() - 15) + " more");
+                }
+            } else {
+                System.out.println("    No scriptContext for cast " + (cast != null ? cast.number : "null"));
+            }
+
+            // Also show hasHandler check for key handlers
+            System.out.println("    hasHandler(startMovie)=" + script.hasHandler("startMovie"));
+            System.out.println("    hasHandler(prepareMovie)=" + script.hasHandler("prepareMovie"));
         }
 
         // Print first 10 sprite spans
@@ -293,23 +327,30 @@ public class ScreenshotTest {
             count++;
         }
 
-        // Print active sprites
-        System.out.println("\nActive sprites (entered):");
+        // Print active/puppeted sprites
+        System.out.println("\nActive sprites (entered or puppeted):");
         count = 0;
         for (com.dirplayer.player.score.SpriteChannel channel : player.getMovie().score.channels) {
             com.dirplayer.player.Sprite sprite = channel.sprite;
-            if (sprite != null && sprite.entered) {
-                System.out.println("  Channel " + channel.number + ": member=" + sprite.memberRef +
+            if (sprite != null && (sprite.entered || sprite.puppet)) {
+                System.out.println("  Channel " + channel.number +
+                    ": member=" + sprite.memberRef +
                     ", loc=" + sprite.locH + "," + sprite.locV +
                     ", size=" + sprite.width + "x" + sprite.height +
-                    ", visible=" + sprite.visible +
-                    ", ink=" + sprite.ink);
+                    ", puppet=" + sprite.puppet +
+                    ", entered=" + sprite.entered +
+                    ", visible=" + sprite.visible);
                 count++;
             }
         }
         if (count == 0) {
             System.out.println("  (none)");
         }
+
+        // Print score info
+        System.out.println("\nScore info: totalFrames=" + player.getMovie().score.totalFrames +
+            ", channels=" + player.getMovie().score.channels.size() +
+            ", channelInitData=" + player.getMovie().score.channelInitializationData.size());
 
         // Check channel initialization data
         System.out.println("\nChannel init data (first 10):");
@@ -318,7 +359,8 @@ public class ScreenshotTest {
              player.getMovie().score.channelInitializationData) {
             if (count >= 10) break;
             int channelNum = com.dirplayer.player.score.KeyframeUtils.getChannelNumberFromIndex(entry.channelIndex);
-            System.out.println("  Frame " + (entry.frameIndex + 1) + ", Channel " + channelNum +
+            System.out.println("  Frame " + (entry.frameIndex + 1) + ", ChannelIdx=" + entry.channelIndex +
+                ", Channel=" + channelNum +
                 ": castMember=" + entry.data.castMember +
                 ", castLib=" + entry.data.castLib +
                 ", pos=" + entry.data.posX + "," + entry.data.posY +

@@ -75,20 +75,9 @@ public class FlowControlBytecodeHandler {
     }
 
     public static HandlerExecutionResult extCall(DirPlayer player, BytecodeHandlerContext ctx) throws ScriptError {
-        int nameId = (int) player.getCtxCurrentBytecode(ctx).obj;
+        com.dirplayer.director.chunks.Bytecode bytecode = player.getCtxCurrentBytecode(ctx);
+        int nameId = (int) bytecode.obj;
         String name = player.getName(ctx, nameId);
-
-        // Debug: show what ext_call is calling
-        if (player.scopes.size() == 4) {
-            System.err.println("[DEBUG] ext_call (depth=4): nameId=" + nameId + " name='" + name + "'");
-            System.err.println("[DEBUG] Scope stack:");
-            for (int i = 0; i < player.scopes.size(); i++) {
-                ScriptScope s = player.scopes.get(i);
-                System.err.println("  " + i + ": " + s.scriptMemberRef + " handler=" + s.handlerNameId);
-            }
-        } else if (player.scopes.size() > 4 && player.scopes.size() <= 6) {
-            System.err.println("[DEBUG] ext_call: nameId=" + nameId + " name='" + name + "' depth=" + player.scopes.size());
-        }
 
         ScriptScope scope = player.scopes.get(ctx.scopeRef);
         int argListDatumRef = scope.stack.pop();
@@ -112,6 +101,14 @@ public class FlowControlBytecodeHandler {
         // Try to find handler in movie scripts first (like Rust player_call_global_handler)
         int returnValue = callGlobalHandler(player, name, argRefList);
 
+        // Debug: log if void is returned for a non-void call
+        if (!isNoRet) {
+            Datum resultDatum = player.getDatum(returnValue);
+            if (resultDatum != null && resultDatum.getType() == DatumType.Void) {
+                System.err.println("[DEBUG] extCall '" + name + "' returned VOID (unexpected for non-noret call)");
+            }
+        }
+
         if (!isNoRet) {
             scope.stack.push(returnValue);
         }
@@ -131,15 +128,11 @@ public class FlowControlBytecodeHandler {
             throw new ScriptError("Maximum scope depth exceeded (possible infinite recursion) while calling: " + handlerName);
         }
 
-        // Debug: log what's being called at high recursion depths
-        if (player.scopes.size() > 5) {
-            System.err.println("[DEBUG] callGlobalHandler: " + handlerName + " depth=" + player.scopes.size());
-        }
-
         // "new" invocations should always go through the built-in handler (like Rust)
         if (handlerName.equalsIgnoreCase("new")) {
             return HandlerManager.callHandler(player, handlerName, args);
         }
+
 
         // Check if first arg is a script or script instance that has this handler
         // This allows calls like: customFunc(scriptInstance, arg1, arg2)
@@ -179,10 +172,6 @@ public class FlowControlBytecodeHandler {
         // Check movie scripts
         for (com.dirplayer.player.script.Script script : player.movie.castManager.getMovieScripts()) {
             if (script.hasHandler(handlerName)) {
-                if (player.scopes.size() > 5) {
-                    System.err.println("[DEBUG] Found handler '" + handlerName + "' in movie script: " +
-                        script.memberRef + " name=" + script.name + " (type: " + script.scriptType + ")");
-                }
                 com.dirplayer.player.ScopeResult result = player.callScriptHandlerWithResult(
                     null, script.memberRef, handlerName, args);
                 return result.returnValue;
@@ -272,5 +261,37 @@ public class FlowControlBytecodeHandler {
         }
 
         return HandlerExecutionResult.ADVANCE;
+    }
+
+    /**
+     * Check if a handler name is an event handler name that should not be called
+     * as a function. These handlers should only be triggered by the event system.
+     * Based on Rust's ScriptInstanceDatumHandlers which returns void for these.
+     */
+    private static boolean isEventHandlerName(String name) {
+        switch (name) {
+            case "preparemovie":
+            case "startmovie":
+            case "stopmovie":
+            case "prepareframe":
+            case "enterframe":
+            case "exitframe":
+            case "beginsprite":
+            case "endsprite":
+            case "keydown":
+            case "keyup":
+            case "mousedown":
+            case "mouseup":
+            case "mouseenter":
+            case "mouseleave":
+            case "mousewithin":
+            case "activate":
+            case "deactivate":
+            case "idle":
+            case "stepframe":
+                return true;
+            default:
+                return false;
+        }
     }
 }
